@@ -1,7 +1,7 @@
 # Transfer Learning In Model-based Reinforcement Learning
 
 Nowadays AI agents are highly specialized in solving specific problems. Those models are typically trained in separation, without sharing knowledge which is noneffective. Huge amount of effort is put into research aiming at transfer learning, that is using knowledge obtained in one problem when solving other related problems.  
-Goal of this project is to evaluate method of transfer learning between different games via generative models described [here](https://blog.openai.com/requests-for-research-2/).
+Goal of this project is to evaluate method of transfer learning between different Atari games via generative models described [here](https://blog.openai.com/requests-for-research-2/).
 
 ## Road map
 1. **Until end of April:** Study model-based reinforcement learning and generative models.
