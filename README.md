@@ -31,5 +31,7 @@ Goal of this project is to evaluate method of transfer learning between differen
 
 ## Places
 
-* [LINKS.md](https://github.com/piojanu/Transfer-Learning-in-RL/blob/master/LINKS.md) - useful links to articles, lectures etc. **WITH short description**.
+* [CODE_OF_CONDUCT.md](https://github.com/piojanu/Transfer-Learning-in-RL/blob/master/.github/CODE_OF_CONDUCT.md) - our rules, how to behave.
+* [CONTRIBUTION.md](https://github.com/piojanu/Transfer-Learning-in-RL/blob/master/.github/CONTRIBUTING.md) - contributing guidelines, **mandatory to read and apply!**
+* [LINKS.md](https://github.com/piojanu/Transfer-Learning-in-RL/blob/master/.github/LINKS.md) - useful links to articles, lectures etc. **with short description**.
 
