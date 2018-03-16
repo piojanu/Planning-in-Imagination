@@ -31,4 +31,4 @@
                 
 * **Pull requests**
 
-    * If you want to commit to this repo master branch or experiment/subproject branch **create a pull request**.
+    * If you want to commit to this repo's master branch or experiment/subproject branch **create a pull request**. Code review and acceptance of at least one person is mandatory.
