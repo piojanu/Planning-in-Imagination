@@ -1,4 +1,6 @@
 import argparse
+import gym
+
 
 def parse_arguments():
     argparser = argparse.ArgumentParser(description='Script for training an agent to play Pong '
@@ -19,6 +21,16 @@ def parse_arguments():
 def main():
     args = parse_arguments()
     print(f'Arguments: {args}')
+    env = gym.make('Pong-v0')
+    observation = env.reset()
+
+    while True:
+        if args.render:
+            env.render()
+        action = 1
+        observation, reward, done, _ = env.step(action)
+        if done:
+            env.reset()
 
 
 if __name__ == "__main__":
