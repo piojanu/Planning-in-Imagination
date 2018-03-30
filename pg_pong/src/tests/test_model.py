@@ -29,5 +29,6 @@ class PolicyGradientModelTest(np.testing.TestCase):
     def test_given_random_state_should_return_valid_action(self):
         for _ in range(10):
             state = np.random.randn(5)
-            action = self.pgm.choose_action(state)
+            action, log_prob = self.pgm.choose_action(state)
             np.testing.assert_equal(action in [1, 2], True)
+            np.testing.assert_equal(log_prob.data.numpy() < 0, True)

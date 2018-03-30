@@ -1,7 +1,9 @@
 import argparse
+import time
 
 import gym
 import numpy as np
+import torch
 
 import utils
 from model import PolicyGradientModel
@@ -23,6 +25,19 @@ def parse_arguments():
     return argparser.parse_args()
 
 
+def update_model(optimizer, rewards, log_probs, discount_factor):
+    rws = utils.discount_rewards(rewards, discount_factor)
+    rws = torch.FloatTensor(rws)
+    rws = (rws - rws.mean()) / (rws.std() + np.finfo(np.float32).eps)  # pylint: disable=E1101
+    loss = []
+    for log_prob, reward in zip(log_probs, rws):
+        loss.append(-log_prob * reward)
+    optimizer.zero_grad()
+    loss = torch.cat(loss).sum()  # pylint: disable=E1101
+    loss.backward()
+    optimizer.step()
+
+
 def main():
     args = parse_arguments()
     print(f'Arguments: {args}')
@@ -33,7 +48,9 @@ def main():
     num_actions = 3
     model = PolicyGradientModel(input_size=input_size, hidden_size=args.hidden_size,
                                 output_size=num_actions)
+    optimizer = torch.optim.RMSprop(model.parameters(), lr=args.learning_rate)
     rewards = []
+    log_probs = []
     running_reward = None
     episode_num = 0
 
@@ -43,20 +60,31 @@ def main():
         state = utils.preprocess_pong_state(pong_frame) - prev_state \
                 if prev_state is not None else np.zeros(input_size)
         prev_state = state
-        action = model.choose_action(state)
+        action, log_prob = model.choose_action(state)
+        log_probs.append(log_prob)
         pong_frame, reward, done, _ = env.step(action)
         rewards.append(reward)
         if done:
             episode_num += 1
             episode_reward = np.sum(rewards)
-            discounted_rewards = utils.discount_rewards(rewards, args.discount)
+            # discounted_rewards = utils.discount_rewards(rewards, args.discount)
             running_reward = episode_reward if running_reward is None \
                                             else 0.99*running_reward + 0.01*episode_reward
             print(f'Episode {episode_num} finished! Episode total reward: {episode_reward} '
                   f'Running mean: {running_reward:.3f}')
 
+            if episode_num % args.batch_size == 0:
+                print('--------------------------------------------------')
+                print('Updating model\'s parameters!')
+                start_time = time.time()
+                update_model(optimizer, rewards, log_probs, args.discount)
+                print('Finished updating model\'s parameters! Time: {:.3f}s'
+                      .format(time.time() - start_time))
+                print('--------------------------------------------------')
+
             env.reset()
             rewards = []
+            log_probs = []
             prev_state = None
 
 
