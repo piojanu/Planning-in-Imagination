@@ -1,4 +1,6 @@
+import torch
 import torch.nn as nn
+from torch.autograd import Variable
 
 
 class PolicyGradientModel(nn.Module):
@@ -26,3 +28,18 @@ class PolicyGradientModel(nn.Module):
 
     def forward(self, x):
         return self.model(x)
+
+    def choose_action(self, state):
+        """Given current state, sample an action from model's output.
+
+        Args:
+            state (np.array): Current pong state, shape (6400,).
+
+        Returns:
+            int: Chosen action: 1, 2 or 3.
+        """
+        state_var = Variable(torch.from_numpy(state)).type(torch.FloatTensor).unsqueeze(0)  # pylint: disable=E1101
+        probs = self.forward(state_var)
+        prob_dist = torch.distributions.Categorical(probs)
+        action = prob_dist.sample()
+        return action.data[0] + 1

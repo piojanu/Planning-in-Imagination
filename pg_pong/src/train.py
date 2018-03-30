@@ -1,5 +1,10 @@
 import argparse
+
 import gym
+import numpy as np
+
+import utils
+from model import PolicyGradientModel
 
 
 def parse_arguments():
@@ -22,15 +27,24 @@ def main():
     args = parse_arguments()
     print(f'Arguments: {args}')
     env = gym.make('Pong-v0')
-    observation = env.reset()
+    pong_frame = env.reset()
+    prev_state = None
+    input_size = 6400
+    num_actions = 3
+    model = PolicyGradientModel(input_size=input_size, hidden_size=args.hidden_size,
+                                output_size=num_actions)
 
     while True:
         if args.render:
             env.render()
-        action = 1
-        observation, reward, done, _ = env.step(action)
+        state = utils.preprocess_pong_state(pong_frame) - prev_state \
+                if prev_state is not None else np.zeros(input_size)
+        prev_state = state
+        action = model.choose_action(state)
+        pong_frame, reward, done, _ = env.step(action)
         if done:
             env.reset()
+            prev_state = None
 
 
 if __name__ == "__main__":

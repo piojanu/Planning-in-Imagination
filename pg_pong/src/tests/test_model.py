@@ -20,8 +20,14 @@ class PolicyGradientModelTest(np.testing.TestCase):
             self.assertEqual(repr(layer), correct_layer)
 
     def test_forward_propagation_on_batch_of_zeroes_works_correctly(self):
-        x = Variable(torch.zeros(2, 5))
+        x = Variable(torch.zeros(2, 5))  # pylint: disable=E1101
         out = self.pgm.forward(x).data.numpy()
         np.testing.assert_array_equal(out.shape, [2, 2])
         np.testing.assert_array_equal(out[0], out[1])
         np.testing.assert_almost_equal(out[0].sum(), 1)
+
+    def test_given_random_state_should_return_valid_action(self):
+        for _ in range(10):
+            state = np.random.randn(5)
+            action = self.pgm.choose_action(state)
+            np.testing.assert_equal(action in [1, 2], True)
