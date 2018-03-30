@@ -1,4 +1,5 @@
 import argparse
+import os
 import time
 
 import gym
@@ -22,6 +23,8 @@ def parse_arguments():
                            help='Discount factor for reward.')
     argparser.add_argument('-r', '--render', action='store_true', default=False,
                            help='If True, Pong\'s board is displayed')
+    argparser.add_argument('-sf', '--save_freq', type=int, default=50,
+                           help='Frequency (in episodes) of model checkpoints.')
     return argparser.parse_args()
 
 
@@ -81,6 +84,12 @@ def main():
                 print('Finished updating model\'s parameters! Time: {:.3f}s'
                       .format(time.time() - start_time))
                 print('--------------------------------------------------')
+
+            if episode_num % args.save_freq == 0:
+                checkpoint_path = os.path.join('checkpoints', 'model_{hs}_{ep}.ckpt'
+                                               .format(hs=args.hidden_size, ep=episode_num))
+                print(f'--> Saving model to {checkpoint_path}!')
+                torch.save(model.state_dict(), checkpoint_path)
 
             env.reset()
             rewards = []
