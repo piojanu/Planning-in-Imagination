@@ -33,6 +33,9 @@ def main():
     num_actions = 3
     model = PolicyGradientModel(input_size=input_size, hidden_size=args.hidden_size,
                                 output_size=num_actions)
+    rewards = []
+    running_reward = None
+    episode_num = 0
 
     while True:
         if args.render:
@@ -42,8 +45,18 @@ def main():
         prev_state = state
         action = model.choose_action(state)
         pong_frame, reward, done, _ = env.step(action)
+        rewards.append(reward)
         if done:
+            episode_num += 1
+            episode_reward = np.sum(rewards)
+            discounted_rewards = utils.discount_rewards(rewards, args.discount)
+            running_reward = episode_reward if running_reward is None \
+                                            else 0.99*running_reward + 0.01*episode_reward
+            print(f'Episode {episode_num} finished! Episode total reward: {episode_reward} '
+                  f'Running mean: {running_reward:.3f}')
+
             env.reset()
+            rewards = []
             prev_state = None
 
 
