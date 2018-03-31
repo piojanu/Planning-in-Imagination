@@ -1,6 +1,5 @@
 import argparse
 import os
-import sys
 import time
 import datetime
 import json
@@ -30,6 +29,7 @@ def parse_arguments():
                            help='Frequency (in episodes) of model checkpoints.')
     argparser.add_argument('-o', '--output_dir', default='checkpoints',
                            help='Output directory for model checkpoints.')
+    argparser.add_argument('-lm', '--load_model', help='Load model from path.')
     return argparser.parse_args()
 
 
@@ -60,6 +60,12 @@ def save_model(model, checkpoints_dir, episode_num, args):
         print(f'--> Saved config to {config_path}!')
 
 
+def load_model(model, model_path):
+    if os.path.isfile(model_path):
+        model.load_state_dict(torch.load(model_path))
+        print(f'Loaded model from {model_path}!')
+
+
 def main():
     args = parse_arguments()
     checkpoints_dir = prepare_checkpoints_dir(args.output_dir)
@@ -72,6 +78,8 @@ def main():
     num_actions = 3
     model = PolicyGradientModel(input_size=input_size, hidden_size=args.hidden_size,
                                 output_size=num_actions)
+    if args.load_model:
+        load_model(model, model_path=args.load_model)
     optimizer = torch.optim.RMSprop(model.parameters(), lr=args.learning_rate)
     optimizer.zero_grad()
     running_reward = None
@@ -96,7 +104,6 @@ def main():
                   f'Running mean: {running_reward:.3f}')
 
             model.backward(args.discount)
-            # model.show_grads()
 
             if episode_num % args.batch_size == 0:
                 update_model(optimizer)
