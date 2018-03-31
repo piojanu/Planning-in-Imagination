@@ -1,4 +1,8 @@
+import json
+import os
+
 import numpy as np
+import torch
 
 
 def preprocess_pong_state(pong_state):
@@ -36,3 +40,20 @@ def discount_rewards(rewards, discount_factor):
         running_add = running_add * discount_factor + reward
         discounted_rewards[i] = running_add
     return discounted_rewards
+
+
+def save_model(model, checkpoints_dir, episode_num, args):
+    checkpoint_path = os.path.join(
+        checkpoints_dir, f'model_{model.hidden_size}_{episode_num}.ckpt')
+    config_path = os.path.join(checkpoints_dir, 'config.json')
+    print(f'--> Saved model to {checkpoint_path}!')
+    torch.save(model.state_dict(), checkpoint_path)
+    with open(config_path, 'w') as f:
+        json.dump(vars(args), f, indent=4)
+        print(f'--> Saved config to {config_path}!')
+
+
+def load_model(model, model_path):
+    if os.path.isfile(model_path):
+        model.load_state_dict(torch.load(model_path))
+        print(f'Loaded model from {model_path}!')

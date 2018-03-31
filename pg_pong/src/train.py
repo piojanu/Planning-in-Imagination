@@ -50,22 +50,6 @@ def update_model(optimizer):
     print('--------------------------------------------------')
 
 
-def save_model(model, checkpoints_dir, episode_num, args):
-    checkpoint_path = os.path.join(checkpoints_dir, f'model_{model.hidden_size}_{episode_num}.ckpt')
-    config_path = os.path.join(checkpoints_dir, 'config.json')
-    print(f'--> Saved model to {checkpoint_path}!')
-    torch.save(model.state_dict(), checkpoint_path)
-    with open(config_path, 'w') as f:
-        json.dump(vars(args), f, indent=4)
-        print(f'--> Saved config to {config_path}!')
-
-
-def load_model(model, model_path):
-    if os.path.isfile(model_path):
-        model.load_state_dict(torch.load(model_path))
-        print(f'Loaded model from {model_path}!')
-
-
 def main():
     args = parse_arguments()
     checkpoints_dir = prepare_checkpoints_dir(args.output_dir)
@@ -79,7 +63,7 @@ def main():
     model = PolicyGradientModel(input_size=input_size, hidden_size=args.hidden_size,
                                 output_size=num_actions)
     if args.load_model:
-        load_model(model, model_path=args.load_model)
+        utils.load_model(model, model_path=args.load_model)
     optimizer = torch.optim.RMSprop(model.parameters(), lr=args.learning_rate)
     optimizer.zero_grad()
     running_reward = None
@@ -109,7 +93,7 @@ def main():
                 update_model(optimizer)
 
             if episode_num % args.save_freq == 0:
-                save_model(model, checkpoints_dir, episode_num, args)
+                utils.save_model(model, checkpoints_dir, episode_num, args)
 
             env.reset()
             prev_state = None
