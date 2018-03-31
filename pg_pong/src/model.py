@@ -12,6 +12,9 @@ class PolicyGradientModel(nn.Module):
     def __init__(self, input_size=6400, hidden_size=200, output_size=3,
                  init_method='xavier'):
         super(PolicyGradientModel, self).__init__()
+        self.input_size = input_size
+        self.hidden_size = hidden_size
+        self.output_size = output_size
         self.model = nn.Sequential(
             nn.Linear(input_size, hidden_size),
             nn.ReLU(),
