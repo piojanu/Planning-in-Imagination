@@ -1,6 +1,7 @@
 import argparse
 import os
 import time
+import datetime
 
 import gym
 import numpy as np
@@ -25,7 +26,16 @@ def parse_arguments():
                            help='If True, Pong\'s board is displayed')
     argparser.add_argument('-sf', '--save_freq', type=int, default=50,
                            help='Frequency (in episodes) of model checkpoints.')
+    argparser.add_argument('-o', '--output_dir', default='checkpoints',
+                           help='Output directory for model checkpoints.')
     return argparser.parse_args()
+
+
+def prepare_checkpoints_dir(output_dir):
+    checkpoints_dir = os.path.join(output_dir, datetime.datetime.now().strftime('%Y%m%d_%H%M%S'))
+    if not os.path.exists(checkpoints_dir):
+        os.makedirs(checkpoints_dir)
+    return checkpoints_dir
 
 
 def update_model(optimizer):
@@ -38,15 +48,17 @@ def update_model(optimizer):
     print('--------------------------------------------------')
 
 
-def save_model(model, hidden_size, episode_num):
-    checkpoint_path = os.path.join('checkpoints', f'model_{hidden_size}_{episode_num}.ckpt')
+def save_model(model, checkpoints_dir, episode_num):
+    checkpoint_path = os.path.join(checkpoints_dir, f'model_{model.hidden_size}_{episode_num}.ckpt')
     print(f'--> Saving model to {checkpoint_path}!')
     torch.save(model.state_dict(), checkpoint_path)
 
 
 def main():
     args = parse_arguments()
+    checkpoints_dir = prepare_checkpoints_dir(args.output_dir)
     print(f'Arguments: {args}')
+    print(f'Checkpoints dir: {checkpoints_dir}')
     env = gym.make('Pong-v0')
     pong_frame = env.reset()
     prev_state = None
@@ -84,7 +96,7 @@ def main():
                 update_model(optimizer)
 
             if episode_num % args.save_freq == 0:
-                save_model(model, args.hidden_size, episode_num)
+                save_model(model, checkpoints_dir, episode_num)
 
             env.reset()
             prev_state = None
