@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
+import numpy as np
+import utils
 
 
 class PolicyGradientModel(nn.Module):
@@ -17,6 +19,8 @@ class PolicyGradientModel(nn.Module):
             nn.Softmax(dim=1)
         )
         self.initialize_weights(init_method)
+        self.rewards = []
+        self.log_probs = []
 
     def initialize_weights(self, init_method):
         for layer in self.model.children():
@@ -28,6 +32,10 @@ class PolicyGradientModel(nn.Module):
 
     def forward(self, x):
         return self.model(x)
+
+    def reset(self):
+        del self.rewards[:]
+        del self.log_probs[:]
 
     def choose_action(self, state):
         """Given current state, sample an action from model's output.
@@ -43,4 +51,26 @@ class PolicyGradientModel(nn.Module):
         probs = self.forward(state_var)
         prob_dist = torch.distributions.Categorical(probs)
         action = prob_dist.sample()
-        return action.data[0] + 1, prob_dist.log_prob(action)
+        self.log_probs.append(prob_dist.log_prob(action))
+        return action.data[0] + 1
+
+    def backward(self, discount_factor):
+        rws = utils.discount_rewards(self.rewards, discount_factor)
+        rws = torch.FloatTensor(rws)
+        rws = (rws - rws.mean()) / (rws.std() + np.finfo(np.float32).eps)  # pylint: disable=E1101
+        loss = []
+        for log_prob, reward in zip(self.log_probs, rws):
+            loss.append(-log_prob * reward)
+        loss = torch.cat(loss).sum()  # pylint: disable=E1101
+        loss.backward()
+        self.reset()
+
+    def show_grads(self):
+        for layer in self.model.children():
+            if isinstance(layer, nn.Linear):
+                print(layer, layer.weight.grad)
+
+    def show_weights(self):
+        for layer in self.model.children():
+            if isinstance(layer, nn.Linear):
+                print(layer, layer.weight)
