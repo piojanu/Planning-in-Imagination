@@ -21,7 +21,7 @@ def parse_arguments():
                            help='Number of episodes in batch.')
     argparser.add_argument('-lr', '--learning_rate', type=float, default=1e-4,
                            help='Learning rate.')
-    argparser.add_argument('-d', '--discount', type=int, default=0.99,
+    argparser.add_argument('-df', '--discount_factor', type=int, default=0.99,
                            help='Discount factor for reward.')
     argparser.add_argument('-r', '--render', action='store_true', default=False,
                            help='If True, Pong\'s board is displayed')
@@ -87,7 +87,7 @@ def main():
             print(f'Episode {episode_num} finished! Episode total reward: {episode_reward} '
                   f'Running mean: {running_reward:.3f}')
 
-            model.backward(args.discount)
+            model.backward(args.discount_factor)
 
             if episode_num % args.batch_size == 0:
                 update_model(optimizer)
