@@ -23,6 +23,8 @@ def parse_arguments():
                            help='Learning rate.')
     argparser.add_argument('-df', '--discount_factor', type=int, default=0.99,
                            help='Discount factor for reward.')
+    argparser.add_argument('--weight_decay', type=float, default=0.99,
+                           help='Weight decay rate for RMSprop (default: 0.99)')
     argparser.add_argument('-r', '--render', action='store_true', default=False,
                            help='If True, Pong\'s board is displayed')
     argparser.add_argument('-sf', '--save_freq', type=int, default=50,
@@ -64,7 +66,8 @@ def main():
                                 output_size=num_actions)
     if args.load_model:
         utils.load_model(model, model_path=args.load_model)
-    optimizer = torch.optim.RMSprop(model.parameters(), lr=args.learning_rate)
+    optimizer = torch.optim.RMSprop(model.parameters(), lr=args.learning_rate,
+                                    weight_decay=args.weight_decay)
     optimizer.zero_grad()
     running_reward = None
     episode_num = 0
