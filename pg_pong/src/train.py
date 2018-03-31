@@ -2,7 +2,6 @@ import argparse
 import os
 import time
 import datetime
-import json
 
 import gym
 import numpy as np
