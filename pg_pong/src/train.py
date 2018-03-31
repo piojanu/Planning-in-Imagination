@@ -1,7 +1,9 @@
 import argparse
 import os
+import sys
 import time
 import datetime
+import json
 
 import gym
 import numpy as np
@@ -48,10 +50,14 @@ def update_model(optimizer):
     print('--------------------------------------------------')
 
 
-def save_model(model, checkpoints_dir, episode_num):
+def save_model(model, checkpoints_dir, episode_num, args):
     checkpoint_path = os.path.join(checkpoints_dir, f'model_{model.hidden_size}_{episode_num}.ckpt')
-    print(f'--> Saving model to {checkpoint_path}!')
+    config_path = os.path.join(checkpoints_dir, 'config.json')
+    print(f'--> Saved model to {checkpoint_path}!')
     torch.save(model.state_dict(), checkpoint_path)
+    with open(config_path, 'w') as f:
+        json.dump(vars(args), f, indent=4)
+        print(f'--> Saved config to {config_path}!')
 
 
 def main():
@@ -96,7 +102,7 @@ def main():
                 update_model(optimizer)
 
             if episode_num % args.save_freq == 0:
-                save_model(model, checkpoints_dir, episode_num)
+                save_model(model, checkpoints_dir, episode_num, args)
 
             env.reset()
             prev_state = None
