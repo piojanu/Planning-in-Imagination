@@ -55,6 +55,13 @@ class PolicyGradientModel(nn.Module):
         return action.data[0] + 1
 
     def backward(self, discount_factor):
+        """Perform backward pass (without update).
+
+        Use collected rewards and log_probs of chosen actions to calculate gradients.
+
+        Args:
+            discount_factor (float): Discount factor for rewards.
+        """
         rws = utils.discount_rewards(self.rewards, discount_factor)
         rws = torch.FloatTensor(rws)
         rws = (rws - rws.mean()) / (rws.std() + np.finfo(np.float32).eps)  # pylint: disable=E1101
