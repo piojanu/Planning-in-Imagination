@@ -1,5 +1,3 @@
-[![Waffle.io - Columns and their card count](https://badge.waffle.io/3c56897955a1a1dcc7ddde67a471f8fa241539f5dac13281bb8d4a6960fcaff6.svg?columns=all)](https://waffle.io/piojanu/Transfer-Learning-in-RL)
-
 # Transfer Learning In Model-based Reinforcement Learning
 
 Nowadays AI agents are highly specialized in solving specific problems. Those models are typically trained in separation, without sharing knowledge which is noneffective. Huge amount of effort is put into research aiming at transfer learning, that is using knowledge obtained in one problem when solving other related problems.  
