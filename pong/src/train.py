@@ -43,16 +43,17 @@ optimizer.zero_grad()
 
 
 gamma = 0.99
+magic_parameter = 1
 
 
-def discount_rewards(rewards):
+def discount_rewards(rewards, avg_rewards):
     current_reward = 0
     out_rewards = []
     for i in reversed(range(len(rewards))):
         if rewards[i] != 0:
             current_reward = 0  # Reset sum between lossing ball
         current_reward = gamma * current_reward + rewards[i]
-        out_rewards.insert(0, current_reward)
+        out_rewards.insert(0, current_reward - magic_parameter * avg_rewards[i])
     return out_rewards
 
 
@@ -63,17 +64,26 @@ from datetime import datetime
 running_reward = None
 rewards = []
 reward_sum = 0
-batch_size = 1
+batch_size = 4
 num_episodes = 0
+action_counter = 0
+max_actions = 100000
+avg_rewards = np.zeros(max_actions)
+
 while True:
     action = get_action(observation)
     observation, reward, done, _ = env.step(action)
     rewards.append(reward)
     reward_sum += reward
-
+    avg_rewards[action_counter] *= num_episodes / (num_episodes + 1)
+    avg_rewards[action_counter] += reward / (num_episodes + 1)
+    action_counter += 1
+    if action_counter == max_actions:
+        done = True
     if done:
+        # print(avg_rewards)
         num_episodes += 1
-        discounted_rewards = discount_rewards(rewards)
+        discounted_rewards = discount_rewards(rewards, avg_rewards)
         rewards_tensor = dtype(discounted_rewards)
         rewards_tensor = (rewards_tensor - rewards_tensor.mean()) / (rewards_tensor.std() + np.finfo(np.float32).eps)
         for action, reward in zip(policy.actions, rewards_tensor):
@@ -92,7 +102,7 @@ while True:
         observation = env.reset()
         get_action.prev_state = None
 
-        reward_factor = 1 / num_episodes
+        reward_factor = 0.01
 
         running_reward = reward_sum if running_reward is None else \
             running_reward * (1 - reward_factor) + reward_sum * reward_factor
@@ -110,3 +120,4 @@ while True:
             print("### Saved model: {} ###".format(path))
 
         reward_sum = 0
+        action_counter = 0
