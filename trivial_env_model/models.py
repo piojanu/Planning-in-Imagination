@@ -139,5 +139,5 @@ class autoencoder(nn.Module):
 
     @property
     def name(self):
-return "AE"
+        return "AE"
 
