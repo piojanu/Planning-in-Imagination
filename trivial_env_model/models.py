@@ -56,33 +56,28 @@ class GenerativeModel(nn.Module):
 
 
 class GenerativeModelMini(nn.Module):
-    def __init__(self, dense_size=500):
+    def __init__(self, dense_size=200, input_channels=1):
         nn.Module.__init__(self)
 
         # Convolutional layers
-        self.conv1 = nn.Conv2d(1, 16, 3, stride=3, padding=1)
-        self.conv2 = nn.Conv2d(16, 8, 3, stride=2, padding=1)
-
-        self.pool1 = nn.MaxPool2d(2, stride=2)
-        self.pool2 = nn.MaxPool2d(2, stride=1)
+        self.conv1 = nn.Conv2d(input_channels, 32, 5, stride=4, padding=1)
+        self.conv2 = nn.Conv2d(32, 32, 3, stride=3, padding=1)
 
         # dense layers
-        self.state_dense = nn.Linear(8 * 6 * 6, dense_size)
+        self.state_dense = nn.Linear(32 * 7 * 7, dense_size)
         self.action_dense = nn.Linear(4, dense_size)
-        self.action_state_dense = nn.Linear(dense_size, 8 * 6 * 6)
+        self.action_state_dense = nn.Linear(dense_size, 32 * 7 * 7)
 
-        # Deconv layer
-        self.deconv1 = nn.ConvTranspose2d(in_channels=8, out_channels=16, kernel_size=3, stride=2, padding=0)
-        self.deconv2 = nn.ConvTranspose2d(in_channels=16, out_channels=8, kernel_size=5, stride=3, padding=0)
-        self.deconv3 = nn.ConvTranspose2d(in_channels=8, out_channels=1, kernel_size=2, stride=2, padding=1)
+        # Deconv layers
+        self.deconv1 = nn.ConvTranspose2d(in_channels=32, out_channels=32, kernel_size=3, stride=3, padding=0)
+        self.deconv2 = nn.ConvTranspose2d(in_channels=32, out_channels=1, kernel_size=5, stride=4, padding=3, output_padding=1)
 
     def forward(self, state, action=None):
-        conv1_relu = F.relu(self.conv1(state))
-        conv1_pooled = self.pool1(conv1_relu)
-        conv2_relu = F.relu(self.conv2(conv1_pooled))
-        conv2_pooled = self.pool2(conv2_relu)
 
-        state_enc_flat = conv2_pooled.view(-1, 8 * 6 * 6)
+        conv1_relu = F.relu(self.conv1(state))
+        conv2_relu = F.relu(self.conv2(conv1_relu))
+
+        state_enc_flat = conv2_relu.view(-1, 32 * 7 * 7)
 
         # State dense
         state_dense = self.state_dense(state_enc_flat)
@@ -94,12 +89,11 @@ class GenerativeModelMini(nn.Module):
         # Output dense
         action_state_dense = self.action_state_dense(state_action_tranformation)
 
-        deflat = action_state_dense.view(-1, 8, 6, 6)
+        deflat = action_state_dense.view(-1, 32, 7, 7)
 
         deconv1_relu = F.relu(self.deconv1(deflat))
-        deconv2_relu = F.relu(self.deconv2(deconv1_relu))
-        deconv3 = self.deconv3(deconv2_relu)
-        return F.tanh(deconv3)
+        deconv2 = self.deconv2(deconv1_relu)
+        return F.tanh(deconv2)
 
     @property
     def name(self):
@@ -145,4 +139,5 @@ class autoencoder(nn.Module):
 
     @property
     def name(self):
-        return "AE"
+return "AE"
+
