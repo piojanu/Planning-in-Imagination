@@ -5,9 +5,9 @@ Goal of this project is to evaluate method of transfer learning between differen
 
 ## Road map
 1. **Until end of April:** Study model-based reinforcement learning and generative models.
-2. **Until end of May:** Proof of concept - Model-based agent (using generative model) for Atari games.
-3. **Until end of June:** Transfer Learning experiments at an advanced stage, work ended or nearly ended.
-4. **Until end of July:** Paper finished, applying for participation in conferences!
+2. **Until end of June:** Proof of concept - Model-based agent (using generative model) for Atari games.
+3. **Until end of July:** Transfer Learning experiments at an advanced stage, work ended or nearly ended.
+4. **Until end of August:** Paper finished, applying for participation in conferences!
 
 ## Repository organization
 
