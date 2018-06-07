@@ -2,14 +2,14 @@ from abc import ABCMeta, abstractmethod
 
 
 class KerasNet(metaclass=ABCMeta):
-    """Mind of planning."""
+    """Artificial neural mind of planning."""
 
     @abstractmethod
     def build(self, **kwargs):
         """Build neural network model in Keras.
 
         Args:
-            **kwargs: Hyper-parameters, depend on specific model implementation (see docstring).
+            **kwargs: Hyper-parameters, depend on specific model implementation.
         """
 
         pass
@@ -24,16 +24,16 @@ class KerasNet(metaclass=ABCMeta):
             numpy.Array: Inference result, depends on specific model.
         """
 
-        # TODO (by piojanu): Implement inference on Keras model
+        # TODO (pj): Implement inference on Keras model
         raise NotImplementedError()
 
     def train(self, data, targets):
         """Perform training according to passed parameters in `build` call.
 
         Args:
-            data (numpy.Array): Experience (states) to train on.
+            data (numpy.Array): States to train on.
             targets (numpy.Array): Ground truth targets, depend on specific model.
         """
 
-        # TODO (by piojanu): Implement training of Keras model on given data.
+        # TODO (pj): Implement training of Keras model on given data.
         raise NotImplementedError()

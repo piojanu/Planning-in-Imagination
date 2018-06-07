@@ -1,12 +1,26 @@
 import logging as log
+import numpy as np
 
 from abc import ABCMeta, abstractmethod
-from humblerl import Policy
+from humblerl import Mind
 from tree.basic import Node
 
 
-class MCTS(metaclass=ABCMeta):
-    """MCTS search operations."""
+class MCTS(Mind, metaclass=ABCMeta):
+    """MCTS search operations and planning logic."""
+
+    def __init__(self, model, n_simulations=25):
+        """Initialize MCTS object
+
+        Args:
+            model (Game): Perfect information dynamics/game.
+            n_simulations (int): Number of simulations to perform before choosing action. (Default: 25)
+        """
+
+        self.model = model
+        self.n_simulations = n_simulations
+
+        self._root = None
 
     @abstractmethod
     def simulate(self, start_node):
@@ -46,38 +60,22 @@ class MCTS(metaclass=ABCMeta):
 
         pass
 
-
-class Plan(Policy):
-    """It conduct planning using MCTS operations."""
-
-    def __init__(self, mcts, n_simulations=25):
-        """Initialize Plan object.
+    def plan(self, state):
+        """Conduct planning on state.
 
         Args:
-            mcts (MCTS): Monte-Carlo Tree Search algorithm operations.
-            simulations (int): Number of simulations to perform before choosing action (Default: 25)
-        """
-
-        self.mcts = mcts
-        self.n_simulations = n_simulations
-
-        self._root = None
-
-    def __call__(self, state):
-        """Conduct planning and choose action.
-
-        Args:
-            state (object): Current world state to start from.
+            state (numpy.Array): State of game to plan on.
 
         Returns:
-            int: action to take in the environment.
+            numpy.Array: Planning result, normalized action probabilities.
+            numpy.Array: Planning result, normalized action probabilities.
         """
 
         # Create root node if needed
         if self._root is None or self._root.state != state:
             log.info("Starting planning with NEW root node.")
             self._root = Node(state)
-            _ = self.mcts.evaluate(self._root)
+            _ = evaluate(self._root)
         else:
             log.info("Starting planning with OLD root node.")
 
@@ -86,24 +84,20 @@ class Plan(Policy):
             log.info("Performing simulation number {}".format(idx + 1))
 
             # Simulate
-            leaf, path = self.mcts.simulate(self._root)
+            leaf, path = simulate(self._root)
 
             # Expand and evaluate
-            value = self.mcts.evaluate(leaf)
+            value = evaluate(leaf)
 
             # Backup value
-            self.mcts.backup(path, value)
+            backup(path, value)
 
         # Get actions' visit counts
-        actions_visits = {}
+        actions = np.zeros(self.model.get_action_size())
         for action, edge in self._root.edges.items():
-            actions_visits[action] = edge.num_visits
+            actions[action] = edge.num_visits
 
-        # TODO (by piojanu): You should implement distribution with temperature in here
-        # for exploratory play.
+        # Calculate actions probabilities and return
+        probs = actions / np.sum(actions)
 
-        # Choose action deterministically
-        action = max(actions_visits, key=actions_visits.get)
-        self._root = self._root.edges[action].next_node
-
-        return action
+        return probs, probs
