@@ -60,7 +60,7 @@ class GameEnv(Environment):
         next_state, next_player = self.game.get_next_state(
             action=action, board=self.current_state, player=self.player)
         end = self.game.get_game_ended(next_state, self.player)
-        reward = end * (-1) ** self.player
+        reward = float(int(end * (-1) ** self.player))
         self.player = next_player
         self._curr_state = next_state
         self._display()
