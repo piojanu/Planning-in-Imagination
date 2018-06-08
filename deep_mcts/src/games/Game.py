@@ -20,6 +20,8 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE."""
 
+# File originally taken from https://github.com/suragnair/alpha-zero-general
+
 
 class Game():
     """
@@ -28,14 +30,12 @@ class Game():
     two-player, adversarial and turn-based.
 
     Use 1 for player1 and -1 for player2.
-
-    See othello/OthelloGame.py for an example implementation.
     """
 
     def __init__(self):
         pass
 
-    def get_init_board(self):
+    def getInitBoard(self):
         """
         Returns:
             startBoard: a representation of the board (ideally this is the form
@@ -43,21 +43,21 @@ class Game():
         """
         pass
 
-    def get_board_size(self):
+    def getBoardSize(self):
         """
         Returns:
             (x,y): a tuple of board dimensions
         """
         pass
 
-    def get_action_size(self):
+    def getActionSize(self):
         """
         Returns:
             actionSize: number of all possible actions
         """
         pass
 
-    def get_next_state(self, board, player, action):
+    def getNextState(self, board, player, action):
         """
         Input:
             board: current board
@@ -70,7 +70,7 @@ class Game():
         """
         pass
 
-    def get_valid_moves(self, board, player):
+    def getValidMoves(self, board, player):
         """
         Input:
             board: current board
@@ -83,7 +83,7 @@ class Game():
         """
         pass
 
-    def get_game_ended(self, board, player):
+    def getGameEnded(self, board, player):
         """
         Input:
             board: current board
@@ -96,7 +96,7 @@ class Game():
         """
         pass
 
-    def get_canonical_form(self, board, player):
+    def getCanonicalForm(self, board, player):
         """
         Input:
             board: current board
@@ -112,7 +112,7 @@ class Game():
         """
         pass
 
-    def get_symmetries(self, board, pi):
+    def getSymmetries(self, board, pi):
         """
         Input:
             board: current board
@@ -125,7 +125,7 @@ class Game():
         """
         pass
 
-    def string_representation(self, board):
+    def stringRepresentation(self, board):
         """
         Input:
             board: current board
