@@ -29,7 +29,7 @@ def ply(env, mind, player=0, policy='deterministic', vision=Vision(), **kwargs):
         object: Meta information obtained from Mind.
 
     Note:
-        Possible `policy` values are:
+        Possible :attr:`policy` values are:
           * 'deterministic': default,
           * 'stochastic'   : pass extra kwarg 'temperature' otherwise it's set to 1.,
           * 'egreedy'      : pass extra kwarg 'epsilon' otherwise it's set to 0.5,
@@ -79,20 +79,21 @@ def ply(env, mind, player=0, policy='deterministic', vision=Vision(), **kwargs):
     return transition, info
 
 
-def loop(env, minds, n_episodes=1, max_steps=-1, policy='deterministic', vision=Vision(), callbacks=[], **kwargs):
+def loop(env, minds, n_episodes=1, max_steps=-1, policy='deterministic', train_mode=True, vision=Vision(), callbacks=[], **kwargs):
     """Conduct series of plies (turns taken by each player in order).
 
     Args:
         env (Environment): Environment to take actions in.
-        minds (Mind or list of Minds): Minds to use while deciding on action to take in the env.
+        minds (Mind or list of Mind objects): Minds to use while deciding on action to take in the env.
     If more then one, then each will be used one by one starting form index 0.
         n_episodes (int): Number of episodes to play. (Default: 1)
         max_steps (int): Maximum number of steps in episode. No limit when -1. (Default: -1)
         policy (string: Describes the way of choosing action from mind predictions (see Note).
+        train_mode (bool): Informs environment whether it's in training or evaluation mode.
+    E.g. in train mode graphics could not be rendered. (Default: True)
         vision (Vision): State and reward preprocessing. (Default: no preprocessing)
-        callbacks (list of functions): Functions that take two arguments: Transition and object,
-    values returned from `ply` (look there for more info). All of them will be called after each
-    ply (Default: [])
+        callbacks (list of Callback objects): Objects that can listen to events during play.
+    (Default: [])
         **kwargs: Other keyword arguments may be needed depending on chosen policy.
 
     Note:
@@ -106,6 +107,11 @@ def loop(env, minds, n_episodes=1, max_steps=-1, policy='deterministic', vision=
     # Play given number of episodes
     for _ in range(n_episodes):
         step = 0
+        env.reset(train_mode)
+
+        # Callback reset
+        for callback in callbacks:
+            callback.on_reset(train_mode)
 
         # Play until episode ends or max_steps limit reached
         while max_steps == -1 or step <= max_steps:
@@ -120,14 +126,42 @@ def loop(env, minds, n_episodes=1, max_steps=-1, policy='deterministic', vision=
             # Conduct ply
             transition, info = ply(env, mind, player, policy, vision, **kwargs)
 
-            # Call callbacks and increment step counter
-            for func in callbacks:
-                func(transition, info)
+            # Callback step and increment step counter
+            for callback in callbacks:
+                callback.on_step(transition, info)
             step += 1
 
             # Finish if this transition was terminal
             if transition.is_terminal:
                 break
+
+
+class Callback(metaclass=ABCMeta):
+    """Callbacks can be used to listen to events during :func:`loop`."""
+
+    @abstractmethod
+    def on_reset(self, train_mode):
+        """Event after environment reset.
+
+        Args:
+            train_mode (bool): Informs whether environment is in training or evaluation mode.
+        """
+
+        pass
+
+    @abstractmethod
+    def on_step(self, transition, info):
+        """Event after action taken in environment.
+
+        Args:
+            transition (Transition): Describes transition that took place.
+            info (object): Meta information obtained from Mind.
+
+        Note:
+            Transition and info are returned from `ply` function (look to docstring for more info).
+        """
+
+        pass
 
 
 class Environment(metaclass=ABCMeta):
@@ -139,7 +173,7 @@ class Environment(metaclass=ABCMeta):
 
         Args:
             train_mode (bool): Informs environment if it's training or evaluation
-        mode. E.g. in train mode graphics could not be rendered. (default: True)
+        mode. E.g. in train mode graphics could not be rendered. (Default: True)
 
         Returns:
             np.Array: The initial state. 
@@ -185,7 +219,7 @@ class Environment(metaclass=ABCMeta):
 
 
 class Mind(metaclass=ABCMeta):
-    """Artificial mind of Agent."""
+    """Artificial mind of RL agent."""
 
     @abstractmethod
     def plan(self, state):
@@ -195,8 +229,7 @@ class Mind(metaclass=ABCMeta):
             state (numpy.Array): State of game to inference on.
 
         Returns:
-            numpy.Array: Inference result, depends on specific model
-        (e.g. action unnormalized log probabilities/logits).
+            numpy.Array: Actions scores (e.g. action unnormalized log probabilities/Q-values/etc.).
             object: Meta information which can be accessed later with transition.
         """
 
