@@ -33,7 +33,7 @@ class Node(object):
     @property
     def player(self):
         """int: This node player index."""
-        return self._state
+        return self._player
 
     @property
     def edges(self):
@@ -117,7 +117,7 @@ class Edge(object):
         """Update edge with data from child.
 
         Args:
-            return_t (float): Possibly discounted backup return to timestep 't' (this edge).
+            return_t (float): (Un)discounted return from timestep 't' (this edge).
         """
 
         # This is formula for iteratively calculating average
