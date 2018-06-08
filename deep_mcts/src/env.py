@@ -34,12 +34,14 @@ class GameEnv(Environment):
         self.player = next_player
         self._curr_state = next_state
         decoded_player = self._decode_player(self.player)
+        self._display()
         return next_state, decoded_player, end, end != 0
 
     def reset(self, train_mode):
         self.train_mode = train_mode
         self.player = 1
         self._curr_state = self.game.getInitBoard()
+        self._display()
         return self._curr_state, self._decode_player(self.player)
 
     def _decode_player(self, player):
@@ -55,3 +57,12 @@ class GameEnv(Environment):
             (int): Decoded player index.
         """
         return 0 if player == 1 else -1
+
+    def _display(self):
+        """Display board when environment is in test mode.
+        """
+        if not self.train_mode:
+            print(" -----------------------")
+            print(' '.join(map(str, range(len(self.current_state[0])))))
+            print(self.current_state)
+            print(" -----------------------")
