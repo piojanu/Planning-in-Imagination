@@ -46,7 +46,7 @@ class Node(object):
         """Choose next action (edge) according to UCB formula.
 
         Args:
-            c (float): The parameter c ≥ 0 controls the trade-off between choosing lucrative nodes
+            c (float): The parameter c >= 0 controls the trade-off between choosing lucrative nodes
         (low c) and exploring nodes with low visit counts (high c). (Default: 1)
 
         Returns:
