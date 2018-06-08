@@ -1,6 +1,6 @@
 import humblerl as hrl
 
-from algos.dummy import Planner
+from algos.dummy import EvaluationNet, Planner
 from env import GameEnv
 from storage import Storage
 from tournament import Tournament
@@ -14,21 +14,25 @@ def main():
     # Create environment and game model
     env = GameEnv(name=params.get('game', 'connect4'))
     game = env.game
-
+    nn = EvaluationNet()
     storage = Storage(params)
     tournament = Tournament()
 
+    # Build neural network
+    nn.build(params)
+
     # Create players
     players = [
-        Planner(game, None, params),
-        Planner(game, None, params)
+        Planner(game, nn, params),
+        Planner(game, nn, params)
     ]
 
-    hrl.loop(env, players, n_episodes=10, train_mode=False, callbacks=[storage])
+    print("-------Self-play-------")
+    hrl.loop(env, players, n_episodes=10, train_mode=True, callbacks=[storage])
 
     print("-------Tournament------")
+    hrl.loop(env, players, n_episodes=10, train_mode=False, callbacks=[tournament])
 
-    hrl.loop(env, players, n_episodes=10, train_mode=True, callbacks=[tournament])
     print("--------Results--------")
     print(tournament.get_results())
 

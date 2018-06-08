@@ -1,7 +1,22 @@
 import numpy as np
 
 from mcts import MCTS
+from nn import KerasNet
 from tree.basic import Node, Edge
+
+
+class EvaluationNet(KerasNet):
+    """Artificial neural mind of planning."""
+
+    def build(self, params={}):
+        """Build neural network model in Keras.
+
+        Args:
+            params (dict): Train/inference hyper-parameters. Available:
+              * '...' (...) : ...
+        """
+
+        pass
 
 
 class Planner(MCTS):
