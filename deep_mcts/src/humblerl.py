@@ -175,8 +175,11 @@ def ply(env, mind, player=0, policy='deterministic', vision=Vision(), **kwargs):
 
     # Get action
     if policy == 'deterministic':
+        # TODO (pj): Add `warmup` param to control how many steps to use stochastic policy and then
+        #            change to deterministic.
         action = np.argmax(logits)
     elif policy == 'stochastic':
+        # TODO (pj): Add params to control temperature annealing. You need to add some step counter.
         temp = kwargs.get('temperature', d=1.)
 
         # Softmax with temperature

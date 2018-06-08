@@ -8,12 +8,10 @@ from storage import Storage
 def main():
     # Parse .json file with arguments
     # TODO (pj): Implement .json config parsing.
-    args = {
-        'game': 'connect4'
-    }
+    params = {}
 
     # Create environment and game model
-    env = GameEnv(name=args['game'])
+    env = GameEnv(name=params.get('game', d='connect4'))
     game = env.game
     storage = Storage()
 

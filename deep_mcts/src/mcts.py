@@ -91,7 +91,7 @@ class MCTS(Mind, metaclass=ABCMeta):
             self.backup(path, value)
 
         # Get actions' visit counts
-        actions = np.zeros(self.model.getActionSize())
+        actions = np.zeros(self.model.get_action_size())
         for action, edge in self._root.edges.items():
             actions[action] = edge.num_visits
 
