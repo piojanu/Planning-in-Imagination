@@ -1,4 +1,5 @@
 from humblerl import Callback
+import numpy as np
 
 
 class Storage(Callback):
@@ -10,11 +11,13 @@ class Storage(Callback):
         pass
 
     def on_step(self, transition, info):
-        small_package = transition.player, transition.state, info, transition.reward
+        small_package = transition.state, info, transition.reward
         self.small_bag.append(small_package)
         if transition.is_terminal:
             for package in self.small_bag:
-                big_package = package[1], package[2], package[3] * (-1 if package[0] == 1 else 1)
+                big_package = package[0], package[1], transition.reward
                 self.big_bag.append(big_package)
 
+            big_package = transition.next_state, np.zeros(len(info)), transition.reward
+            self.big_bag.append(big_package)
             self.small_bag.clear()
