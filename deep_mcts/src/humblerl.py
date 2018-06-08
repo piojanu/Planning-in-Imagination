@@ -180,7 +180,7 @@ def ply(env, mind, player=0, policy='deterministic', vision=Vision(), **kwargs):
         action = np.argmax(logits)
     elif policy == 'stochastic':
         # TODO (pj): Add params to control temperature annealing. You need to add some step counter.
-        temp = kwargs.get('temperature', d=1.)
+        temp = kwargs.get('temperature', 1.)
 
         # Softmax with temperature
         exps = np.exp((logits - np.max(logits)) / temp)
@@ -189,7 +189,7 @@ def ply(env, mind, player=0, policy='deterministic', vision=Vision(), **kwargs):
         # Sample from created distribution
         action = np.random.choice(len(probs), p=probs)
     elif policy == 'egreedy':
-        eps = kwargs.get('epsilon', d=0.5)
+        eps = kwargs.get('epsilon', 0.5)
 
         # With probability of epsilon...
         if np.random.rand(1) < eps:

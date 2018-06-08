@@ -11,7 +11,7 @@ def main():
     params = {}
 
     # Create environment and game model
-    env = GameEnv(name=params.get('game', d='connect4'))
+    env = GameEnv(name=params.get('game', 'connect4'))
     game = env.game
     storage = Storage()
 

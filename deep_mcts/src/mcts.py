@@ -9,16 +9,18 @@ from tree.basic import Node
 class MCTS(Mind, metaclass=ABCMeta):
     """MCTS search operations and planning logic."""
 
-    def __init__(self, model, n_simulations=25):
+    def __init__(self, model, params={}):
         """Initialize MCTS object
 
         Args:
             model (Game): Perfect information dynamics/game.
-            n_simulations (int): Number of simulations to perform before choosing action. (Default: 25)
+            params (dict): MCTS search hyper-parameters. Available:
+              * 'n_simulations' (int): Number of simulations to perform before choosing action.
+                                       (Default: 25)
         """
 
         self.model = model
-        self.n_simulations = n_simulations
+        self.n_simulations = params.get('n_simulations', 25)
 
         self._root = None
 
