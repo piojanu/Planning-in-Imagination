@@ -24,7 +24,7 @@ class KerasNet(metaclass=ABCMeta):
             numpy.Array: Inference result, depends on specific model.
         """
 
-        # TODO (pj): Implement inference on Keras model
+        # TODO (pj): Implement inference on Keras model.
         raise NotImplementedError()
 
     def train(self, data, targets):

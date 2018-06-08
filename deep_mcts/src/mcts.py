@@ -60,40 +60,38 @@ class MCTS(Mind, metaclass=ABCMeta):
 
         pass
 
-    def plan(self, state):
+    def plan(self, state, player):
         """Conduct planning on state.
 
         Args:
             state (numpy.Array): State of game to plan on.
+            player (int): Current player index.
 
         Returns:
             numpy.Array: Planning result, normalized action probabilities.
             numpy.Array: Planning result, normalized action probabilities.
         """
 
-        # Create root node if needed
-        if self._root is None or self._root.state != state:
-            log.info("Starting planning with NEW root node.")
-            self._root = Node(state)
-            _ = evaluate(self._root)
-        else:
-            log.info("Starting planning with OLD root node.")
+        # Create root node
+        # TODO (pj): Implement reusing subtrees in next moves.
+        self._root = Node(state, player)
+        _ = self.evaluate(self._root)
 
         # Perform simulations
         for idx in range(self.n_simulations):
             log.info("Performing simulation number {}".format(idx + 1))
 
             # Simulate
-            leaf, path = simulate(self._root)
+            leaf, path = self.simulate(self._root)
 
             # Expand and evaluate
-            value = evaluate(leaf)
+            value = self.evaluate(leaf)
 
             # Backup value
-            backup(path, value)
+            self.backup(path, value)
 
         # Get actions' visit counts
-        actions = np.zeros(self.model.get_action_size())
+        actions = np.zeros(self.model.getActionSize())
         for action, edge in self._root.edges.items():
             actions[action] = edge.num_visits
 

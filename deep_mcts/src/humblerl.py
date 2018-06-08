@@ -7,135 +7,6 @@ Transition = namedtuple(
     "Transition", ["player", "state", "action", "reward", "next_player", "next_state", "is_terminal"])
 
 
-def ply(env, mind, player=0, policy='deterministic', vision=Vision(), **kwargs):
-    """Conduct single ply (turn taken by one of the players).
-
-    Args:
-        env (Environment): Environment to take actions in.
-        mind (Mind): Mind to use while deciding on action to take in the env.
-        player (int): Player index which ply this is. (Default: 0)
-        policy (string: Describes the way of choosing action from mind predictions (see Note).
-        vision (Vision): State and reward preprocessing. (Default: no preprocessing)
-        **kwargs: Other keyword arguments may be needed depending on chosen policy.
-
-    Return:
-        Transition: Describes transition that took place. It contains:
-          * 'player'       : player index which ply this is (zero is first),
-          * 'state'        : state from which transition has started (it's preprocessed with Vision),
-          * 'action'       : action taken (chosen by policy),
-          * 'reward'       : reward obtained (it's preprocessed with Vision),
-          * 'next_player'  : next player index,
-          * 'next_state'   : next state observed after transition (it's preprocessed with Vision),
-          * 'is_terminal'  : flag indication if this is terminal transition (episode end).
-        object: Meta information obtained from Mind.
-
-    Note:
-        Possible :attr:`policy` values are:
-          * 'deterministic': default,
-          * 'stochastic'   : pass extra kwarg 'temperature' otherwise it's set to 1.,
-          * 'egreedy'      : pass extra kwarg 'epsilon' otherwise it's set to 0.5,
-          * 'identity'     : forward whatever come from Mind.
-    """
-
-    # Get and preprocess current state
-    curr_state = vision(env.current_state)
-
-    # Infer what to do
-    logits, info = mind.predict(curr_state)
-
-    # Get action
-    if policy == 'deterministic':
-        action = np.argmax(logits)
-    elif policy == 'stochastic':
-        temp = kwargs.get('temperature', d=1.)
-
-        # Softmax with temperature
-        exps = np.exp((logits - np.max(logits)) / temp)
-        probs = exps / np.sum(exps)
-
-        # Sample from created distribution
-        action = np.random.choice(len(probs), p=probs)
-    elif policy == 'egreedy':
-        eps = kwargs.get('epsilon', d=0.5)
-
-        # With probability of epsilon...
-        if np.random.rand(1) < eps:
-            # ...sample random action, otherwise
-            action = np.random.randint(len(logits))
-        else:
-            # ...choose action greedily
-            action = np.argmax(logits)
-    elif policy == 'identity':
-        action = logits
-    else:
-        raise ValueError("Undefined policy")
-
-    # Take chosen action
-    raw_next_state, player, raw_reward, done = env.step(action)
-
-    # Preprocess data and save in transition
-    next_state, reward = vision(raw_next_state, raw_reward)
-    transition = Transition(player, curr_state, action, reward, next_state, done)
-
-    return transition, info
-
-
-def loop(env, minds, n_episodes=1, max_steps=-1, policy='deterministic', train_mode=True, vision=Vision(), callbacks=[], **kwargs):
-    """Conduct series of plies (turns taken by each player in order).
-
-    Args:
-        env (Environment): Environment to take actions in.
-        minds (Mind or list of Mind objects): Minds to use while deciding on action to take in the env.
-    If more then one, then each will be used one by one starting form index 0.
-        n_episodes (int): Number of episodes to play. (Default: 1)
-        max_steps (int): Maximum number of steps in episode. No limit when -1. (Default: -1)
-        policy (string: Describes the way of choosing action from mind predictions (see Note).
-        train_mode (bool): Informs environment whether it's in training or evaluation mode.
-    E.g. in train mode graphics could not be rendered. (Default: True)
-        vision (Vision): State and reward preprocessing. (Default: no preprocessing)
-        callbacks (list of Callback objects): Objects that can listen to events during play.
-    (Default: [])
-        **kwargs: Other keyword arguments may be needed depending on chosen policy.
-
-    Note:
-        Possible `policy` values are:
-          * 'deterministic': default,
-          * 'stochastic'   : pass extra kwarg 'temperature' otherwise it's set to 1.,
-          * 'egreedy'      : pass extra kwarg 'epsilon' otherwise it's set to 0.5,
-          * 'identity'     : forward whatever come from Mind.
-    """
-
-    # Play given number of episodes
-    for _ in range(n_episodes):
-        step = 0
-        _, player = env.reset(train_mode)
-
-        # Callback reset
-        for callback in callbacks:
-            callback.on_reset(train_mode)
-
-        # Play until episode ends or max_steps limit reached
-        while max_steps == -1 or step <= max_steps:
-            # Determine player index and mind
-            if isinstance(minds, (list, tuple)):
-                mind = minds[player]
-            else:
-                mind = minds
-
-            # Conduct ply and update next player
-            transition, info = ply(env, mind, player, policy, vision, **kwargs)
-            player = transition.next_player
-
-            # Callback step and increment step counter
-            for callback in callbacks:
-                callback.on_step(transition, info)
-            step += 1
-
-            # Finish if this transition was terminal
-            if transition.is_terminal:
-                break
-
-
 class Callback(metaclass=ABCMeta):
     """Callbacks can be used to listen to events during :func:`loop`."""
 
@@ -224,11 +95,12 @@ class Mind(metaclass=ABCMeta):
     """Artificial mind of RL agent."""
 
     @abstractmethod
-    def plan(self, state):
+    def plan(self, state, player):
         """Do forward pass through agent model, inference/planning on state.
 
         Args:
             state (numpy.Array): State of game to inference on.
+            player (int): Current player index.
 
         Returns:
             numpy.Array: Actions scores (e.g. action unnormalized log probabilities/Q-values/etc.).
@@ -257,9 +129,138 @@ class Vision(object):
         """
 
         self._process_state = \
-            state_processor if state_processor is not None else lambda x: x
+            state_processor_fn if state_processor_fn is not None else lambda x: x
         self._process_reward = \
-            reward_processor if reward_processor is not None else lambda x: x
+            reward_processor_fn if reward_processor_fn is not None else lambda x: x
 
     def __call__(self, state, reward=0.):
         return self._process_state(state), self._process_reward(reward)
+
+
+def ply(env, mind, player=0, policy='deterministic', vision=Vision(), **kwargs):
+    """Conduct single ply (turn taken by one of the players).
+
+    Args:
+        env (Environment): Environment to take actions in.
+        mind (Mind): Mind to use while deciding on action to take in the env.
+        player (int): Player index which ply this is. (Default: 0)
+        policy (string: Describes the way of choosing action from mind predictions (see Note).
+        vision (Vision): State and reward preprocessing. (Default: no preprocessing)
+        **kwargs: Other keyword arguments may be needed depending on chosen policy.
+
+    Return:
+        Transition: Describes transition that took place. It contains:
+          * 'player'       : player index which ply this is (zero is first),
+          * 'state'        : state from which transition has started (it's preprocessed with Vision),
+          * 'action'       : action taken (chosen by policy),
+          * 'reward'       : reward obtained (it's preprocessed with Vision),
+          * 'next_player'  : next player index,
+          * 'next_state'   : next state observed after transition (it's preprocessed with Vision),
+          * 'is_terminal'  : flag indication if this is terminal transition (episode end).
+        object: Meta information obtained from Mind.
+
+    Note:
+        Possible :attr:`policy` values are:
+          * 'deterministic': default,
+          * 'stochastic'   : pass extra kwarg 'temperature' otherwise it's set to 1.,
+          * 'egreedy'      : pass extra kwarg 'epsilon' otherwise it's set to 0.5,
+          * 'identity'     : forward whatever come from Mind.
+    """
+
+    # Get and preprocess current state
+    curr_state, _ = vision(env.current_state)
+
+    # Infer what to do
+    logits, info = mind.plan(curr_state, player)
+
+    # Get action
+    if policy == 'deterministic':
+        action = np.argmax(logits)
+    elif policy == 'stochastic':
+        temp = kwargs.get('temperature', d=1.)
+
+        # Softmax with temperature
+        exps = np.exp((logits - np.max(logits)) / temp)
+        probs = exps / np.sum(exps)
+
+        # Sample from created distribution
+        action = np.random.choice(len(probs), p=probs)
+    elif policy == 'egreedy':
+        eps = kwargs.get('epsilon', d=0.5)
+
+        # With probability of epsilon...
+        if np.random.rand(1) < eps:
+            # ...sample random action, otherwise
+            action = np.random.randint(len(logits))
+        else:
+            # ...choose action greedily
+            action = np.argmax(logits)
+    elif policy == 'identity':
+        action = logits
+    else:
+        raise ValueError("Undefined policy")
+
+    # Take chosen action
+    raw_next_state, next_player, raw_reward, done = env.step(action)
+
+    # Preprocess data and save in transition
+    next_state, reward = vision(raw_next_state, raw_reward)
+    transition = Transition(player, curr_state, action, reward, next_player, next_state, done)
+
+    return transition, info
+
+
+def loop(env, minds, n_episodes=1, max_steps=-1, policy='deterministic', train_mode=True, vision=Vision(), callbacks=[], **kwargs):
+    """Conduct series of plies (turns taken by each player in order).
+
+    Args:
+        env (Environment): Environment to take actions in.
+        minds (Mind or list of Mind objects): Minds to use while deciding on action to take in the env.
+    If more then one, then each will be used one by one starting form index 0.
+        n_episodes (int): Number of episodes to play. (Default: 1)
+        max_steps (int): Maximum number of steps in episode. No limit when -1. (Default: -1)
+        policy (string: Describes the way of choosing action from mind predictions (see Note).
+        train_mode (bool): Informs environment whether it's in training or evaluation mode.
+    E.g. in train mode graphics could not be rendered. (Default: True)
+        vision (Vision): State and reward preprocessing. (Default: no preprocessing)
+        callbacks (list of Callback objects): Objects that can listen to events during play.
+    (Default: [])
+        **kwargs: Other keyword arguments may be needed depending on chosen policy.
+
+    Note:
+        Possible `policy` values are:
+          * 'deterministic': default,
+          * 'stochastic'   : pass extra kwarg 'temperature' otherwise it's set to 1.,
+          * 'egreedy'      : pass extra kwarg 'epsilon' otherwise it's set to 0.5,
+          * 'identity'     : forward whatever come from Mind.
+    """
+
+    # Play given number of episodes
+    for _ in range(n_episodes):
+        step = 0
+        _, player = env.reset(train_mode)
+
+        # Callback reset
+        for callback in callbacks:
+            callback.on_reset(train_mode)
+
+        # Play until episode ends or max_steps limit reached
+        while max_steps == -1 or step <= max_steps:
+            # Determine player index and mind
+            if isinstance(minds, (list, tuple)):
+                mind = minds[player]
+            else:
+                mind = minds
+
+            # Conduct ply and update next player
+            transition, info = ply(env, mind, player, policy, vision, **kwargs)
+            player = transition.next_player
+
+            # Callback step and increment step counter
+            for callback in callbacks:
+                callback.on_step(transition, info)
+            step += 1
+
+            # Finish if this transition was terminal
+            if transition.is_terminal:
+                break

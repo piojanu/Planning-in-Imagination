@@ -1,12 +1,13 @@
 from humblerl import Environment
-from src.games import *  # This allows to create every game from board_games
+from games import *  # This allows to create every game from board_games
 
 
 class GameEnv(Environment):
     """Environment for board games from https://github.com/suragnair/alpha-zero-general
-    Available games:
-        - Connect4
 
+    Note:
+        Available games:
+          * connect4
     """
 
     def __init__(self, name):
@@ -15,17 +16,8 @@ class GameEnv(Environment):
         Args:
             name (string): The name of game, in lower case. E.g. "connect4".
         """
+
         self.game = eval(name)()
-        self.reset()
-        self._action_space_info = Environment.ActionSpaceInfo(
-            size=self.game.getActionSize(),
-            type=Environment.DISCRETE_SPACE,
-            descriptions=None
-        )
-        self._state_space_info = Environment.StateSpaceInfo(
-            size=self.game.getBoardSize(),
-            type=Environment.DISCRETE_SPACE
-        )
 
     def step(self, action):
         next_state, next_player = self.game.getNextState(
