@@ -4,7 +4,7 @@ from abc import ABCMeta, abstractmethod
 from collections import namedtuple
 
 Transition = namedtuple(
-    "Transition", ["player", "state", "action", "reward", "next_state", "is_terminal"])
+    "Transition", ["player", "state", "action", "reward", "next_player", "next_state", "is_terminal"])
 
 
 def ply(env, mind, player=0, policy='deterministic', vision=Vision(), **kwargs):
@@ -23,7 +23,8 @@ def ply(env, mind, player=0, policy='deterministic', vision=Vision(), **kwargs):
           * 'player'       : player index which ply this is (zero is first),
           * 'state'        : state from which transition has started (it's preprocessed with Vision),
           * 'action'       : action taken (chosen by policy),
-          * 'reward'       : reward obtained (preprocessed with Vision),
+          * 'reward'       : reward obtained (it's preprocessed with Vision),
+          * 'next_player'  : next player index,
           * 'next_state'   : next state observed after transition (it's preprocessed with Vision),
           * 'is_terminal'  : flag indication if this is terminal transition (episode end).
         object: Meta information obtained from Mind.
@@ -70,7 +71,7 @@ def ply(env, mind, player=0, policy='deterministic', vision=Vision(), **kwargs):
         raise ValueError("Undefined policy")
 
     # Take chosen action
-    raw_next_state, raw_reward, done = env.step(action)
+    raw_next_state, player, raw_reward, done = env.step(action)
 
     # Preprocess data and save in transition
     next_state, reward = vision(raw_next_state, raw_reward)
@@ -107,7 +108,7 @@ def loop(env, minds, n_episodes=1, max_steps=-1, policy='deterministic', train_m
     # Play given number of episodes
     for _ in range(n_episodes):
         step = 0
-        env.reset(train_mode)
+        _, player = env.reset(train_mode)
 
         # Callback reset
         for callback in callbacks:
@@ -117,14 +118,13 @@ def loop(env, minds, n_episodes=1, max_steps=-1, policy='deterministic', train_m
         while max_steps == -1 or step <= max_steps:
             # Determine player index and mind
             if isinstance(minds, (list, tuple)):
-                player = step % len(minds)
                 mind = minds[player]
             else:
-                player = 0
                 mind = minds
 
-            # Conduct ply
+            # Conduct ply and update next player
             transition, info = ply(env, mind, player, policy, vision, **kwargs)
+            player = transition.next_player
 
             # Callback step and increment step counter
             for callback in callbacks:
@@ -177,6 +177,7 @@ class Environment(metaclass=ABCMeta):
 
         Returns:
             np.Array: The initial state. 
+            int: Current player, first is 0.
 
         Note:
             In child class you MUST set `self._curr_state` to returned initial state.
@@ -196,6 +197,7 @@ class Environment(metaclass=ABCMeta):
 
         Returns:
             np.Array: New state.
+            int: Current player, first is 0.
             float: Next reward.
             bool: Flag indicating if episode has ended.
 
