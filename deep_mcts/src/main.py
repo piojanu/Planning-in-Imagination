@@ -2,6 +2,7 @@ import humblerl as hrl
 
 from algos.dummy import Planner
 from env import GameEnv
+from storage import Storage
 
 
 def main():
@@ -14,6 +15,7 @@ def main():
     # Create environment and game model
     env = GameEnv(name=args['game'])
     game = env.game
+    storage = Storage()
 
     # Create players
     players = [
@@ -21,7 +23,7 @@ def main():
         Planner(game)
     ]
 
-    hrl.loop(env, players, n_episodes=10, train_mode=False)
+    hrl.loop(env, players, n_episodes=10, train_mode=False, callbacks=[storage])
 
 
 if __name__ == "__main__":
