@@ -13,12 +13,12 @@ def main():
     # Create environment and game model
     env = GameEnv(name=params.get('game', 'connect4'))
     game = env.game
-    storage = Storage()
+    storage = Storage(params)
 
     # Create players
     players = [
-        Planner(game),
-        Planner(game)
+        Planner(game, None, params),
+        Planner(game, None, params)
     ]
 
     hrl.loop(env, players, n_episodes=10, train_mode=False, callbacks=[storage])

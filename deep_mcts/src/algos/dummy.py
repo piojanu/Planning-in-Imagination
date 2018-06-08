@@ -7,17 +7,18 @@ from tree.basic import Node, Edge
 class Planner(MCTS):
     """MCTS search operations and planning logic."""
 
-    def __init__(self, model, params={}):
+    def __init__(self, model, nn, params={}):
         """Initialize MCTS object
 
         Args:
             model (Game): Perfect information dynamics/game.
+            nn (NeuralNet): Artificial neural mind used to evaluate leaf states.
             params (dict): MCTS search hyper-parameters. Available:
               * 'n_simulations' (int): Number of simulations to perform before choosing action.
                                        (Default: 25)
         """
 
-        MCTS.__init__(self, model, params)
+        MCTS.__init__(self, model, nn, params)
         self.n_simulations = 1
 
     def simulate(self, start_node):
