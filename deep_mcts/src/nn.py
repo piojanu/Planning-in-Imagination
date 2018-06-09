@@ -91,7 +91,8 @@ class KerasNet(NeuralNet):
                       optimizer=SGD(lr=params.get('lr', 0.01),
                                     momentum=params.get('momentum', 0.),
                                     decay=params.get('decay', 0.),
-                                    nesterov=True))
+                                    nesterov=True),
+                      metrics=['accuracy'])
 
         self.model = model
         self.batch_size = params.get('batch_size', 32)

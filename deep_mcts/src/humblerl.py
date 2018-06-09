@@ -2,6 +2,7 @@ import numpy as np
 
 from abc import ABCMeta, abstractmethod
 from collections import namedtuple
+from progress.bar import Bar
 
 Transition = namedtuple(
     "Transition", ["player", "state", "action", "reward", "next_player", "next_state", "is_terminal"])
@@ -213,7 +214,7 @@ def ply(env, mind, player=0, policy='deterministic', vision=Vision(), **kwargs):
     return transition, info
 
 
-def loop(env, minds, n_episodes=1, max_steps=-1, policy='deterministic', train_mode=True, vision=Vision(), callbacks=[], **kwargs):
+def loop(env, minds, n_episodes=1, max_steps=-1, policy='deterministic', train_mode=True, vision=Vision(), name="Loop", callbacks=[], **kwargs):
     """Conduct series of plies (turns taken by each player in order).
 
     Args:
@@ -226,6 +227,7 @@ def loop(env, minds, n_episodes=1, max_steps=-1, policy='deterministic', train_m
         train_mode (bool): Informs environment whether it's in training or evaluation mode.
     E.g. in train mode graphics could not be rendered. (Default: True)
         vision (Vision): State and reward preprocessing. (Default: no preprocessing)
+        name (string): Name shown in progress bar. (Default: "Loop")
         callbacks (list of Callback objects): Objects that can listen to events during play.
     (Default: [])
         **kwargs: Other keyword arguments may be needed depending on chosen policy.
@@ -239,7 +241,8 @@ def loop(env, minds, n_episodes=1, max_steps=-1, policy='deterministic', train_m
     """
 
     # Play given number of episodes
-    for _ in range(n_episodes):
+    bar = Bar(name, suffix='%(index)d/%(max)d - %(avg).3fs/episode, ETA: %(eta)ds')
+    for _ in bar.iter(range(n_episodes)):
         step = 0
         _, player = env.reset(train_mode)
 

@@ -61,26 +61,24 @@ def train(params={}):
     for iter in range(max_iter):
         # Create players
 
-        print("---Epoch {:03d}/{:03d}---".format(iter + 1, max_iter))
-        print("-------Self-play-------")
-        hrl.loop(env, self_play_players,
+        print("\n\tSELF-PLAY")
+        hrl.loop(env, self_play_players, name="Self-play {:03d}/{:03d}".format(iter + 1, max_iter),
                  n_episodes=params.get('n_self_plays', 20), callbacks=[storage])
 
-        print("-------Retraining-------")
         trained_data = storage.big_bag
         boards, _, targets = list(zip(*trained_data))
 
+        print("\n\tRETRAINING")
         current_player_net.load_checkpoint(save_folder, save_filename + str(best_net_version))
         current_player_net.train(data=np.array(boards), targets=np.array(targets))
 
-        print("-------Tournament------")
+        print("\n\tTOURNAMENT")
         tournament.reset()
-        hrl.loop(env, tournament_players,
+        hrl.loop(env, tournament_players, name="Tournament",
                  n_episodes=params.get('n_tournaments', 10), callbacks=[tournament])
 
-        print("--------Results--------")
         wins, losses, draws = tournament.get_results()
-        print(tournament.get_results())
+        print("Tournament results: ", tournament.get_results())
         if wins + losses > 0 and float(wins) / (wins + losses) > update_threshold:
             best_net_version += 1
             print("New best player, currently it is version {}".format(best_net_version))
