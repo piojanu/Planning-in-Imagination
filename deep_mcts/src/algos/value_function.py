@@ -92,11 +92,10 @@ class Planner(MCTS):
         """
 
         # Get valid actions
-        valid_moves = self.model.get_valid_moves(
-            leaf_node.state, leaf_node.player)
+        valid_moves = self.model.get_valid_moves(leaf_node.state, leaf_node.player)
 
         edges = {}
-        for i, m in enumerate(valid_moves):
+        for m in valid_moves:
             edges[m] = Edge()
 
         leaf_node.expand(edges)

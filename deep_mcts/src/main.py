@@ -59,21 +59,21 @@ def train(params={}):
     for iter in range(max_iter):
         # Create players
 
-        print("\n\tSELF-PLAY")
-        hrl.loop(env, self_play_players, name="Self-play {:03d}/{:03d}".format(iter + 1, max_iter),
-                 n_episodes=train_params.get('n_self_plays', 20), callbacks=[storage])
+        print("\n<--- SELF-PLAY")
+        hrl.loop(env, self_play_players, policy='stochastic', n_episodes=train_params.get('n_self_plays', 20),
+                 name="{:03d}/{:03d}".format(iter + 1, max_iter), callbacks=[storage])
 
         trained_data = storage.big_bag
         boards, _, targets = list(zip(*trained_data))
 
-        print("\n\tRETRAINING")
+        print("\nRETRAINING")
         current_player_net.load_checkpoint(save_folder, save_filename + str(best_net_version))
         current_player_net.train(data=np.array(boards), targets=np.array(targets))
+        print("\n")
 
-        print("\n\tTOURNAMENT")
         tournament.reset()
-        hrl.loop(env, tournament_players, name="Tournament",
-                 n_episodes=train_params.get('n_tournaments', 10), callbacks=[tournament])
+        hrl.loop(env, tournament_players, policy='stochastic', n_episodes=train_params.get('n_tournaments', 10),
+                 name="ARENA", callbacks=[tournament])
 
         wins, losses, draws = tournament.get_results()
         print("Tournament results: ", tournament.get_results())

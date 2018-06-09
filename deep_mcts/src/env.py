@@ -79,11 +79,15 @@ class GameEnv(Environment):
         self._display()
         return self._curr_state, self.player
 
+    @property
+    def valid_actions(self):
+        return self.game.get_valid_moves(self.current_state, self.player)
+
     def _display(self):
         """Display board when environment is in test mode.
         """
         if not self.train_mode:
-            print(" -----------------------")
+            print("<---")
             print(' '.join(map(str, range(len(self.current_state[0])))))
             print(self.current_state)
-            print(" -----------------------")
+            print("<---")

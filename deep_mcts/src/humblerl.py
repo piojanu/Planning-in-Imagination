@@ -91,6 +91,17 @@ class Environment(metaclass=ABCMeta):
 
         return self._curr_state
 
+    @property
+    @abstractmethod
+    def valid_actions(self):
+        """Access valid actions.
+
+        Returns:
+            np.array: Array with indexes of currently available actions.
+        """
+
+        pass
+
 
 class Mind(metaclass=ABCMeta):
     """Artificial mind of RL agent."""
@@ -174,31 +185,35 @@ def ply(env, mind, player=0, policy='deterministic', vision=Vision(), **kwargs):
     # Infer what to do
     logits, info = mind.plan(curr_state, player)
 
+    # Get valid actions and logits of those actions
+    valid_actions = env.valid_actions
+    valid_logits = np.take(logits, valid_actions)
+
     # Get action
     if policy == 'deterministic':
         # TODO (pj): Add `warmup` param to control how many steps to use stochastic policy and then
         #            change to deterministic.
-        action = np.argmax(logits)
+        action = valid_actions[np.argmax(valid_logits)]
     elif policy == 'stochastic':
         # TODO (pj): Add params to control temperature annealing. You need to add some step counter.
         temp = kwargs.get('temperature', 1.)
 
         # Softmax with temperature
-        exps = np.exp((logits - np.max(logits)) / temp)
+        exps = np.exp((valid_logits - np.max(valid_logits)) / temp)
         probs = exps / np.sum(exps)
 
         # Sample from created distribution
-        action = np.random.choice(len(probs), p=probs)
+        action = np.random.choice(valid_actions, p=probs)
     elif policy == 'egreedy':
         eps = kwargs.get('epsilon', 0.5)
 
         # With probability of epsilon...
         if np.random.rand(1) < eps:
             # ...sample random action, otherwise
-            action = np.random.randint(len(logits))
+            action = np.random.choice(valid_actions)
         else:
             # ...choose action greedily
-            action = np.argmax(logits)
+            action = valid_actions[np.argmax(valid_logits)]
     elif policy == 'identity':
         action = logits
     else:
