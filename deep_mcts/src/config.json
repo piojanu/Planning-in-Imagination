@@ -1,0 +1,7 @@
+{
+    "game": "connect4",
+    "update_threshold": 0.55,
+    "max_iter": 10,
+    "save_checkpoint_folder": "best_nets",
+    "save_checkpoint_filename": "best_net"
+}

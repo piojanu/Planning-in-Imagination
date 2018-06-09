@@ -6,6 +6,7 @@ from env import GameEnv
 from nn import KerasNet
 from storage import Storage
 from tournament import Tournament
+import json
 
 
 def train(params={}):
@@ -14,7 +15,7 @@ def train(params={}):
 
     Args:
         params (JSON dict): extra parameters
-            * 'game' (string):                       game name (Default: tictactoe)
+            * 'game' (string):                     game name (Default: tictactoe)
             * 'update_threshold' (float):          required threshold to be new best player (Default: 0.55)
             * 'max_iter' (int):                    number of train process iterations (Default: 10)
             * 'save_checkpoint_folder' (string):   folder to save best models (Default: "best_nets")
@@ -90,7 +91,9 @@ def play(params={}):
 def main():
     # Parse .json file with arguments
     # TODO (pj): Implement .json config parsing.
-    params = {}
+    with open('config.json') as handle:
+        params = json.loads(handle.read())
+
     train(params)
 
 
