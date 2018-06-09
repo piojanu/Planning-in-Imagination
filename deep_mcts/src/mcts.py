@@ -102,4 +102,4 @@ class MCTS(Mind, metaclass=ABCMeta):
         # Calculate actions probabilities and return
         probs = actions / np.sum(actions)
 
-        return probs, probs
+        return actions, probs
