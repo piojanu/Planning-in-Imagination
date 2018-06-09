@@ -4,6 +4,9 @@ from mcts import MCTS
 from nn import KerasNet
 from tree.basic import Node, Edge
 
+from keras.layers import Dense, Reshape
+from keras.models import Sequential
+
 
 def build_keras_nn(game):
     """Build neural network model in Keras.
@@ -13,8 +16,14 @@ def build_keras_nn(game):
     like action/state space sizes etc.
     """
 
-    # TODO (pj): Implement building Keras model.
-    raise NotImplementedError()
+    state_shape = game.get_board_size()
+
+    model = Sequential()
+    model.add(Reshape(-1), input_shape=state_shape)
+    model.add(Dense(100, activation='relu'))
+    model.add(Dense(1, activation='tanh'))
+
+    return model
 
 
 class Planner(MCTS):

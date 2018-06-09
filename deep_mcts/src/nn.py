@@ -1,4 +1,8 @@
+import os
+
 from abc import ABCMeta, abstractmethod
+
+from keras.optimizers import SGD
 
 
 class NeuralNet(metaclass=ABCMeta):
@@ -65,17 +69,31 @@ class NeuralNet(metaclass=ABCMeta):
 class KerasNet(NeuralNet):
     """Artificial neural mind of planning."""
 
-    def __init__(self, arch, params={}):
+    def __init__(self, model, params={}):
         """Compile neural network model in Keras.
 
         Args:
-            arch (keras.Model): Neural network architecture.
+            model (keras.Model): Neural network architecture.
             params (dict): Train/inference hyper-parameters. Available:
-              * '...' (...) : ...
+              * 'loss' (string)     : Loss function name, passed to model.compile(...) method.
+                                      (Default: "MSE")
+              * 'lr' (float)        : Learning rate of SGD with momentum optimizer. (Default: 0.01)
+              * 'momentum' (float)  : Parameter that accelerates SGD in the relevant direction and
+                                      dampens oscillations. (Default: 0.)
+              * 'decay' (float)     : Learning rate decay over each update. (Default: 0.)
+              * 'batch_size' (int)  : Training batch size. (Default: 32)
+              * 'epochs' (int)      : Number of epochs to train the model. (Default: 1)
+              * 'val_split' (float) : Fraction of the training data to be used as validation data.
+                                      (Default: 0.)
         """
 
-        # TODO (pj): Implement compilation on Keras model.
-        # raise NotImplementedError()
+        model.compile(loss=params.get('loss', "MSE"),
+                      optimizer=SGD(lr=params.get('lr', 0.01),
+                                    momentum=params.get('momentum', 0.),
+                                    decay=params.get('decay', 0.),
+                                    nesterov=True))
+
+        self.model = model
 
     def predict(self, state):
         """Do forward pass through nn, inference on state.
@@ -87,8 +105,7 @@ class KerasNet(NeuralNet):
             numpy.Array: Inference result, depends on specific model.
         """
 
-        # TODO (pj): Implement inference on Keras model.
-        raise NotImplementedError()
+        return self.model.predict(state)[0]
 
     def train(self, data, targets):
         """Perform training according to passed parameters in `build` call.
@@ -98,8 +115,10 @@ class KerasNet(NeuralNet):
             targets (numpy.Array): Ground truth targets, depend on specific model.
         """
 
-        # TODO (pj): Implement training of Keras model on given data.
-        raise NotImplementedError()
+        self.model.fit(data, targets,
+                       batch_size=params.get('batch_size', 32),
+                       epochs=params.get('epochs', 1),
+                       validation_split=params.get('val_split', 0.))
 
     def save_checkpoint(self, folder, filename):
         """Saves the current neural network (with its parameters) in folder/filename.
@@ -109,8 +128,11 @@ class KerasNet(NeuralNet):
             filename (string): File name to save nn in, will have date/time appended.
         """
 
-        # TODO (pj): Implement saving Keras model.
-        raise NotImplementedError()
+        filepath = os.path.join(folder, filename)
+        if not os.path.exists(folder):
+            print("Checkpoint Directory does not exist! Making directory {}".format(folder))
+            os.mkdir(folder)
+        self.model.save_weights(filepath)
 
     def load_checkpoint(self, folder, filename):
         """Loads parameters of the neural network from folder/filename.
@@ -120,5 +142,7 @@ class KerasNet(NeuralNet):
             filename (string): File name of saved nn checkpoint.
         """
 
-        # TODO (pj): Implement loading Keras model.
-        raise NotImplementedError()
+        filepath = os.path.join(folder, filename)
+        if not os.path.exists(filepath):
+            raise("No model in path {}".format(filepath))
+        self.model.load_weights(filepath)
