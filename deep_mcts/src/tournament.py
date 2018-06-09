@@ -3,7 +3,7 @@ from humblerl import Callback
 
 class Tournament(Callback):
     def __init__(self):
-        self.wins, self.losses, self.draws = 0, 0, 0
+        self.reset()
 
     def on_reset(self, train_mode):
         pass
@@ -19,3 +19,6 @@ class Tournament(Callback):
 
     def get_results(self):
         return self.wins, self.losses, self.draws
+
+    def reset(self):
+        self.wins, self.losses, self.draws = 0, 0, 0
