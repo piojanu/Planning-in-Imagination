@@ -5,18 +5,10 @@ from nn import KerasNet
 from tree.basic import Node, Edge
 
 
-class EvaluationNet(KerasNet):
-    """Artificial neural mind of planning."""
+def build_keras_nn():
+    """Build neural network model in Keras."""
 
-    def build(self, params={}):
-        """Build neural network model in Keras.
-
-        Args:
-            params (dict): Train/inference hyper-parameters. Available:
-              * '...' (...) : ...
-        """
-
-        pass
+    pass
 
 
 class Planner(MCTS):

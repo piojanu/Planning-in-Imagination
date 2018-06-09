@@ -5,10 +5,11 @@ class NeuralNet(metaclass=ABCMeta):
     """Artificial neural mind of planning."""
 
     @abstractmethod
-    def build(self, params={}):
-        """Build neural network model.
+    def __init__(self, arch, params={}):
+        """Compile neural network model.
 
         Args:
+            arch (object): Neural network architecture.
             params (dict): Train/inference hyper-parameters.
         """
 
@@ -61,19 +62,20 @@ class NeuralNet(metaclass=ABCMeta):
         pass
 
 
-class KerasNet(metaclass=ABCMeta):
+class KerasNet(NeuralNet):
     """Artificial neural mind of planning."""
 
-    @abstractmethod
-    def build(self, params={}):
-        """Build neural network model in Keras.
+    def __init__(self, arch, params={}):
+        """Compile neural network model in Keras.
 
         Args:
+            arch (keras.Model): Neural network architecture.
             params (dict): Train/inference hyper-parameters. Available:
               * '...' (...) : ...
         """
 
-        pass
+        # TODO (pj): Implement compilation on Keras model.
+        # raise NotImplementedError()
 
     def predict(self, state):
         """Do forward pass through nn, inference on state.

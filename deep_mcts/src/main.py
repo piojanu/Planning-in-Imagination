@@ -1,7 +1,8 @@
 import humblerl as hrl
 
-from algos.dummy import EvaluationNet, Planner
+from algos.dummy import build_keras_nn, Planner
 from env import GameEnv
+from nn import KerasNet
 from storage import Storage
 from tournament import Tournament
 
@@ -11,15 +12,14 @@ def main():
     # TODO (pj): Implement .json config parsing.
     params = {}
 
-    # Create environment and game model
+    # Create environment, game, nn model
     env = GameEnv(name=params.get('game', 'connect4'))
     game = env.game
-    nn = EvaluationNet()
+    nn = KerasNet(build_keras_nn(), params)
+
+    # Create storage and tournament callbacks
     storage = Storage(params)
     tournament = Tournament()
-
-    # Build neural network
-    nn.build(params)
 
     # Create players
     players = [
