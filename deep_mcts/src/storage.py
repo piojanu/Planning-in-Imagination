@@ -15,9 +15,9 @@ class Storage(Callback):
             params (JSON Dictionary):
                 * 'big_bag_size' (int):      max size of big bag, when big bag is full then oldest element is removed.
                                              (Default: 1000)
-                * 'store_dir' (string):      folder where to store big bag. (Default: "transitions")
+                * 'store_dir' (string):      folder where to store big bag. (Default: "checkpoints")
                 * 'store_filename' (string): filename of stored data (Default: "big_bag.examples")
-                * 'load_dir' (string):       folder where to load big bag. (Default: "transitions")
+                * 'load_dir' (string):       folder where to load big bag. (Default: "checkpoints")
                 * 'load_filename' (string):  filename of loaded data (Default: "big_bag.examples")
         """
         self.params = params
@@ -46,7 +46,7 @@ class Storage(Callback):
             self.small_bag.clear()
 
     def store(self):
-        folder = self.params.get("store_dir", "transitions")
+        folder = self.params.get("store_dir", "checkpoints")
         if not os.path.exists(folder):
             os.makedirs(folder)
 
@@ -56,7 +56,7 @@ class Storage(Callback):
             Pickler(f).dump(self.big_bag)
 
     def load(self):
-        folder = self.params.get("load_dir", "transitions")
+        folder = self.params.get("load_dir", "checkpoints")
         filename = self.params.get("load_filename", "big_bag.examples")
         examples_file = os.path.join(folder, filename)
         if not os.path.isfile(examples_file):
