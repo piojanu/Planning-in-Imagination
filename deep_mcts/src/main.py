@@ -20,14 +20,19 @@ def train(params={}):
             * 'max_iter' (int):                    number of train process iterations (Default: 10)
             * 'save_checkpoint_folder' (string):   folder to save best models (Default: "best_nets")
             * 'save_checkpoint_filename' (string): filename of best model (Default: "best_net")
+            * 'n_self_plays' (int):                number of self played episodes (Default: 20)
+            * 'n_tournaments' (int):               number of tournament episodes (Default: 10)
+            * 'storage' (JSON dict):               JSON dict for storage (Default: {})
+            * 'neural_network' (JSON dict):        JSON dict for neural network (Default: {})
+            * 'planner' (JSON dict):               JSON dict for planner (Default: {})
 
     """
 
     # Create environment and game model
     env = GameEnv(name=params.get('game', 'tictactoe'))
     game = env.game
-    best_net = KerasNet(build_keras_nn(game), params)
-    current_player_net = KerasNet(build_keras_nn(game), params)
+    best_net = KerasNet(build_keras_nn(game), params.get("neural_network"))
+    current_player_net = KerasNet(build_keras_nn(game), params.get("neural_network"))
     best_net_version = 0
 
     save_folder = params.get('save_checkpoint_folder', 'best_nets')
@@ -36,12 +41,12 @@ def train(params={}):
     best_net.save_checkpoint(save_folder, save_filename + str(best_net_version))
 
     # Create storage and tournament callbacks
-    storage = Storage(params)
+    storage = Storage(params.get("storage", {}))
     tournament = Tournament()
 
     # Create players
-    best_player = Planner(game, best_net, params)
-    current_player = Planner(game, current_player_net, params)
+    best_player = Planner(game, best_net, params.get("planner"))
+    current_player = Planner(game, current_player_net, params.get("planner"))
 
     self_play_players = [
         best_player,
@@ -59,7 +64,7 @@ def train(params={}):
         print("---Epoch {:03d}/{:03d}---".format(iter + 1, max_iter))
         print("-------Self-play-------")
         hrl.loop(env, self_play_players,
-                 n_episodes=params.get('n_self_plays', 10), callbacks=[storage])
+                 n_episodes=params.get('n_self_plays', 20), callbacks=[storage])
 
         print("-------Retraining-------")
         trained_data = storage.big_bag
@@ -94,7 +99,7 @@ def main():
     with open('config.json') as handle:
         params = json.loads(handle.read())
 
-    train(params)
+    train(params.get("train", {}))
 
 
 if __name__ == "__main__":

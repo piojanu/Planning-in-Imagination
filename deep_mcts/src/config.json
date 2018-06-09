@@ -1,7 +1,14 @@
 {
-    "game": "connect4",
-    "update_threshold": 0.55,
-    "max_iter": 10,
-    "save_checkpoint_folder": "best_nets",
-    "save_checkpoint_filename": "best_net"
+    "train": {
+        "game": "connect4",
+        "update_threshold": 0.55,
+        "max_iter": 10,
+        "save_checkpoint_folder": "best_nets",
+        "save_checkpoint_filename": "best_net",
+        "n_self_plays": 20,
+        "n_tournaments": 10,
+        "storage": {},
+        "neural_network": {},
+        "planner": {}
+    }
 }
