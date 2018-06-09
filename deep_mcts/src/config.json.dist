@@ -8,7 +8,11 @@
         "epochs"     : 1,
         "val_split"  : 0.0
     },
-    "planner": {},
+    "planner": {
+        "c"             : 1.0,
+        "gamma"         : 1.0,
+        "n_simulations" : 25
+    },
     "storage": {
         "big_bag_size"   : 1000,
         "store_dir"      : "checkpoints",
@@ -17,7 +21,7 @@
         "load_filename"  : "big_bag.examples"
     },
     "train": {
-        "game"                     : "connect4",
+        "game"                     : "tictactoe",
         "update_threshold"         : 0.55,
         "max_iter"                 : 10,
         "save_checkpoint_folder"   : "checkpoints",
