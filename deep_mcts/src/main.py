@@ -15,7 +15,7 @@ def main():
     # Create environment, game, nn model
     env = GameEnv(name=params.get('game', 'connect4'))
     game = env.game
-    nn = KerasNet(build_keras_nn(), params)
+    nn = KerasNet(build_keras_nn(game), params)
 
     # Create storage and tournament callbacks
     storage = Storage(params)
