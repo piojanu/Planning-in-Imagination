@@ -1,7 +1,14 @@
 {
     "neural_net": {},
     "planner": {},
-    "storage": {},
+    "storage": {
+        "big_bag_size"   : 1000,
+        "store_dir"      : "transitions",
+        "store_filename" : "big_bag.examples",
+        "load_dir"       : "transitions",
+        "load_filename"  : "big_bag.examples"
+
+    },
     "train": {
         "game"                     : "connect4",
         "update_threshold"         : 0.55,
