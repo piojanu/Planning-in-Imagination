@@ -14,6 +14,7 @@ def train(params={}):
 
     Args:
         params (JSON dict): extra parameters
+            * 'game' (string):                       game name (Default: tictactoe)
             * 'update_threshold' (float):          required threshold to be new best player (Default: 0.55)
             * 'max_iter' (int):                    number of train process iterations (Default: 10)
             * 'save_checkpoint_folder' (string):   folder to save best models (Default: "best_nets")
@@ -22,7 +23,7 @@ def train(params={}):
     """
 
     # Create environment and game model
-    env = GameEnv(name=params.get('game', 'connect4'))
+    env = GameEnv(name=params.get('game', 'tictactoe'))
     game = env.game
     best_net = KerasNet(build_keras_nn(game), params)
     current_player_net = KerasNet(build_keras_nn(), params)
@@ -31,7 +32,8 @@ def train(params={}):
     save_folder = params.get('save_checkpoint_folder', 'best_nets')
     save_filename = params.get('save_checkpoint_filename', 'best_net')
     update_threshold = params.get("update_threshold", 0.55)
-    best_net.save_checkpoint(save_folder, save_filename + str(best_net_version))
+    # TODO: (mj) UNCOMMENT WHEN MODEL WILL BE READY
+    # best_net.save_checkpoint(save_folder, save_filename + str(best_net_version))
 
     # Create storage and tournament callbacks
     storage = Storage(params)
@@ -64,8 +66,9 @@ def train(params={}):
         trained_data = storage.big_bag
         shuffle(trained_data)
 
-        current_player_net.load_checkpoint(save_folder, save_filename + str(best_net_version))
-        current_player_net.train(data=trained_data[0], targets=trained_data[2])
+        # TODO: (mj) UNCOMMENT WHEN MODEL WILL BE READY
+        # current_player_net.load_checkpoint(save_folder, save_filename + str(best_net_version))
+        # current_player_net.train(data=trained_data[0], targets=trained_data[2])
 
         print("-------Tournament------")
         tournament.reset()

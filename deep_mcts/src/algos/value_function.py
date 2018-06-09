@@ -83,9 +83,8 @@ class Planner(MCTS):
         """
 
         # Get valid actions
-        valid_moves_map = self.model.get_valid_moves(
+        valid_moves = self.model.get_valid_moves(
             leaf_node.state, leaf_node.player)
-        valid_moves = np.arange(valid_moves_map.shape[0])[valid_moves_map]
 
         edges = {}
         for i, m in enumerate(valid_moves):

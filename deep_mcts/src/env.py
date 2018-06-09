@@ -1,5 +1,6 @@
 from humblerl import Environment
 from games import *  # This allows to create every game from board_games
+import numpy as np
 
 
 class GameModel(object):
@@ -29,7 +30,9 @@ class GameModel(object):
 
     def get_valid_moves(self, board, player):
         gplayer = 1 if player == 0 else -1
-        return self.game.getValidMoves(board, gplayer)
+        valid_moves_map = self.game.getValidMoves(board, gplayer).astype(bool)
+        valid_moves = np.arange(valid_moves_map.shape[0])[valid_moves_map]
+        return valid_moves
 
     def get_game_ended(self, board, player):
         gplayer = 1 if player == 0 else -1
