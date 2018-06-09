@@ -5,7 +5,7 @@ from nn import KerasNet
 from tree.basic import Node, Edge
 
 
-def build_keras_nn():
+def build_keras_nn(game):
     """Build neural network model in Keras."""
 
     pass
