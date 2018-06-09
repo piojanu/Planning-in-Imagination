@@ -19,7 +19,7 @@ def build_keras_nn(game):
     state_shape = game.get_board_size()
 
     model = Sequential()
-    model.add(Reshape(-1), input_shape=state_shape)
+    model.add(Reshape((-1,), input_shape=state_shape))
     model.add(Dense(100, activation='relu'))
     model.add(Dense(1, activation='tanh'))
 
@@ -67,7 +67,7 @@ class Planner(MCTS):
                 # This is leaf node, return now
                 return current_node, path
 
-            path.append(action_edge)
+            path.append(action_edge[1])
             next_node = action_edge[1].next_node
 
             if next_node is None:
@@ -101,7 +101,7 @@ class Planner(MCTS):
 
         leaf_node.expand(edges)
 
-        return self.nn.predict(leaf_node.state)[0]
+        return self.nn.predict(np.expand_dims(leaf_node.state, axis=0))[0]
 
     def backup(self, path, value):
         """Backup value to ancestry nodes.

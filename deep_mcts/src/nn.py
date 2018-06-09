@@ -94,6 +94,9 @@ class KerasNet(NeuralNet):
                                     nesterov=True))
 
         self.model = model
+        self.batch_size = params.get('batch_size', 32)
+        self.epochs = params.get('epochs', 1)
+        self.val_split = params.get('val_split', 0.)
 
     def predict(self, state):
         """Do forward pass through nn, inference on state.
@@ -116,9 +119,9 @@ class KerasNet(NeuralNet):
         """
 
         self.model.fit(data, targets,
-                       batch_size=params.get('batch_size', 32),
-                       epochs=params.get('epochs', 1),
-                       validation_split=params.get('val_split', 0.))
+                       batch_size=self.batch_size,
+                       epochs=self.epochs,
+                       validation_split=self.val_split)
 
     def save_checkpoint(self, folder, filename):
         """Saves the current neural network (with its parameters) in folder/filename.

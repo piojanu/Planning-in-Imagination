@@ -17,7 +17,10 @@ class GameModel(object):
         return self.game.getInitBoard()
 
     def get_board_size(self):
-        return self.game.getBoardSize()
+        board_shape = self.game.getBoardSize()
+        if not isinstance(board_shape, (tuple, list)):
+            board_shape = (board_shape,)
+        return board_shape
 
     def get_action_size(self):
         return self.game.getActionSize()
