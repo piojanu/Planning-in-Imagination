@@ -2,32 +2,34 @@ import torch, torch.optim as optim, torch.nn.functional as F
 from matplotlib import pyplot as plt
 import argparse
 from models import autoencoder, GenerativeModelMini
-from utils import eval_in_batches, test_model, load_data
+from utils import eval_in_batches, test_model
+from dataset import get_data
 
 
 def run_eval(data, model):
     restored_model = torch.load("{}.model".format(model.name))
 
-    val_loss = eval_in_batches(restored_model, data["val"]["states"], data["val"]["next_states"], data["val"]["actions"])
-    train_loss = eval_in_batches(restored_model, data["train"]["states"], data["train"]["next_states"], data["train"]["actions"])
+    test_loss = eval_in_batches(restored_model, data.valid_set)
+    val_loss = eval_in_batches(restored_model, data.valid_set)
+    train_loss = eval_in_batches(restored_model, data.train_set)
 
-    print("Model evaluation: val_loss: {}, train_loss: {}".format(val_loss, train_loss))
+    print("Model evaluation: test_loss: {}, val_loss: {}, train_loss: {}".format(test_loss, val_loss, train_loss))
 
-    test_model(restored_model, data["val"]["states"], data["val"]["next_states"], data["val"]["actions"])
+    test_model(restored_model, data.test_set)
 
 
 def run_training(data, model, batch_size=100, num_epochs=500, init_lr=0.0001, patience=10, eval_size=1000):
-    num_steps = data["train"]["states"].shape[0] // batch_size
+    num_steps = data.train_set.num_samples // batch_size
     intervals_without_improvement = 0
 
     optimizer = optim.Adam(model.parameters(), lr=init_lr)
 
     # Calculating reference loss as mean loss between state and next state
     ref_loss_accumulated = 0
-    num_evals = data["train"]["states"].shape[0] // eval_size
-    for eval in range(num_evals):
-        loss = F.mse_loss(torch.Tensor(data["train"]["states"][eval * eval_size:(eval + 1) * eval_size]),
-                       torch.Tensor(data["train"]["next_states"][eval * eval_size:(eval + 1) * eval_size]))
+    num_evals = data.train_set.num_samples // eval_size
+    for _ in range(num_evals):
+        states, next_states, _ = data.train_set.get_next_batch(eval_size)
+        loss = F.mse_loss(torch.Tensor(states), torch.Tensor(next_states))
         ref_loss_accumulated += loss.item()
     reference_loss = ref_loss_accumulated / num_evals
 
@@ -41,8 +43,8 @@ def run_training(data, model, batch_size=100, num_epochs=500, init_lr=0.0001, pa
         global_step = num_steps * epoch
         # adjust_learning_rate(optimizer, init_lr, gamma=0.98, global_step=global_step, decay_interval=100)
 
-        val_loss = eval_in_batches(model, data["val"]["states"], data["val"]["next_states"], data["val"]["actions"])
-        train_loss = eval_in_batches(model, data["train"]["states"], data["train"]["next_states"], data["train"]["actions"])
+        val_loss = eval_in_batches(model, data.valid_set)
+        train_loss = eval_in_batches(model, data.train_set)
 
         print("Epoch: {}, step: {}, loss: [val: {}, train: {}, ref: {}], lr: {}".format(epoch, global_step,
                                                                                         val_loss, train_loss,
@@ -65,10 +67,10 @@ def run_training(data, model, batch_size=100, num_epochs=500, init_lr=0.0001, pa
 
         for step in range(num_steps):
             # Training
-            states_train_tensor = torch.Tensor(data["train"]["states"][step * batch_size:(step + 1) * batch_size])
-            next_states_train_tensor = torch.Tensor(
-                data["train"]["next_states"][step * batch_size:(step + 1) * batch_size])
-            actions_train_tensor = torch.Tensor(data["train"]["actions"][step * batch_size:(step + 1) * batch_size])
+            states_batch, next_states_batch, actions_batch = data.train_set.get_next_batch(batch_size)
+            states_train_tensor = torch.Tensor(states_batch)
+            next_states_train_tensor = torch.Tensor(next_states_batch)
+            actions_train_tensor = torch.Tensor(actions_batch)
 
             if states_train_tensor.shape != next_states_train_tensor.shape:
                 raise Exception("states and next states shape does not match!")
@@ -102,8 +104,7 @@ if __name__ == "__main__":
     parser.add_argument("--model", default="generative")
     args = parser.parse_args()
 
-    # Loading data
-    data = load_data(args.dataset)
+    data = get_data(args.dataset)
 
     # Creating model
     if args.model == "generative":
@@ -129,5 +130,6 @@ if __name__ == "__main__":
         run_eval(data, model)
     else:
         raise Exception("Please specify either train or eval param")
+    data.close()
 
 

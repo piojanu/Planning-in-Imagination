@@ -1,6 +1,10 @@
-import torch, torch.nn.functional as F
+import time
+
+import torch
+import torch.nn.functional as F
 import numpy as np
 from matplotlib import pyplot as plt
+import sys
 
 
 def replay_buffer(buffer_dir="buffer.npz", interval=0.001):
@@ -18,53 +22,15 @@ def adjust_learning_rate(optimizer, init_lr, gamma, global_step, decay_interval)
         param_group['lr'] = lr
 
 
-def load_data(dataset_path, train_size=90000):
-
-    print("Loading data...")
-    data = np.load(dataset_path)
-    print("Loaded data.")
-
-    states = data["states"].reshape((-1, 1, 80, 80))
-
-    # Normalizing states
-    states = (states - 127.5)/127.5
-
-    # Transforming actions to one-hot form
-    actions = data["actions"]
-    actions_one_hot = np.zeros((actions.shape[0], 4))
-    for action_id, action in enumerate(actions):
-        actions_one_hot[action_id, action] = 1
-
-    # Selecting next states from states moved by 1 index
-    next_states = states[1:]
-    states = states[:-1]
-    actions_one_hot = actions_one_hot[:-1]
-
-    assert states.shape[0] == actions_one_hot.shape[0], "Number of states and actions is inconsistent"
-
-    # Dividing data into train, val sets
-    data = {"train": {}, "val": {}}
-    data["train"]["states"] = states[:train_size]
-    data["train"]["next_states"] = next_states[:train_size]
-    data["train"]["actions"] = actions_one_hot[:train_size]
-    data["val"]["states"] = states[train_size:]
-    data["val"]["next_states"] = next_states[train_size:]
-    data["val"]["actions"] = actions_one_hot[train_size:]
-    return data
-
-
-def eval_in_batches(model, states, next_states, actions=None, eval_size=1000):
-    num_batches = states.shape[0]//eval_size
+def eval_in_batches(model, dataset, eval_size=1000):
+    if eval_size > dataset.num_samples:
+        eval_size = dataset.num_samples
+    num_batches = dataset.num_samples//eval_size
     loss_accumulated = 0
 
-    for eval_iter in range(num_batches):
-        states_batch = states[eval_iter*eval_size:(eval_iter+1)*eval_size]
-        next_states_batch = next_states[eval_iter * eval_size:(eval_iter + 1) * eval_size]
-        if actions is not None:
-            actions_batch = actions[eval_iter * eval_size:(eval_iter + 1) * eval_size]
-            predictions = model(torch.Tensor(states_batch), torch.Tensor(actions_batch))
-        else:
-            predictions = model(torch.Tensor(states_batch))
+    for i in range(num_batches):
+        states_batch, next_states_batch, actions_batch = dataset.get_next_batch(eval_size)
+        predictions = model(torch.Tensor(states_batch), torch.Tensor(actions_batch))
         loss = F.mse_loss(predictions, torch.Tensor(next_states_batch))
 
         loss_accumulated += loss.item()
@@ -72,19 +38,20 @@ def eval_in_batches(model, states, next_states, actions=None, eval_size=1000):
     return loss_accumulated/num_batches
 
 
-def test_model(model, states, next_states, actions, interval=0.003):
+def test_model(model, dataset, interval=0.003):
     #_, axarr = plt.subplots(3)
     fig = plt.figure(figsize=(1, 3))
     model = torch.load("{}.model".format(model.name))
-    for state, next_state, action in zip(states, next_states, actions):
-        prediction = model(torch.unsqueeze(torch.Tensor(state), 0), torch.unsqueeze(torch.Tensor(action), 0))
+    for _ in range(dataset.num_samples):
+        states, next_states, actions = dataset.get_next_batch(1)
+        prediction = model(torch.unsqueeze(torch.Tensor(states[0]), 0), torch.unsqueeze(torch.Tensor(actions[0]), 0))
 
         fig.add_subplot(1, 3, 1)
-        plt.imshow(state.reshape(80, 80))
+        plt.imshow(states[0].reshape(80, 80))
         fig.add_subplot(1, 3, 2)
         plt.imshow(prediction.detach().cpu().numpy().reshape(80, 80))
         fig.add_subplot(1, 3, 3)
-        plt.imshow(next_state.reshape(80, 80))
+        plt.imshow(next_states[0].reshape(80, 80))
 
         plt.show(block=False)
         plt.pause(interval)
