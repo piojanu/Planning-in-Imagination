@@ -15,6 +15,8 @@ def get_data(data_path, train_fraction=0.9, valid_fraction=0.05):
 
 
 class Data(object):
+    """Generate train/valid/test sets from given data file."""
+
     def __init__(self, data_path, train_fraction=0.9, valid_fraction=0.05):
         self.data_path = data_path
         self.train_fraction = train_fraction
@@ -30,6 +32,11 @@ class Data(object):
 
 
 class NpzData(Data):
+    """Generate train/valid/test sets from given .npz file.
+
+    All data is loaded and preprocessed at once (works with small datasets).
+    """
+
     def __init__(self, data_path, train_fraction=0.9, valid_fraction=0.05):
         super(NpzData, self).__init__(data_path, train_fraction, valid_fraction)
         print("Loading data...")
@@ -61,6 +68,11 @@ class NpzData(Data):
 
 
 class Hdf5Data(Data):
+    """Generate train/valid/test sets from given .hdf5 file.
+
+    Since HDF5 files are huge and compressed, data is loaded and preprocessed dynamically.
+    """
+
     def __init__(self, data_path, train_fraction=0.9, valid_fraction=0.05, num_traj=20):
         super(Hdf5Data, self).__init__(data_path, train_fraction, valid_fraction)
         self.data = h5py.File(data_path, "r")
@@ -96,6 +108,24 @@ class Hdf5Data(Data):
 
     @staticmethod
     def fetch_and_preprocess_hdf5(data, beg, end):
+        """Load and preprocess chunk of data from HDF5 file.
+
+        Preprocessing used:
+          - states:
+            - resize to 80x80
+            - change to gray scale
+            - normalize
+          - actions:
+            - change to one-hot
+
+        Args:
+            data (hdf5 file): Open HDF5 file with trajectories.
+            beg (int): Beginning index of chunk to load.
+            end (int): Ending index of chunk to load.
+
+        Returns:
+            tuple: States, next states, actions (one-hot).
+        """
         buf_size = end - beg
         transitions = data["transition"][beg:end]
         states = np.zeros((buf_size, 1, 80, 80))
@@ -115,7 +145,16 @@ class Hdf5Data(Data):
 
 
 class Dataset(object):
+    """Holds data for given dataset. Used to generate batches."""
+
     def __init__(self, data, beg_idx, end_idx):
+        """Initialize dataset.
+
+        Args:
+            data: Holds all data (not only for this dataset).
+            beg_idx (int): Starting index of dataset in `data`.
+            end_idx (int): Ending index of dataset in `data`.
+        """
         self.data = data
         self.beg_idx = beg_idx
         self.end_idx = end_idx
@@ -123,10 +162,20 @@ class Dataset(object):
         self.num_samples = self.end_idx - self.beg_idx
 
     def get_next_batch(self, batch_size):
+        """Generate next batch of data.
+
+        Args:
+            batch_size (int): Number of samples to return.
+
+        Returns:
+            tuple: Batch of data.
+        """
         raise NotImplementedError
 
 
 class BasicDataset(Dataset):
+    """Basic dataset object, which iterates over the already loaded data."""
+
     def __init__(self, data, beg_idx, end_idx):
         super(BasicDataset, self).__init__(data, beg_idx, end_idx)
 
@@ -141,8 +190,21 @@ class BasicDataset(Dataset):
             self.current_idx = self.beg_idx
         return data_batch
 
+
 class PrefetchDataset(Dataset):
+    """Dataset for HDF5 file, which fetches and preprocesses data dynamically, as needed."""
     def __init__(self, data, beg_idx, end_idx, fetch_and_preprocess_fn=None, window_size=10000, n_threads=4):
+        """Initialize dataset.
+
+        Args:
+            data: Holds all data (not only for this dataset).
+            beg_idx (int): Starting index of dataset in `data`.
+            end_idx (int): Ending index of dataset in `data`.
+            fetch_and_preprocess_fn (function): Functions that loads and preprocesses a chunk of data.
+            window_size (int): Window size - determines how much samples are stored in memory.
+            n_threads (int): Number of threads used to prefetch and preprocess data.
+                             Each thread is responsible for one particular part of data window.
+        """
         super(PrefetchDataset, self).__init__(data, beg_idx, end_idx)
         self.fetch_and_preprocess_fn = fetch_and_preprocess_fn
         self.window_size = window_size
@@ -168,10 +230,12 @@ class PrefetchDataset(Dataset):
             self.new_data = self.fn(self.data, self.beg, self.end)
 
     def _start_prefetching(self, thread_id):
+        """Prefetch chunk of data corresponding to thread of given id."""
         t = PrefetchDataset.PrefetchThread(
             self.fetch_and_preprocess_fn, self.data, beg=self.current_idx, end=self.current_idx+self.prefetch_size)
         self.current_idx += self.prefetch_size
         if self.current_idx >= self.end_idx:
+            # Dataset over, start again.
             self.current_idx = self.beg_idx
         t.start()
         if len(self.prefetch_threads) == thread_id:
@@ -180,6 +244,7 @@ class PrefetchDataset(Dataset):
             self.prefetch_threads[thread_id] = t
 
     def _finish_prefetching(self, thread_id):
+        """Receive and store preprocessed chunk of data from thread of given id."""
         t = self.prefetch_threads[thread_id]
         t.join()
         if not self.window_data:
