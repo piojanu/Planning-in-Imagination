@@ -74,8 +74,11 @@ def train(params={}):
     ]
 
     # Create callbacks, storage and tournament
-    storage = Storage(storage_params)
     tournament = Tournament()
+    storage = Storage(storage_params)
+
+    # Load storage date from disk (path in config)
+    storage.load()
 
     iter = 0
     max_iter = train_params.get("max_iter", -1)
@@ -83,17 +86,21 @@ def train(params={}):
         iter_counter_str = "{:03d}/{:03d}".format(iter + 1, max_iter) if max_iter > 0 \
             else "{:03d}/inf".format(iter + 1)
 
+        # SELF-PLAY - gather data using best nn
         hrl.loop(env, self_play_players, policy='stochastic',
                  n_episodes=train_params.get('n_self_plays', 100),
                  name="Self-play  " + iter_counter_str,
                  callbacks=[storage])
+        storage.store()
 
+        # TRAINING - improve neural net
         trained_data = storage.big_bag
         boards, _, targets = list(zip(*trained_data))
 
         current_net.load_checkpoint(save_folder, utils.get_newest_ckpt_fname(save_folder))
         current_net.train(data=np.array(boards), targets=np.array(targets))
 
+        # ARENA - only the best will remain!
         tournament.reset()
         hrl.loop(env, tournament_players, alternate_minds=True, policy='stochastic',
                  n_episodes=train_params.get('n_tournaments', 20),
@@ -108,7 +115,7 @@ def train(params={}):
             current_net.save_checkpoint(save_folder, best_fname)
             best_net.load_checkpoint(save_folder, best_fname)
 
-        # Increment iter
+        # Increment iterator
         iter += 1
 
 

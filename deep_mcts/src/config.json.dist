@@ -15,11 +15,9 @@
         "n_simulations" : 25
     },
     "storage": {
-        "big_bag_size"   : 1000,
-        "store_dir"      : "checkpoints",
-        "store_filename" : "bigbag.examples",
-        "load_dir"       : "checkpoints",
-        "load_filename"  : "bigbag.examples"
+        "exp_replay_size" : 100000,
+        "store_dir"       : "checkpoints",
+        "store_filename"  : "data.examples"
     },
     "train": {
         "game"                     : "tictactoe",

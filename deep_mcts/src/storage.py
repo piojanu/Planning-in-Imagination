@@ -1,9 +1,11 @@
-from humblerl import Callback
+import logging as log
 import numpy as np
 import os
 import sys
-from pickle import Pickler, Unpickler
+
 from collections import deque
+from humblerl import Callback
+from pickle import Pickler, Unpickler
 
 
 class Storage(Callback):
@@ -13,16 +15,17 @@ class Storage(Callback):
 
         Args:
             params (JSON Dictionary):
-                * 'big_bag_size' (int):      max size of big bag, when big bag is full then oldest element is removed.
-                                             (Default: 1000)
-                * 'store_dir' (string):      folder where to store big bag. (Default: "checkpoints")
-                * 'store_filename' (string): filename of stored data (Default: "big_bag.examples")
-                * 'load_dir' (string):       folder where to load big bag. (Default: "checkpoints")
-                * 'load_filename' (string):  filename of loaded data (Default: "big_bag.examples")
+                * 'exp_replay_size' (int)   : Max size of big bag. When big bag is full then oldest
+                                              element is removed. (Default: 100000)
+                * 'store_dir' (string)      : Directory where to store/load from big bag.
+                                              (Default: "checkpoints")
+                * 'store_filename' (string) : Filename of stored data file.
+                                              (Default: "data.examples")
         """
+
         self.params = params
         self.small_bag = deque()
-        self.big_bag = deque(maxlen=params.get("big_bag_size", 1000))
+        self.big_bag = deque(maxlen=params.get("exp_replay_size", 100000))
 
     def on_reset(self, train_mode):
         self.small_bag.clear()
@@ -48,23 +51,23 @@ class Storage(Callback):
     def store(self):
         folder = self.params.get("store_dir", "checkpoints")
         if not os.path.exists(folder):
+            log.warn("Examples store directory does not exist! Creating directory {}".format(folder))
             os.makedirs(folder)
 
-        filename = self.params.get("store_filename", "big_bag.examples")
-        filename = os.path.join(folder, filename)
-        with open(filename, "wb+") as f:
+        filename = self.params.get("store_filename", "data.examples")
+        path = os.path.join(folder, filename)
+        with open(path, "wb+") as f:
             Pickler(f).dump(self.big_bag)
 
     def load(self):
-        folder = self.params.get("load_dir", "checkpoints")
-        filename = self.params.get("load_filename", "big_bag.examples")
-        examples_file = os.path.join(folder, filename)
-        if not os.path.isfile(examples_file):
-            print(examples_file)
-            r = input("File with trainExamples not found. Continue? [y|n]")
+        folder = self.params.get("store_dir", "checkpoints")
+        filename = self.params.get("store_filename", "data.examples")
+        path = os.path.join(folder, filename)
+        if not os.path.isfile(path):
+            r = input("File with train examples was not found. Continue? [y|n]: ")
             if r != "y":
                 sys.exit()
         else:
-            print("File with trainExamples found. Read it.")
-            with open(examples_file, "rb") as f:
+            log.info("File with train examples found. Reading it.")
+            with open(path, "rb") as f:
                 self.big_bag = Unpickler(f).load()
