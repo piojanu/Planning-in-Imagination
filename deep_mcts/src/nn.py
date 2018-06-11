@@ -171,3 +171,14 @@ class KerasNet(NeuralNet):
         if not os.path.exists(filepath):
             raise("No model in path {}".format(filepath))
         self.model.load_weights(filepath)
+
+    def load_checkpoint_from_path(self, filepath):
+        """Loads parameters of the neural network from file path.
+
+        Args:
+            filepath (string): Path to saved nn checkpoint.
+        """
+
+        if not os.path.exists(filepath):
+            raise("No model in path {}".format(filepath))
+        self.model.load_weights(filepath)

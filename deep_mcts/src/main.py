@@ -31,7 +31,8 @@ def train(context={}):
 
     Args:
         context (click.core.Context): context object.
-            context.obj (JSON dict): extra parameters
+            context.obj (JSON dict): configuration parameters
+            Parameters for training:
                 * 'game' (string):                     game name (Default: tictactoe)
                 * 'update_threshold' (float):          required threshold to be new best player (Default: 0.55)
                 * 'max_iter' (int):                    number of train process iterations (Default: -1)
@@ -136,6 +137,48 @@ def train(context={}):
 @click.pass_context
 def play(context):
     """Play without training."""
+    # TODO (mj): Fill implementation and docstring
+
+
+@main.command()
+@click.pass_context
+@click.argument('first_model_path', nargs=1, type=click.Path(exists=True))
+@click.argument('second_model_path', nargs=1, type=click.Path(exists=True))
+@click.option('-n', '--n-games', help="Number of games (Default: 10)", default=10)
+@click.option('--render/--no-render', help="Enable rendering game (Default: True)", default=True)
+def test(context, first_model_path, second_model_path, n_games, render):
+    """Test two models. Play `n_games` between themselves.
+
+        Args:
+
+            first_model_path: (string): Path to first player model.
+            second_model_path (string): Path to second player model.
+    """
+
+    params = context.obj
+    nn_params = params.get("neural_net", {})
+    planner_params = params.get("planner", {})
+    train_params = params.get("train", {})
+    game_name = train_params.get('game', 'tictactoe')
+    env = GameEnv(name=game_name)
+    game = env.game
+
+    # Create Minds, current and best
+    first_player_net = KerasNet(build_keras_nn(game, nn_params), nn_params)
+    second_player_net = KerasNet(build_keras_nn(game, nn_params), nn_params)
+
+    first_player_net.load_checkpoint_from_path(first_model_path)
+    second_player_net.load_checkpoint_from_path(second_model_path)
+
+    tournament = Tournament()
+    first_player = Planner(game, first_player_net, planner_params)
+    second_player = Planner(game, second_player_net, planner_params)
+    hrl.loop(env, [first_player, second_player], alternate_players=True, policy='deterministic', warmup=0,
+                 n_episodes=n_games,
+                 name="Test  models: {} vs {}".format(first_model_path.split("/")[-1], second_model_path.split("/")[-1]),
+                 callbacks=[tournament], train_mode=not render)
+
+    log.info("{} vs {} results: {}".format(first_model_path.split("/")[-1], second_model_path.split("/")[-1], tournament.results))
 
 
 if __name__ == "__main__":
