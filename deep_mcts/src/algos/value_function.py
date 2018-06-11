@@ -18,12 +18,12 @@ def build_keras_nn(game, params):
     like action/state space sizes etc.
         params (dict): Neural Net architecture hyper-parameters. Available:
           * 'l2_regularizer' (float) : L2 weight decay rate.
-                                       (Default: 0.0001)
+                                       (Default: 0.001)
           * 'dropout' (float)        : Dense layers dropout rate.
                                        (Default: 0.4)
     """
 
-    l2_reg = params.get("l2_regularizer", 0.0001)
+    l2_reg = params.get("l2_regularizer", 0.001)
     dropout = params.get("dropout", 0.4)
 
     DATA_FORMAT = image_data_format()
