@@ -1,3 +1,4 @@
+import logging as log
 import os
 
 from abc import ABCMeta, abstractmethod
@@ -84,9 +85,9 @@ class KerasNet(NeuralNet):
                                       dampens oscillations. Float >= 0 (Default: 0.)
               * 'decay' (float)     : Learning rate decay over each update. Float >= 0. (Default: 0.)
               * 'batch_size' (int)  : Training batch size. (Default: 32)
-              * 'epochs' (int)      : Number of epochs to train the model. (Default: 1)
+              * 'epochs' (int)      : Number of epochs to train the model. (Default: 50)
               * 'val_split' (float) : Fraction of the training data to be used as validation data.
-                                      Float >= 0 and < 1.. (Default: 0.)
+                                      Float >= 0 and < 1.. (Default: 0.2)
               * 'patience'          : Number of epochs with no improvement in validation loss after
                                       which training will be stopped. You need to set val_split > 0
                                       in order to have it work. Set to -1 for no early stopping.
@@ -99,14 +100,17 @@ class KerasNet(NeuralNet):
         self.momentum = params.get('momentum', 0.)
         self.decay = params.get('decay', 0.)
         self.batch_size = params.get('batch_size', 32)
-        self.epochs = params.get('epochs', 1)
-        self.val_split = params.get('val_split', 0.)
+        self.epochs = params.get('epochs', 50)
+        self.val_split = params.get('val_split', 0.2)
         self.patience = params.get('patience', 5)
 
         # Initialize EarlyStopping callback if validation set is present
         self.callbacks = []
-        if self.val_split > 0 and self.patience:
-            self.callbacks.append(EarlyStopping(monitor='val_loss', patience=self.patience))
+        if self.patience > 0:
+            if self.val_split > 0:
+                self.callbacks.append(EarlyStopping(monitor='val_loss', patience=self.patience))
+            else:
+                log.warn("Early stopping DISABLED! Patience > 0 byt val_split <= 0.")
 
         model.compile(loss=self.loss,
                       optimizer=SGD(lr=self.lr,

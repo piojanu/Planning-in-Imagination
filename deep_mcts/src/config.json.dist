@@ -5,8 +5,8 @@
         "momentum"   : 0.0,
         "decay"      : 0.0,
         "batch_size" : 32,
-        "epochs"     : 1,
-        "val_split"  : 0.0,
+        "epochs"     : 50,
+        "val_split"  : 0.2,
         "patience"   : 5
     },
     "planner": {
@@ -17,16 +17,16 @@
     "storage": {
         "big_bag_size"   : 1000,
         "store_dir"      : "checkpoints",
-        "store_filename" : "big_bag.examples",
+        "store_filename" : "bigbag.examples",
         "load_dir"       : "checkpoints",
-        "load_filename"  : "big_bag.examples"
+        "load_filename"  : "bigbag.examples"
     },
     "train": {
         "game"                     : "tictactoe",
         "update_threshold"         : 0.55,
         "max_iter"                 : 10,
         "save_checkpoint_folder"   : "checkpoints",
-        "save_checkpoint_filename" : "best_net",
+        "save_checkpoint_filename" : "best",
         "n_self_plays"             : 20,
         "n_tournaments"            : 10
      }

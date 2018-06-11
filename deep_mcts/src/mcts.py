@@ -1,4 +1,3 @@
-import logging as log
 import numpy as np
 
 from abc import ABCMeta, abstractmethod
@@ -83,8 +82,6 @@ class MCTS(Mind, metaclass=ABCMeta):
 
         # Perform simulations
         for idx in range(self.n_simulations):
-            log.info("Performing simulation number {}".format(idx + 1))
-
             # Simulate
             leaf, path = self.simulate(self._root)
 
