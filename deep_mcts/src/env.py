@@ -1,6 +1,7 @@
+import numpy as np
+
 from humblerl import Environment
 from games import *  # This allows to create every game from board_games
-import numpy as np
 
 
 class GameModel(object):

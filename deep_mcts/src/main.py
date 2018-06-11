@@ -22,11 +22,11 @@ def train(params={}):
         params (JSON dict): extra parameters
             * 'game' (string):                     game name (Default: tictactoe)
             * 'update_threshold' (float):          required threshold to be new best player (Default: 0.55)
-            * 'max_iter' (int):                    number of train process iterations (Default: 10)
+            * 'max_iter' (int):                    number of train process iterations (Default: -1)
             * 'save_checkpoint_folder' (string):   folder to save best models (Default: "checkpoints")
             * 'save_checkpoint_filename' (string): filename of best model (Default: "bestnet")
-            * 'n_self_plays' (int):                number of self played episodes (Default: 20)
-            * 'n_tournaments' (int):               number of tournament episodes (Default: 10)
+            * 'n_self_plays' (int):                number of self played episodes (Default: 100)
+            * 'n_tournaments' (int):               number of tournament episodes (Default: 20)
 
     """
 
@@ -77,12 +77,16 @@ def train(params={}):
     storage = Storage(storage_params)
     tournament = Tournament()
 
-    max_iter = train_params.get("max_iter", 10)
-    for iter in range(max_iter):
-        # Create players
+    iter = 0
+    max_iter = train_params.get("max_iter", -1)
+    while max_iter == -1 or iter < max_iter:
+        iter_counter_str = "{:03d}/{:03d}".format(iter + 1, max_iter) if max_iter > 0 \
+            else "{:03d}/inf".format(iter + 1)
 
-        hrl.loop(env, self_play_players, policy='stochastic', n_episodes=train_params.get('n_self_plays', 20),
-                 name="Self-play  {:03d}/{:03d}".format(iter + 1, max_iter), callbacks=[storage])
+        hrl.loop(env, self_play_players, policy='stochastic',
+                 n_episodes=train_params.get('n_self_plays', 100),
+                 name="Self-play  " + iter_counter_str,
+                 callbacks=[storage])
 
         trained_data = storage.big_bag
         boards, _, targets = list(zip(*trained_data))
@@ -91,8 +95,10 @@ def train(params={}):
         current_net.train(data=np.array(boards), targets=np.array(targets))
 
         tournament.reset()
-        hrl.loop(env, tournament_players, policy='stochastic', n_episodes=train_params.get('n_tournaments', 10),
-                 name="Tournament {:03d}/{:03d}".format(iter + 1, max_iter), callbacks=[tournament])
+        hrl.loop(env, tournament_players, alternate_minds=True, policy='stochastic',
+                 n_episodes=train_params.get('n_tournaments', 20),
+                 name="Tournament " + iter_counter_str,
+                 callbacks=[tournament])
 
         wins, losses, draws = tournament.get_results()
         log.info("Tournament results: {}".format(tournament.get_results()))
@@ -101,6 +107,9 @@ def train(params={}):
             log.info("New best player: {}".format(best_fname))
             current_net.save_checkpoint(save_folder, best_fname)
             best_net.load_checkpoint(save_folder, best_fname)
+
+        # Increment iter
+        iter += 1
 
 
 def play(params={}):

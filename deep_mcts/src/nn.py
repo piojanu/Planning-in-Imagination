@@ -155,7 +155,7 @@ class KerasNet(NeuralNet):
 
         filepath = os.path.join(folder, filename)
         if not os.path.exists(folder):
-            print("Checkpoint Directory does not exist! Making directory {}".format(folder))
+            log.warn("Checkpoint directory does not exist! Creating directory {}".format(folder))
             os.mkdir(folder)
         self.model.save_weights(filepath)
 

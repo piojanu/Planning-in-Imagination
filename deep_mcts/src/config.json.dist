@@ -24,10 +24,10 @@
     "train": {
         "game"                     : "tictactoe",
         "update_threshold"         : 0.55,
-        "max_iter"                 : 10,
+        "max_iter"                 : -1,
         "save_checkpoint_folder"   : "checkpoints",
         "save_checkpoint_filename" : "best",
-        "n_self_plays"             : 20,
-        "n_tournaments"            : 10
+        "n_self_plays"             : 100,
+        "n_tournaments"            : 20
      }
 }

@@ -229,13 +229,15 @@ def ply(env, mind, player=0, policy='deterministic', vision=Vision(), **kwargs):
     return transition, info
 
 
-def loop(env, minds, n_episodes=1, max_steps=-1, policy='deterministic', train_mode=True, vision=Vision(), name="Loop", callbacks=[], **kwargs):
+def loop(env, minds, n_episodes=1, max_steps=-1, alternate_minds=False, policy='deterministic', train_mode=True, vision=Vision(), name="Loop", callbacks=[], **kwargs):
     """Conduct series of plies (turns taken by each player in order).
 
     Args:
         env (Environment): Environment to take actions in.
         minds (Mind or list of Mind objects): Minds to use while deciding on action to take in the env.
     If more then one, then each will be used one by one starting form index 0.
+        alternate_minds (bool): If minds order should be alternated or left unchanged in each
+    episode. (Default: False)
         n_episodes (int): Number of episodes to play. (Default: 1)
         max_steps (int): Maximum number of steps in episode. No limit when -1. (Default: -1)
         policy (string: Describes the way of choosing action from mind predictions (see Note).
@@ -260,6 +262,10 @@ def loop(env, minds, n_episodes=1, max_steps=-1, policy='deterministic', train_m
     for _ in bar.iter(range(n_episodes)):
         step = 0
         _, player = env.reset(train_mode)
+
+        # Alternate minds in list
+        if alternate_minds:
+            minds.append(minds.pop(0))
 
         # Callback reset
         for callback in callbacks:
