@@ -129,7 +129,7 @@ class KerasNet(NeuralNet):
             numpy.Array: Inference result, depends on specific model.
         """
 
-        return self.model.predict(state)[0]
+        return self.model.predict(state)
 
     def train(self, data, targets):
         """Perform training according to passed parameters in `build` call.

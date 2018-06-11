@@ -4,7 +4,7 @@ import logging as log
 import numpy as np
 import utils
 
-from algos.value_function import build_keras_nn, Planner
+from algos.alphazero import build_keras_nn, Planner
 from env import GameEnv
 from nn import KerasNet
 from storage import Storage
@@ -95,10 +95,11 @@ def train(params={}):
 
         # TRAINING - improve neural net
         trained_data = storage.big_bag
-        boards, _, targets = list(zip(*trained_data))
+        boards_input, target_pis, target_values = list(zip(*trained_data))
 
         current_net.load_checkpoint(save_folder, utils.get_newest_ckpt_fname(save_folder))
-        current_net.train(data=np.array(boards), targets=np.array(targets))
+        current_net.train(data=np.array(boards_input), targets=[
+                          np.array(target_pis), np.array(target_values)])
 
         # ARENA - only the best will remain!
         tournament.reset()

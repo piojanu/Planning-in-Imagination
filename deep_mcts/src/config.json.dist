@@ -1,6 +1,6 @@
 {
     "neural_net": {
-        "loss"           : "MSE",
+        "loss"           : ["categorical_crossentropy", "mean_squared_error"],
         "lr"             : 0.01,
         "momentum"       : 0.0,
         "decay"          : 0.0,
