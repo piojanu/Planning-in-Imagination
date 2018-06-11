@@ -149,7 +149,7 @@ class Vision(object):
         return self._process_state(state), self._process_reward(reward)
 
 
-def ply(env, mind, player=0, policy='deterministic', vision=Vision(), **kwargs):
+def ply(env, mind, player=0, policy='deterministic', vision=Vision(), step=0, **kwargs):
     """Conduct single ply (turn taken by one of the players).
 
     Args:
@@ -158,6 +158,7 @@ def ply(env, mind, player=0, policy='deterministic', vision=Vision(), **kwargs):
         player (int): Player index which ply this is. (Default: 0)
         policy (string: Describes the way of choosing action from mind predictions (see Note).
         vision (Vision): State and reward preprocessing. (Default: no preprocessing)
+        step (int): Current step number in this episode, used by some policies. (Default: 0)
         **kwargs: Other keyword arguments may be needed depending on chosen policy.
 
     Return:
@@ -173,9 +174,15 @@ def ply(env, mind, player=0, policy='deterministic', vision=Vision(), **kwargs):
 
     Note:
         Possible :attr:`policy` values are:
-          * 'deterministic': default,
-          * 'stochastic'   : pass extra kwarg 'temperature' otherwise it's set to 1.,
-          * 'egreedy'      : pass extra kwarg 'epsilon' otherwise it's set to 0.5,
+          * 'deterministic': default, pass extra kwarg :attr:`warmup` to use stochastic policy
+                             during first steps until step < :attr:`warmup`.
+                             Stochastic annealing also apply.
+          * 'stochastic'   : pass extra kwarg 'temperature', otherwise it's set to 1.
+                             You can also anneal temperature using :attr:`decay`:
+                             temp * (1. / (1. + decay * step)).
+          * 'egreedy'      : pass extra kwarg 'epsilon', otherwise it's set to 0.5.
+                             You can also anneal epsilon using :attr:`decay`:
+                             epsilon * (1. / (1. + decay * step)).
           * 'identity'     : forward whatever come from Mind.
     """
 
@@ -189,31 +196,52 @@ def ply(env, mind, player=0, policy='deterministic', vision=Vision(), **kwargs):
     valid_actions = env.valid_actions
     valid_logits = np.take(logits, valid_actions)
 
-    # Get action
-    if policy == 'deterministic':
-        # TODO (pj): Add `warmup` param to control how many steps to use stochastic policy and then
-        #            change to deterministic.
-        action = valid_actions[np.argmax(valid_logits)]
-    elif policy == 'stochastic':
-        # TODO (pj): Add params to control temperature annealing. You need to add some step counter.
+    # Define policies
+    def deterministic():
+        return valid_actions[np.argmax(valid_logits)]
+
+    def stochastic():
         temp = kwargs.get('temperature', 1.)
+        decay = kwargs.get('decay', 0.)
+
+        # Decay temperature
+        if decay > 0:
+            temp *= 1. / (1. + decay * step)
 
         # Softmax with temperature
         exps = np.exp((valid_logits - np.max(valid_logits)) / temp)
         probs = exps / np.sum(exps)
 
         # Sample from created distribution
-        action = np.random.choice(valid_actions, p=probs)
-    elif policy == 'egreedy':
+        return np.random.choice(valid_actions, p=probs)
+
+    def egreedy():
         eps = kwargs.get('epsilon', 0.5)
+        decay = kwargs.get('decay', 0.)
+
+        # Decay epsilon
+        if decay > 0:
+            epsilon *= 1. / (1. + decay * step)
 
         # With probability of epsilon...
         if np.random.rand(1) < eps:
             # ...sample random action, otherwise
-            action = np.random.choice(valid_actions)
+            return np.random.choice(valid_actions)
         else:
             # ...choose action greedily
-            action = valid_actions[np.argmax(valid_logits)]
+            return valid_actions[np.argmax(valid_logits)]
+
+    # Get action
+    if policy == 'deterministic':
+        warmup = kwargs.get('warmup', 0)
+        if step < warmup:
+            action = stochastic()
+        else:
+            action = deterministic()
+    elif policy == 'stochastic':
+        action = stochastic()
+    elif policy == 'egreedy':
+        action = egreedy()
     elif policy == 'identity':
         action = logits
     else:
@@ -280,7 +308,7 @@ def loop(env, minds, n_episodes=1, max_steps=-1, alternate_minds=False, policy='
                 mind = minds
 
             # Conduct ply and update next player
-            transition, info = ply(env, mind, player, policy, vision, **kwargs)
+            transition, info = ply(env, mind, player, policy, vision, step, **kwargs)
             player = transition.next_player
 
             # Callback step and increment step counter

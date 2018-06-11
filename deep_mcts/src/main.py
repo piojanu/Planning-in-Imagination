@@ -87,7 +87,7 @@ def train(params={}):
             else "{:03d}/inf".format(iter + 1)
 
         # SELF-PLAY - gather data using best nn
-        hrl.loop(env, self_play_players, policy='stochastic',
+        hrl.loop(env, self_play_players, policy='deterministic', warmup=30,
                  n_episodes=train_params.get('n_self_plays', 100),
                  name="Self-play  " + iter_counter_str,
                  callbacks=[storage])
