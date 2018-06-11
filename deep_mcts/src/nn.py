@@ -3,6 +3,7 @@ import os
 from abc import ABCMeta, abstractmethod
 
 from keras.optimizers import SGD
+from keras.callbacks import EarlyStopping
 
 
 class NeuralNet(metaclass=ABCMeta):
@@ -75,29 +76,44 @@ class KerasNet(NeuralNet):
         Args:
             model (keras.Model): Neural network architecture.
             params (dict): Train/inference hyper-parameters. Available:
-              * 'loss' (string)     : Loss function name, passed to model.compile(...) method.
+              * 'loss' (string)     : Loss function name, passed to keras model.compile(...) method.
                                       (Default: "MSE")
-              * 'lr' (float)        : Learning rate of SGD with momentum optimizer. (Default: 0.01)
+              * 'lr' (float)        : Learning rate of SGD with momentum optimizer. Float > 0.
+                                      (Default: 0.01)
               * 'momentum' (float)  : Parameter that accelerates SGD in the relevant direction and
-                                      dampens oscillations. (Default: 0.)
-              * 'decay' (float)     : Learning rate decay over each update. (Default: 0.)
+                                      dampens oscillations. Float >= 0 (Default: 0.)
+              * 'decay' (float)     : Learning rate decay over each update. Float >= 0. (Default: 0.)
               * 'batch_size' (int)  : Training batch size. (Default: 32)
               * 'epochs' (int)      : Number of epochs to train the model. (Default: 1)
               * 'val_split' (float) : Fraction of the training data to be used as validation data.
-                                      (Default: 0.)
+                                      Float >= 0 and < 1.. (Default: 0.)
+              * 'patience'          : Number of epochs with no improvement in validation loss after
+                                      which training will be stopped. You need to set val_split > 0
+                                      in order to have it work. Set to -1 for no early stopping.
+                                      (Default: 5)
         """
 
-        model.compile(loss=params.get('loss', "MSE"),
-                      optimizer=SGD(lr=params.get('lr', 0.01),
-                                    momentum=params.get('momentum', 0.),
-                                    decay=params.get('decay', 0.),
-                                    nesterov=True),
-                      metrics=['accuracy'])
-
         self.model = model
+        self.loss = params.get('loss', "MSE")
+        self.lr = params.get('lr', 0.01)
+        self.momentum = params.get('momentum', 0.)
+        self.decay = params.get('decay', 0.)
         self.batch_size = params.get('batch_size', 32)
         self.epochs = params.get('epochs', 1)
         self.val_split = params.get('val_split', 0.)
+        self.patience = params.get('patience', 5)
+
+        # Initialize EarlyStopping callback if validation set is present
+        self.callbacks = []
+        if self.val_split > 0 and self.patience:
+            self.callbacks.append(EarlyStopping(monitor='val_loss', patience=self.patience))
+
+        model.compile(loss=self.loss,
+                      optimizer=SGD(lr=self.lr,
+                                    momentum=self.momentum,
+                                    decay=self.decay,
+                                    nesterov=True),
+                      metrics=['accuracy'])
 
     def predict(self, state):
         """Do forward pass through nn, inference on state.
@@ -122,7 +138,8 @@ class KerasNet(NeuralNet):
         self.model.fit(data, targets,
                        batch_size=self.batch_size,
                        epochs=self.epochs,
-                       validation_split=self.val_split)
+                       validation_split=self.val_split,
+                       callbacks=self.callbacks)
 
     def save_checkpoint(self, folder, filename):
         """Saves the current neural network (with its parameters) in folder/filename.

@@ -61,7 +61,7 @@ def train(params={}):
 
         print("\n<--- SELF-PLAY")
         hrl.loop(env, self_play_players, policy='stochastic', n_episodes=train_params.get('n_self_plays', 20),
-                 name="{:03d}/{:03d}".format(iter + 1, max_iter), callbacks=[storage])
+                 name="Iter {:03d}/{:03d}".format(iter + 1, max_iter), callbacks=[storage])
 
         trained_data = storage.big_bag
         boards, _, targets = list(zip(*trained_data))
