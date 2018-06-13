@@ -127,8 +127,10 @@ class Planner(MCTS):
 
         leaf_node.expand(edges)
 
+        # Get relative state
+        relative_state = self.model.get_canonical_form(leaf_node.state, leaf_node.player)
         # Get first elem in batch and value from result array
-        return self.nn.predict(np.expand_dims(leaf_node.state, axis=0))[0][0]
+        return self.nn.predict(np.expand_dims(relative_state, axis=0))[0][0]
 
     def backup(self, path, value):
         """Backup value to ancestry nodes.
