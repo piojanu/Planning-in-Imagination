@@ -3,6 +3,7 @@ import json
 import logging as log
 import numpy as np
 import utils
+import click
 
 from algos.alphazero import build_keras_nn, Planner
 from env import GameEnv
@@ -13,22 +14,34 @@ from callbacks import BasicStats, Storage, Tournament
 log.basicConfig(level=log.DEBUG, format="[%(levelname)s]: %(message)s")
 
 
-def train(params={}):
+@click.group()
+@click.pass_context
+@click.option('-c', '--config-file', type=click.File('r'),
+              help="Config file (Default: config.json)", default="config.json")
+def main(context, config_file):
+    # Parse .json file with arguments
+    context.obj = json.loads(config_file.read())
+
+
+@main.command()
+@click.pass_context
+def train(context={}):
     """Train player by self-play, retraining from self-played frames and changing best player when new trained player
     beats currently best player.
 
     Args:
-        params (JSON dict): extra parameters
-            * 'game' (string):                     game name (Default: tictactoe)
-            * 'update_threshold' (float):          required threshold to be new best player (Default: 0.55)
-            * 'max_iter' (int):                    number of train process iterations (Default: -1)
-            * 'save_checkpoint_folder' (string):   folder to save best models (Default: "checkpoints")
-            * 'save_checkpoint_filename' (string): filename of best model (Default: "bestnet")
-            * 'n_self_plays' (int):                number of self played episodes (Default: 100)
-            * 'n_tournaments' (int):               number of tournament episodes (Default: 20)
+        context (click.core.Context): context object.
+            context.obj (JSON dict): extra parameters
+                * 'game' (string):                     game name (Default: tictactoe)
+                * 'update_threshold' (float):          required threshold to be new best player (Default: 0.55)
+                * 'max_iter' (int):                    number of train process iterations (Default: -1)
+                * 'save_checkpoint_folder' (string):   folder to save best models (Default: "checkpoints")
+                * 'save_checkpoint_filename' (string): filename of best model (Default: "bestnet")
+                * 'n_self_plays' (int):                number of self played episodes (Default: 100)
+                * 'n_tournaments' (int):               number of tournament episodes (Default: 20)
 
     """
-
+    params = context.obj
     # Get params for different MCTS parts
     nn_params = params.get("neural_net", {})
     planner_params = params.get("planner", {})
@@ -119,17 +132,10 @@ def train(params={}):
         iter += 1
 
 
-def play(params={}):
+@main.command()
+@click.pass_context
+def play(context):
     """Play without training."""
-
-
-def main():
-    # Parse .json file with arguments
-    with open('config.json') as handle:
-        params = json.loads(handle.read())
-
-    # Train!
-    train(params)
 
 
 if __name__ == "__main__":
