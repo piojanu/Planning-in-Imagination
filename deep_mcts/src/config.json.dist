@@ -1,0 +1,33 @@
+{
+    "neural_net": {
+        "loss"           : "MSE",
+        "lr"             : 0.01,
+        "momentum"       : 0.0,
+        "decay"          : 0.0,
+        "batch_size"     : 32,
+        "epochs"         : 50,
+        "val_split"      : 0.2,
+        "patience"       : 5,
+        "l2_regularizer" : 0.001,
+        "dropout"        : 0.4
+    },
+    "planner": {
+        "c"             : 1.0,
+        "gamma"         : 1.0,
+        "n_simulations" : 25
+    },
+    "storage": {
+        "exp_replay_size" : 100000,
+        "store_dir"       : "checkpoints",
+        "store_filename"  : "data.examples"
+    },
+    "train": {
+        "game"                     : "tictactoe",
+        "update_threshold"         : 0.55,
+        "max_iter"                 : -1,
+        "save_checkpoint_folder"   : "checkpoints",
+        "save_checkpoint_filename" : "best",
+        "n_self_plays"             : 100,
+        "n_tournaments"            : 20
+     }
+}
