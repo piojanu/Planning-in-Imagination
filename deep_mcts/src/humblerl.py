@@ -11,29 +11,81 @@ Transition = namedtuple(
 class Callback(metaclass=ABCMeta):
     """Callbacks can be used to listen to events during :func:`loop`."""
 
-    @abstractmethod
-    def on_reset(self, train_mode):
-        """Event after environment reset.
+    def on_action_planned(self, logits):
+        """Event after Mind was evaluated.
 
         Args:
-            train_mode (bool): Informs whether environment is in training or evaluation mode.
+            logits (numpy.Array): Actions scores (e.g. unnormalized log probabilities/Q-values/etc.)
+        possibly raw Artificial Neural Net output i.e. logits.
+
+        Note:
+            You can assume, that this event occurs always before step finish.
         """
 
         pass
 
-    @abstractmethod
-    def on_step(self, transition, info):
-        """Event after action taken in environment.
+    def on_step_taken(self, transition):
+        """Event after action was taken in environment.
 
         Args:
             transition (Transition): Describes transition that took place.
-            info (object): Meta information obtained from Mind.
 
         Note:
             Transition and info are returned from `ply` function (look to docstring for more info).
+            Also, you can assume, that this event occurs always after action planned.
         """
 
         pass
+
+    def on_episode_end(self):
+        """Event after environment was reset.
+
+        Returns:
+            dict: Dictionary with logs names and values. Those will be visible in CMD progress bar.
+
+        Note:
+            You can assume, that this event occurs after step to terminal state.
+        """
+
+        pass
+
+    def on_loop_finish(self, is_aborted):
+        """Event after  was reset.
+
+        Args:
+            is_aborted (bool): Flag indication if loop has finished as planed or was terminated.
+
+        Note:
+            You can assume, that this event occurs after specified episodes number or when
+        loop is terminated manually (e.g. by Ctrl+C).
+        """
+
+        pass
+
+
+class CallbackList(object):
+    """Simplifies calling all callbacks from list."""
+
+    def __init__(self, callbacks):
+        self.callbacks = callbacks
+
+    def on_action_planned(self, logits):
+        for callback in self.callbacks:
+            callback.on_action_planned(logits)
+
+    def on_step_finish(self, transition):
+        for callback in self.callbacks:
+            callback.on_step_finish(transition)
+
+    def on_episode_end(self):
+        logs = {}
+        for callback in self.callbacks:
+            logs.update(callback.on_episode_end())
+        return logs
+
+    def on_loop_finish(self, is_aborted):
+        for callback in self.callbacks:
+            callback.on_loop_finish(is_aborted)
 
 
 class Environment(metaclass=ABCMeta):
@@ -116,8 +168,8 @@ class Mind(metaclass=ABCMeta):
             player (int): Current player index.
 
         Returns:
-            numpy.Array: Actions scores (e.g. action unnormalized log probabilities/Q-values/etc.).
-            object: Meta information which can be accessed later with transition.
+            numpy.Array: Actions scores (e.g. unnormalized log probabilities/Q-values/etc.)
+        possibly raw Artificial Neural Net output i.e. logits.
         """
 
         pass
@@ -150,7 +202,7 @@ class Vision(object):
         return self._process_state(state), self._process_reward(reward)
 
 
-def ply(env, mind, player=0, policy='deterministic', vision=Vision(), step=0, **kwargs):
+def ply(env, mind, player=0, policy='deterministic', vision=Vision(), step=0, callbacks=[], **kwargs):
     """Conduct single ply (turn taken by one of the players).
 
     Args:
@@ -160,6 +212,8 @@ def ply(env, mind, player=0, policy='deterministic', vision=Vision(), step=0, **
         policy (string: Describes the way of choosing action from mind predictions (see Note).
         vision (Vision): State and reward preprocessing. (Default: no preprocessing)
         step (int): Current step number in this episode, used by some policies. (Default: 0)
+        callbacks (list of Callback objects): Objects that can listen to events during play.
+    (Default: [])
         **kwargs: Other keyword arguments may be needed depending on chosen policy.
 
     Return:
@@ -171,7 +225,6 @@ def ply(env, mind, player=0, policy='deterministic', vision=Vision(), step=0, **
           * 'next_player'  : next player index,
           * 'next_state'   : next state observed after transition (it's preprocessed with Vision),
           * 'is_terminal'  : flag indication if this is terminal transition (episode end).
-        object: Meta information obtained from Mind.
 
     Note:
         Possible :attr:`policy` values are:
@@ -187,11 +240,15 @@ def ply(env, mind, player=0, policy='deterministic', vision=Vision(), step=0, **
           * 'identity'     : forward whatever come from Mind.
     """
 
+    # Create callbacks list
+    callbacks_list = CallbackList(callbacks)
+
     # Get and preprocess current state
     curr_state, _ = vision(env.current_state)
 
     # Infer what to do
-    logits, info = mind.plan(curr_state, player)
+    logits = mind.plan(curr_state, player)
+    callbacks_list.on_action_planned(logits)
 
     # Get valid actions and logits of those actions
     valid_actions = env.valid_actions
@@ -254,8 +311,9 @@ def ply(env, mind, player=0, policy='deterministic', vision=Vision(), step=0, **
     # Preprocess data and save in transition
     next_state, reward = vision(raw_next_state, raw_reward)
     transition = Transition(player, curr_state, action, reward, next_player, next_state, done)
+    callbacks_list.on_step_finish(transition)
 
-    return transition, info
+    return transition
 
 
 def loop(env, minds, n_episodes=1, max_steps=-1, alternate_players=False, policy='deterministic', train_mode=True, vision=Vision(), name="Loop", callbacks=[], **kwargs):
@@ -286,16 +344,18 @@ def loop(env, minds, n_episodes=1, max_steps=-1, alternate_players=False, policy
           * 'identity'     : forward whatever come from Mind.
     """
 
+    # Prepare bar suffix format
+    SUFFIX = '%(index)d/%(max)d - %(avg).3fs/episode, ETA: %(eta)ds'
+
+    # Create callbacks list
+    callbacks_list = CallbackList(callbacks)
+
     # Play given number of episodes
     first_player = 0
-    bar = Bar(name, suffix='%(index)d/%(max)d - %(avg).3fs/episode, ETA: %(eta)ds')
+    bar = Bar(name, suffix=SUFFIX)
     for _ in bar.iter(range(n_episodes)):
         step = 0
         _, player = env.reset(train_mode, first_player=first_player)
-
-        # Callback reset
-        for callback in callbacks:
-            callback.on_reset(train_mode)
 
         # Play until episode ends or max_steps limit reached
         while max_steps == -1 or step <= max_steps:
@@ -306,16 +366,21 @@ def loop(env, minds, n_episodes=1, max_steps=-1, alternate_players=False, policy
                 mind = minds
 
             # Conduct ply and update next player
-            transition, info = ply(env, mind, player, policy, vision, step, **kwargs)
+            transition = ply(env, mind, player, policy, vision, step, callbacks, **kwargs)
             player = transition.next_player
 
-            # Callback step and increment step counter
-            for callback in callbacks:
-                callback.on_step(transition, info)
+            # Increment step counter
             step += 1
 
             # Finish if this transition was terminal
             if transition.is_terminal:
+                logs = callbacks_list.on_episode_end()
+
+                # Update bar suffix
+                bar.suffix = SUFFIX + ", ".join(["", ] + [
+                    "{}: {}".format(k, v) for k, v in logs.items()
+                ])
+
                 break
 
         # Change first player

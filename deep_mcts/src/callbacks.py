@@ -27,14 +27,17 @@ class Storage(Callback):
         self.small_bag = deque()
         self.big_bag = deque(maxlen=params.get("exp_replay_size", 100000))
 
-    def on_reset(self, train_mode):
-        self.small_bag.clear()
+        self._recent_action_probs = None
 
-    def on_step(self, transition, info):
-        small_package = transition.state, info, transition.reward
+    def on_action_planned(self, logits):
+        self._recent_action_probs = logits / np.sum(logits)
+
+    def on_step_finish(self, transition):
+        small_package = transition.state, self._recent_action_probs, transition.reward
         self.small_bag.append(small_package)
         if len(self.small_bag) == self.small_bag.maxlen:
             self.small_bag.popleft()
+
         if transition.is_terminal:
             for package in self.small_bag:
                 big_package = package[0], package[1], transition.reward
@@ -42,11 +45,11 @@ class Storage(Callback):
                     self.big_bag.popleft()
                 self.big_bag.append(big_package)
 
-            big_package = transition.next_state, np.zeros(len(info)), transition.reward
-            if len(self.big_bag) == self.big_bag.maxlen:
-                self.big_bag.popleft()
-            self.big_bag.append(big_package)
-            self.small_bag.clear()
+    def on_episode_end(self):
+        logs = {"num. samples": len(self.big_bag)}
+        self.small_bag.clear()
+
+        return logs
 
     def store(self):
         folder = self.params.get("store_dir", "checkpoints")
@@ -71,3 +74,27 @@ class Storage(Callback):
             log.info("File with train examples found. Reading it.")
             with open(path, "rb") as f:
                 self.big_bag = Unpickler(f).load()
+
+
+class Tournament(Callback):
+    def __init__(self):
+        self.reset()
+
+    @property
+    def results(self):
+        return self.wins, self.losses, self.draws
+
+    def on_step_finish(self, transition):
+        if transition.is_terminal:
+            if transition.reward == 0:
+                self.draws += 1
+            elif transition.reward > 0:
+                self.wins += 1
+            else:
+                self.losses += 1
+
+    def on_episode_end(self):
+        return {"P1 wins": self.wins, "P2 wins": self.losses, "draws": self.draws}
+
+    def reset(self):
+        self.wins, self.losses, self.draws = 0, 0, 0

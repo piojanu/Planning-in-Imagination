@@ -7,8 +7,7 @@ import utils
 from algos.alphazero import build_keras_nn, Planner
 from env import GameEnv
 from nn import KerasNet
-from storage import Storage
-from tournament import Tournament
+from callbacks import Storage, Tournament
 
 # Get and set up logger level and formatter
 log.basicConfig(level=log.DEBUG, format="[%(levelname)s]: %(message)s")
@@ -108,8 +107,7 @@ def train(params={}):
                  name="Tournament " + iter_counter_str,
                  callbacks=[tournament])
 
-        wins, losses, draws = tournament.get_results()
-        log.info("Tournament results: {}".format(tournament.get_results()))
+        wins, losses, draws = tournament.results
         if wins + losses > 0 and float(wins) / (wins + losses) > update_threshold:
             best_fname = utils.make_ckpt_fname(game_name, save_filename)
             log.info("New best player: {}".format(best_fname))

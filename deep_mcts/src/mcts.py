@@ -96,7 +96,4 @@ class MCTS(Mind, metaclass=ABCMeta):
         for action, edge in self._root.edges.items():
             actions[action] = edge.num_visits
 
-        # Calculate actions probabilities and return
-        probs = actions / np.sum(actions)
-
-        return actions, probs
+        return actions
