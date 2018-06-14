@@ -4,7 +4,7 @@ import sys
 
 from abc import ABCMeta, abstractmethod
 from collections import namedtuple
-from third_party.progress.bar import Bar
+from tqdm import tqdm
 
 Transition = namedtuple(
     "Transition", ["player", "state", "action", "reward", "next_player", "next_state", "is_terminal"])
@@ -43,7 +43,8 @@ class Callback(metaclass=ABCMeta):
         """Event after environment was reset.
 
         Returns:
-            dict: Dictionary with logs names and values. Those will be visible in CMD progress bar.
+            dict: Dictionary with logs names and values. Those may be visible in CMD progress bar
+        and saved to log file if specified.
 
         Note:
             You can assume, that this event occurs after step to terminal state.
@@ -346,9 +347,6 @@ def loop(env, minds, n_episodes=1, max_steps=-1, alternate_players=False, policy
           * 'identity'     : forward whatever come from Mind.
     """
 
-    # Prepare bar suffix format
-    SUFFIX = '%(index)d/%(max)d - %(avg).3fs/episode, ETA: %(eta)ds'
-
     # Create callbacks list
     callbacks_list = CallbackList(callbacks)
 
@@ -357,8 +355,8 @@ def loop(env, minds, n_episodes=1, max_steps=-1, alternate_players=False, policy
     try:
         # Play given number of episodes
         first_player = 0
-        bar = Bar(name, suffix=SUFFIX)
-        for _ in bar.iter(range(n_episodes)):
+        pbar = tqdm(range(n_episodes), ascii=True, desc=name)
+        for iter in pbar:
             step = 0
             _, player = env.reset(train_mode, first_player=first_player)
         
@@ -379,15 +377,12 @@ def loop(env, minds, n_episodes=1, max_steps=-1, alternate_players=False, policy
         
                 # Finish if this transition was terminal
                 if transition.is_terminal:
-                    logs = callbacks_list.on_episode_end()
-        
                     # Update bar suffix
-                    bar.suffix = SUFFIX + ", ".join(["", ] + [
-                        "{}: {}".format(k, v) for k, v in logs.items()
-                    ])
-        
+                    logs = callbacks_list.on_episode_end()
+                    pbar.write("Iter. {:3}".format(iter) + ": [ " +
+                               ", ".join(["{}: {:.4g}".format(k, float(v)) for k, v in logs.items()]) + " ]")
                     break
-        
+
             # Change first player
             if isinstance(minds, (list, tuple)) and alternate_players:
                 first_player = (first_player + 1) % len(minds)
