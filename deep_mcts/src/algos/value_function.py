@@ -127,7 +127,8 @@ class Planner(MCTS):
 
         leaf_node.expand(edges)
 
-        return self.nn.predict(np.expand_dims(leaf_node.state, axis=0))[0]
+        # Get first elem in batch and value from result array
+        return self.nn.predict(np.expand_dims(leaf_node.state, axis=0))[0][0]
 
     def backup(self, path, value):
         """Backup value to ancestry nodes.

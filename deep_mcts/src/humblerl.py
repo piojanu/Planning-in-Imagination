@@ -2,7 +2,7 @@ import numpy as np
 
 from abc import ABCMeta, abstractmethod
 from collections import namedtuple
-from progress.bar import Bar
+from third_party.progress.bar import Bar
 
 Transition = namedtuple(
     "Transition", ["player", "state", "action", "reward", "next_player", "next_state", "is_terminal"])

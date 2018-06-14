@@ -80,7 +80,8 @@ class Node(object):
 
         # Add exploration term to every edge's score
         for action, edge in self.edges.items():
-            scores[(action, edge)] += c * np.sqrt(np.log(1 + state_visits) / (1 + edge.num_visits))
+            scores[(action, edge)] += c * edge.prior * \
+                np.sqrt(np.log(1 + state_visits) / (1 + edge.num_visits))
 
         # Choose next action and edge with highest score
         action_edge = max(scores, key=scores.get)
@@ -90,18 +91,25 @@ class Node(object):
 class Edge(object):
     """Represents state-actions pair in MCTS search tree."""
 
-    def __init__(self, qvalue=0., next_node=None):
+    def __init__(self, prior=1., qvalue=0., next_node=None):
         """Initialize Edge object.
 
         Args:
+            prior (float): Action probability from prior policy. (Default: 1.)
             qvalue (float): Initial Q-value of this state-action pair. (Default: 0.)
             next_node (Node): Next node this state-action leads to.
         If None, it means that this edge wasn't explored yet (Default: None).
         """
 
         self.next_node = next_node
+        self._prior = prior
         self._qvalue = qvalue
         self._num_visits = 0
+
+    @property
+    def prior(self):
+        """float: Action probability from prior policy."""
+        return self._prior
 
     @property
     def qvalue(self):
