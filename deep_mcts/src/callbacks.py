@@ -8,6 +8,37 @@ from humblerl import Callback
 from pickle import Pickler, Unpickler
 
 
+class BasicStats(Callback):
+    def __init__(self):
+        self.steps = [0, ]
+        self.returns = [0, ]
+
+    def on_step_taken(self, transition):
+        self.steps[-1] += 1
+        self.returns[-1] += transition.reward
+
+    def on_episode_end(self):
+        logs = {}
+        logs["# steps"] = self.steps[-1]
+        logs["max # steps"] = np.max(self.steps)
+        logs["min # steps"] = np.min(self.steps)
+        logs["avg # steps"] = np.mean(self.steps)
+
+        logs["return"] = self.returns[-1]
+        logs["max return"] = np.max(self.returns)
+        logs["min return"] = np.min(self.returns)
+        logs["avg return"] = np.mean(self.returns)
+
+        self.steps.append(0)
+        self.returns.append(0)
+
+        return logs
+
+    def on_loop_finish(self, is_aborted):
+        self.steps = [0, ]
+        self.returns = [0, ]
+
+
 class Storage(Callback):
     def __init__(self, params={}):
         """
@@ -32,7 +63,7 @@ class Storage(Callback):
     def on_action_planned(self, logits):
         self._recent_action_probs = logits / np.sum(logits)
 
-    def on_step_finish(self, transition):
+    def on_step_taken(self, transition):
         small_package = transition.state, self._recent_action_probs, transition.reward
         self.small_bag.append(small_package)
         if len(self.small_bag) == self.small_bag.maxlen:
@@ -46,7 +77,7 @@ class Storage(Callback):
                 self.big_bag.append(big_package)
 
     def on_episode_end(self):
-        logs = {"num. samples": len(self.big_bag)}
+        logs = {"# samples": len(self.big_bag)}
         self.small_bag.clear()
 
         return logs
@@ -84,7 +115,7 @@ class Tournament(Callback):
     def results(self):
         return self.wins, self.losses, self.draws
 
-    def on_step_finish(self, transition):
+    def on_step_taken(self, transition):
         if transition.is_terminal:
             if transition.reward == 0:
                 self.draws += 1

@@ -1,4 +1,6 @@
+import logging as log
 import numpy as np
+import sys
 
 from abc import ABCMeta, abstractmethod
 from collections import namedtuple
@@ -73,9 +75,9 @@ class CallbackList(object):
         for callback in self.callbacks:
             callback.on_action_planned(logits)
 
-    def on_step_finish(self, transition):
+    def on_step_taken(self, transition):
         for callback in self.callbacks:
-            callback.on_step_finish(transition)
+            callback.on_step_taken(transition)
 
     def on_episode_end(self):
         logs = {}
@@ -311,7 +313,7 @@ def ply(env, mind, player=0, policy='deterministic', vision=Vision(), step=0, ca
     # Preprocess data and save in transition
     next_state, reward = vision(raw_next_state, raw_reward)
     transition = Transition(player, curr_state, action, reward, next_player, next_state, done)
-    callbacks_list.on_step_finish(transition)
+    callbacks_list.on_step_taken(transition)
 
     return transition
 
@@ -350,39 +352,50 @@ def loop(env, minds, n_episodes=1, max_steps=-1, alternate_players=False, policy
     # Create callbacks list
     callbacks_list = CallbackList(callbacks)
 
-    # Play given number of episodes
-    first_player = 0
-    bar = Bar(name, suffix=SUFFIX)
-    for _ in bar.iter(range(n_episodes)):
-        step = 0
-        _, player = env.reset(train_mode, first_player=first_player)
+    # Flag indicating if loop was aborted
+    is_aborted = False
+    try:
+        # Play given number of episodes
+        first_player = 0
+        bar = Bar(name, suffix=SUFFIX)
+        for _ in bar.iter(range(n_episodes)):
+            step = 0
+            _, player = env.reset(train_mode, first_player=first_player)
+        
+            # Play until episode ends or max_steps limit reached
+            while max_steps == -1 or step <= max_steps:
+                # Determine player index and mind
+                if isinstance(minds, (list, tuple)):
+                    mind = minds[player]
+                else:
+                    mind = minds
+        
+                # Conduct ply and update next player
+                transition = ply(env, mind, player, policy, vision, step, callbacks, **kwargs)
+                player = transition.next_player
+        
+                # Increment step counter
+                step += 1
+        
+                # Finish if this transition was terminal
+                if transition.is_terminal:
+                    logs = callbacks_list.on_episode_end()
+        
+                    # Update bar suffix
+                    bar.suffix = SUFFIX + ", ".join(["", ] + [
+                        "{}: {}".format(k, v) for k, v in logs.items()
+                    ])
+        
+                    break
+        
+            # Change first player
+            if isinstance(minds, (list, tuple)) and alternate_players:
+                first_player = (first_player + 1) % len(minds)
+    except KeyboardInterrupt:
+        # Finish loop when aborted
+        log.critical("KeyboardInterrupt, safely terminate loop and exit")
+        callbacks_list.on_loop_finish(True)
+        sys.exit()
 
-        # Play until episode ends or max_steps limit reached
-        while max_steps == -1 or step <= max_steps:
-            # Determine player index and mind
-            if isinstance(minds, (list, tuple)):
-                mind = minds[player]
-            else:
-                mind = minds
-
-            # Conduct ply and update next player
-            transition = ply(env, mind, player, policy, vision, step, callbacks, **kwargs)
-            player = transition.next_player
-
-            # Increment step counter
-            step += 1
-
-            # Finish if this transition was terminal
-            if transition.is_terminal:
-                logs = callbacks_list.on_episode_end()
-
-                # Update bar suffix
-                bar.suffix = SUFFIX + ", ".join(["", ] + [
-                    "{}: {}".format(k, v) for k, v in logs.items()
-                ])
-
-                break
-
-        # Change first player
-        if isinstance(minds, (list, tuple)) and alternate_players:
-            first_player = (first_player + 1) % len(minds)
+    # Finish loop as planned
+    callbacks_list.on_loop_finish(False)

@@ -7,7 +7,7 @@ import utils
 from algos.alphazero import build_keras_nn, Planner
 from env import GameEnv
 from nn import KerasNet
-from callbacks import Storage, Tournament
+from callbacks import BasicStats, Storage, Tournament
 
 # Get and set up logger level and formatter
 log.basicConfig(level=log.DEBUG, format="[%(levelname)s]: %(message)s")
@@ -73,8 +73,9 @@ def train(params={}):
     ]
 
     # Create callbacks, storage and tournament
-    tournament = Tournament()
+    basicstats = BasicStats()
     storage = Storage(storage_params)
+    tournament = Tournament()
 
     # Load storage date from disk (path in config)
     storage.load()
@@ -89,7 +90,7 @@ def train(params={}):
         hrl.loop(env, self_play_players, policy='deterministic', warmup=10,
                  n_episodes=train_params.get('n_self_plays', 100),
                  name="Self-play  " + iter_counter_str,
-                 callbacks=[storage])
+                 callbacks=[basicstats, storage])
         storage.store()
 
         # TRAINING - improve neural net
