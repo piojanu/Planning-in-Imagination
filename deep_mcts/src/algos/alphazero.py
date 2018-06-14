@@ -90,8 +90,10 @@ class Planner(VFPlanner):
             (float): Node (state) value.
         """
 
+        # Get relative state
+        relative_state = self.model.get_canonical_form(leaf_node.state, leaf_node.player)
         # Evaluate state
-        pi, value = self.nn.predict(np.expand_dims(leaf_node.state, axis=0))
+        pi, value = self.nn.predict(np.expand_dims(relative_state, axis=0))
 
         # Take first element in batch
         pi = pi[0]

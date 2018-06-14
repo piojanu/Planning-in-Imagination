@@ -103,7 +103,7 @@ def train(params={}):
 
         # ARENA - only the best will remain!
         tournament.reset()
-        hrl.loop(env, tournament_players, alternate_minds=True, policy='deterministic', warmup=5,
+        hrl.loop(env, tournament_players, alternate_players=True, policy='deterministic', warmup=5,
                  n_episodes=train_params.get('n_tournaments', 20),
                  name="Tournament " + iter_counter_str,
                  callbacks=[tournament])

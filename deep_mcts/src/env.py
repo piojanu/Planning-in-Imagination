@@ -45,6 +45,10 @@ class GameModel(object):
     def string_representation(self, board):
         return self.game.stringRepresentation(board)
 
+    def get_canonical_form(self, board, player):
+        gplayer = 1 if player == 0 else -1
+        return self.game.getCanonicalForm(board, gplayer)
+
 
 class GameEnv(Environment):
     """Environment for board games from https://github.com/suragnair/alpha-zero-general
@@ -73,9 +77,9 @@ class GameEnv(Environment):
         self._display()
         return next_state, next_player, reward, end != 0
 
-    def reset(self, train_mode):
+    def reset(self, train_mode=True, first_player=0):
         self.train_mode = train_mode
-        self.player = 0
+        self.player = first_player
         self._curr_state = self.game.get_init_board()
         self._display()
         return self._curr_state, self.player

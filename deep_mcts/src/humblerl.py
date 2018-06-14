@@ -40,12 +40,13 @@ class Environment(metaclass=ABCMeta):
     """Abstract class for environments."""
 
     @abstractmethod
-    def reset(self, train_mode=True):
+    def reset(self, train_mode=True, first_player=0):
         """Reset environment and return a first state.
 
         Args:
             train_mode (bool): Informs environment if it's training or evaluation
         mode. E.g. in train mode graphics could not be rendered. (Default: True)
+            first_player (int): Index of player who starts game. (Default: 0)
 
         Returns:
             np.Array: The initial state. 
@@ -257,14 +258,14 @@ def ply(env, mind, player=0, policy='deterministic', vision=Vision(), step=0, **
     return transition, info
 
 
-def loop(env, minds, n_episodes=1, max_steps=-1, alternate_minds=False, policy='deterministic', train_mode=True, vision=Vision(), name="Loop", callbacks=[], **kwargs):
+def loop(env, minds, n_episodes=1, max_steps=-1, alternate_players=False, policy='deterministic', train_mode=True, vision=Vision(), name="Loop", callbacks=[], **kwargs):
     """Conduct series of plies (turns taken by each player in order).
 
     Args:
         env (Environment): Environment to take actions in.
         minds (Mind or list of Mind objects): Minds to use while deciding on action to take in the env.
     If more then one, then each will be used one by one starting form index 0.
-        alternate_minds (bool): If minds order should be alternated or left unchanged in each
+        alternate_players (bool): If players order should be alternated or left unchanged in each
     episode. (Default: False)
         n_episodes (int): Number of episodes to play. (Default: 1)
         max_steps (int): Maximum number of steps in episode. No limit when -1. (Default: -1)
@@ -286,14 +287,11 @@ def loop(env, minds, n_episodes=1, max_steps=-1, alternate_minds=False, policy='
     """
 
     # Play given number of episodes
+    first_player = 0
     bar = Bar(name, suffix='%(index)d/%(max)d - %(avg).3fs/episode, ETA: %(eta)ds')
     for _ in bar.iter(range(n_episodes)):
         step = 0
-        _, player = env.reset(train_mode)
-
-        # Alternate minds in list
-        if alternate_minds:
-            minds.append(minds.pop(0))
+        _, player = env.reset(train_mode, first_player=first_player)
 
         # Callback reset
         for callback in callbacks:
@@ -319,3 +317,7 @@ def loop(env, minds, n_episodes=1, max_steps=-1, alternate_minds=False, policy='
             # Finish if this transition was terminal
             if transition.is_terminal:
                 break
+
+        # Change first player
+        if isinstance(minds, (list, tuple)) and alternate_players:
+            first_player = (first_player + 1) % len(minds)
