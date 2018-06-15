@@ -4,6 +4,9 @@ import logging as log
 import numpy as np
 import utils
 import click
+import math
+
+from tabulate import tabulate
 
 from algos.alphazero import build_keras_nn, Planner
 from env import GameEnv
@@ -191,6 +194,68 @@ def test(context, first_model_path, second_model_path, render):
 
     log.info("{} vs {} results: {}".format(first_model_path.split("/")
                                            [-1], second_model_path.split("/")[-1], tournament.results))
+
+
+@main.command()
+@click.pass_context
+@click.argument('checkpoints_dir', nargs=1, type=click.Path(exists=True))
+@click.option('-g', '--gap', help="Gap between versions of best model (Default: 2)", default=2)
+def validate(context, checkpoints_dir, gap):
+    """Validate trained models. Best networks play with each other.
+
+        Args:
+
+            checkpoints_dir: (string): Path to checkpoints with models.
+    """
+
+    params = context.obj
+    nn_params = params.get("neural_net", {})
+    planner_params = params.get("planner", {})
+    train_params = params.get("train", {})
+    game_name = train_params.get('game', 'tictactoe')
+    env = GameEnv(name=game_name)
+    game = env.game
+    first_player_net = KerasNet(build_keras_nn(game, nn_params), nn_params)
+    second_player_net = KerasNet(build_keras_nn(game, nn_params), nn_params)
+    first_player = Planner(game, first_player_net, planner_params)
+    second_player = Planner(game, second_player_net, planner_params)
+    tournament = Tournament()
+
+    checkpoint_files = utils.get_checkpoints_for_game(checkpoints_dir, game_name)
+    n_networks = len(checkpoint_files)
+
+    # Reduce gap to play at least one game when there is more than one checkpoint
+    if gap >= n_networks:
+        log.info("Gap is too big. Reducing to {}".format(n_networks - 1))
+        gap = n_networks - 1
+
+    # Create table for results, extra column for player id
+    results_tab = np.zeros((math.ceil(n_networks / gap), 1 + math.ceil(n_networks / gap)), dtype=int)
+    player_ids = []
+
+    first_player_id = 0
+    while first_player_id < n_networks:
+        log.info("First player is {}".format(first_player_id))
+        first_player_net.load_checkpoint_from_path(checkpoint_files[first_player_id])
+        player_ids.append(first_player_id)
+        results_tab[int(first_player_id / gap)][0] = first_player_id
+        second_player_id = 0
+        while second_player_id < n_networks:
+            if second_player_id != first_player_id:
+                log.info("Second player is {}".format(second_player_id))
+                second_player_net.load_checkpoint_from_path(checkpoint_files[second_player_id])
+                hrl.loop(env, [first_player, second_player], alternate_players=True, policy='deterministic',
+                         n_episodes=2, train_mode=False,
+                         name="Best model versions: {} vs {}".format(first_player_id, second_player_id),
+                         callbacks=[tournament])
+
+                wins, losses, _ = tournament.results
+                results_tab[int(first_player_id / gap)][1 + int(second_player_id / gap)] = wins - losses
+            second_player_id += gap
+        first_player_id += gap
+
+    tab = tabulate(results_tab, headers=player_ids, tablefmt="fancy_grid")
+    log.info("results:\n{}".format(tab))
 
 
 if __name__ == "__main__":
