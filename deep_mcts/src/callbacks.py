@@ -102,10 +102,8 @@ class Storage(Callback):
             params (JSON Dictionary):
                 * 'exp_replay_size' (int)   : Max size of big bag. When big bag is full then oldest
                                               element is removed. (Default: 100000)
-                * 'store_dir' (string)      : Directory where to store/load from big bag.
-                                              (Default: "checkpoints")
-                * 'store_filename' (string) : Filename of stored data file.
-                                              (Default: "data.examples")
+                * 'save_data_path' (string) : Path to file where to store/load from big bag.
+                                              (Default: "./checkpoints/data.examples")
         """
 
         self.params = params

@@ -14,7 +14,7 @@ class Callback(metaclass=ABCMeta):
     """Callbacks can be used to listen to events during :func:`loop`."""
 
     def on_loop_start(self):
-        """Event after  was reset.
+        """Event when loop starts.
 
         Note:
             You can assume, that this event occurs before any other event in current loop.
