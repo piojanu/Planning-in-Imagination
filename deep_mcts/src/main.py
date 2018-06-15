@@ -3,6 +3,7 @@ import json
 import logging as log
 import numpy as np
 import utils
+import click
 
 from algos.alphazero import build_keras_nn, Planner
 from env import GameEnv
@@ -13,22 +14,35 @@ from callbacks import BasicStats, Storage, Tournament
 log.basicConfig(level=log.DEBUG, format="[%(levelname)s]: %(message)s")
 
 
-def train(params={}):
+@click.group()
+@click.pass_context
+@click.option('-c', '--config-file', type=click.File('r'),
+              help="Config file (Default: config.json)", default="config.json")
+def main(context, config_file):
+    # Parse .json file with arguments
+    context.obj = json.loads(config_file.read())
+
+
+@main.command()
+@click.pass_context
+def train(context={}):
     """Train player by self-play, retraining from self-played frames and changing best player when new trained player
     beats currently best player.
 
     Args:
-        params (JSON dict): extra parameters
-            * 'game' (string):                     game name (Default: tictactoe)
-            * 'update_threshold' (float):          required threshold to be new best player (Default: 0.55)
-            * 'max_iter' (int):                    number of train process iterations (Default: -1)
-            * 'save_checkpoint_folder' (string):   folder to save best models (Default: "checkpoints")
-            * 'save_checkpoint_filename' (string): filename of best model (Default: "bestnet")
-            * 'n_self_plays' (int):                number of self played episodes (Default: 100)
-            * 'n_tournaments' (int):               number of tournament episodes (Default: 20)
+        context (click.core.Context): context object.
+            context.obj (JSON dict): configuration parameters
+            Parameters for training:
+                * 'game' (string):                     game name (Default: tictactoe)
+                * 'update_threshold' (float):          required threshold to be new best player (Default: 0.55)
+                * 'max_iter' (int):                    number of train process iterations (Default: -1)
+                * 'save_checkpoint_folder' (string):   folder to save best models (Default: "checkpoints")
+                * 'save_checkpoint_filename' (string): filename of best model (Default: "bestnet")
+                * 'n_self_plays' (int):                number of self played episodes (Default: 100)
+                * 'n_tournaments' (int):               number of tournament episodes (Default: 20)
 
     """
-
+    params = context.obj
     # Get params for different MCTS parts
     nn_params = params.get("neural_net", {})
     planner_params = params.get("planner", {})
@@ -119,17 +133,52 @@ def train(params={}):
         iter += 1
 
 
-def play(params={}):
+@main.command()
+@click.pass_context
+def play(context):
     """Play without training."""
+    # TODO (mj): Fill implementation and docstring
 
 
-def main():
-    # Parse .json file with arguments
-    with open('config.json') as handle:
-        params = json.loads(handle.read())
+@main.command()
+@click.pass_context
+@click.argument('first_model_path', nargs=1, type=click.Path(exists=True))
+@click.argument('second_model_path', nargs=1, type=click.Path(exists=True))
+@click.option('-n', '--n-games', help="Number of games (Default: 10)", default=10)
+@click.option('--render/--no-render', help="Enable rendering game (Default: True)", default=True)
+def test(context, first_model_path, second_model_path, n_games, render):
+    """Test two models. Play `n_games` between themselves.
 
-    # Train!
-    train(params)
+        Args:
+
+            first_model_path: (string): Path to first player model.
+            second_model_path (string): Path to second player model.
+    """
+
+    params = context.obj
+    nn_params = params.get("neural_net", {})
+    planner_params = params.get("planner", {})
+    train_params = params.get("train", {})
+    game_name = train_params.get('game', 'tictactoe')
+    env = GameEnv(name=game_name)
+    game = env.game
+
+    # Create Minds, current and best
+    first_player_net = KerasNet(build_keras_nn(game, nn_params), nn_params)
+    second_player_net = KerasNet(build_keras_nn(game, nn_params), nn_params)
+
+    first_player_net.load_checkpoint_from_path(first_model_path)
+    second_player_net.load_checkpoint_from_path(second_model_path)
+
+    tournament = Tournament()
+    first_player = Planner(game, first_player_net, planner_params)
+    second_player = Planner(game, second_player_net, planner_params)
+    hrl.loop(env, [first_player, second_player], alternate_players=True, policy='deterministic', warmup=0,
+                 n_episodes=n_games,
+                 name="Test  models: {} vs {}".format(first_model_path.split("/")[-1], second_model_path.split("/")[-1]),
+                 callbacks=[tournament], train_mode=not render)
+
+    log.info("{} vs {} results: {}".format(first_model_path.split("/")[-1], second_model_path.split("/")[-1], tournament.results))
 
 
 if __name__ == "__main__":
