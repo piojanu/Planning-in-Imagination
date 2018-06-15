@@ -83,20 +83,17 @@ class Storage(Callback):
         return logs
 
     def store(self):
-        folder = self.params.get("store_dir", "checkpoints")
+        path = self.params.get("save_data_path", "./checkpoints/data.examples")
+        folder = os.path.dirname(path)
         if not os.path.exists(folder):
             log.warn("Examples store directory does not exist! Creating directory {}".format(folder))
             os.makedirs(folder)
 
-        filename = self.params.get("store_filename", "data.examples")
-        path = os.path.join(folder, filename)
         with open(path, "wb+") as f:
             Pickler(f).dump(self.big_bag)
 
     def load(self):
-        folder = self.params.get("store_dir", "checkpoints")
-        filename = self.params.get("store_filename", "data.examples")
-        path = os.path.join(folder, filename)
+        path = self.params.get("save_data_path", "./checkpoints/data.examples")
         if not os.path.isfile(path):
             r = input("File with train examples was not found. Continue? [y|n]: ")
             if r != "y":

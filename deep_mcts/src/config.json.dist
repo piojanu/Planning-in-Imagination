@@ -18,16 +18,16 @@
     },
     "storage": {
         "exp_replay_size" : 100000,
-        "store_dir"       : "checkpoints",
-        "store_filename"  : "data.examples"
+        "save_data_path"  : "./checkpoints/data.examples"
     },
     "train": {
         "game"                     : "tictactoe",
-        "update_threshold"         : 0.55,
         "max_iter"                 : -1,
-        "save_checkpoint_folder"   : "checkpoints",
-        "save_checkpoint_filename" : "best",
         "n_self_plays"             : 100,
-        "n_tournaments"            : 20
+        "n_tournaments"            : 20,
+        "save_checkpoint_folder"   : "./checkpoints",
+        "save_checkpoint_filename" : "best",
+        "save_log_path"            : "./training.log",
+        "update_threshold"         : 0.55
      }
 }
