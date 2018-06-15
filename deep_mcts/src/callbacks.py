@@ -9,34 +9,29 @@ from pickle import Pickler, Unpickler
 
 
 class BasicStats(Callback):
-    def __init__(self):
-        self.steps = [0, ]
-        self.returns = [0, ]
+    def __init__(self, save_path=None):
+        self._reset()
 
     def on_step_taken(self, transition):
-        self.steps[-1] += 1
-        self.returns[-1] += transition.reward
+        self.steps += 1
+        self.rewards.append(transition.reward)
 
     def on_episode_end(self):
         logs = {}
-        logs["# steps"] = self.steps[-1]
-        logs["max # steps"] = np.max(self.steps)
-        logs["min # steps"] = np.min(self.steps)
-        logs["avg # steps"] = np.mean(self.steps)
+        logs["# steps"] = self.steps
+        logs["return"] = np.sum(self.rewards)
+        logs["max reward"] = np.max(self.rewards)
+        logs["min reward"] = np.min(self.rewards)
 
-        logs["return"] = self.returns[-1]
-        logs["max return"] = np.max(self.returns)
-        logs["min return"] = np.min(self.returns)
-        logs["avg return"] = np.mean(self.returns)
-
-        self.steps.append(0)
-        self.returns.append(0)
-
+        self._reset()
         return logs
 
     def on_loop_finish(self, is_aborted):
-        self.steps = [0, ]
-        self.returns = [0, ]
+        self._reset()
+
+    def _reset(self):
+        self.steps = 0
+        self.rewards = []
 
 
 class Storage(Callback):
