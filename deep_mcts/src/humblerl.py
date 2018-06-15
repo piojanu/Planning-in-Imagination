@@ -13,6 +13,15 @@ Transition = namedtuple(
 class Callback(metaclass=ABCMeta):
     """Callbacks can be used to listen to events during :func:`loop`."""
 
+    def on_loop_start(self):
+        """Event after  was reset.
+
+        Note:
+            You can assume, that this event occurs before any other event in current loop.
+        """
+
+        pass
+
     def on_action_planned(self, logits):
         """Event after Mind was evaluated.
 
@@ -71,6 +80,10 @@ class CallbackList(object):
 
     def __init__(self, callbacks):
         self.callbacks = callbacks
+
+    def on_loop_start(self):
+        for callback in self.callbacks:
+            callback.on_loop_start()
 
     def on_action_planned(self, logits):
         for callback in self.callbacks:
@@ -347,8 +360,9 @@ def loop(env, minds, n_episodes=1, max_steps=-1, alternate_players=False, policy
           * 'identity'     : forward whatever come from Mind.
     """
 
-    # Create callbacks list
+    # Create callbacks list and "officially start loop"
     callbacks_list = CallbackList(callbacks)
+    callbacks_list.on_loop_start()
 
     # Flag indicating if loop was aborted
     is_aborted = False
@@ -359,7 +373,7 @@ def loop(env, minds, n_episodes=1, max_steps=-1, alternate_players=False, policy
         for iter in pbar:
             step = 0
             _, player = env.reset(train_mode, first_player=first_player)
-        
+
             # Play until episode ends or max_steps limit reached
             while max_steps == -1 or step <= max_steps:
                 # Determine player index and mind
@@ -367,14 +381,14 @@ def loop(env, minds, n_episodes=1, max_steps=-1, alternate_players=False, policy
                     mind = minds[player]
                 else:
                     mind = minds
-        
+
                 # Conduct ply and update next player
                 transition = ply(env, mind, player, policy, vision, step, callbacks, **kwargs)
                 player = transition.next_player
-        
+
                 # Increment step counter
                 step += 1
-        
+
                 # Finish if this transition was terminal
                 if transition.is_terminal:
                     # Update bar suffix

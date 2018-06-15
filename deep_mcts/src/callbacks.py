@@ -1,3 +1,4 @@
+import csv
 import logging as log
 import numpy as np
 import os
@@ -8,7 +9,65 @@ from humblerl import Callback
 from pickle import Pickler, Unpickler
 
 
+class CSVSaverWrapper(Callback):
+    """Saves to .csv file whatever source callback logs.
+
+    Args:
+        callback (Callback): Source callback to save logs from.
+        path (string): Where to save logs.
+        only_last (bool): If only save last log in the loop. Useful when source
+    callback aggregates logs. (Default: False)
+    """
+
+    def __init__(self, callback, path, only_last=False):
+        self.callback = callback
+        self.path = path
+        self.only_last = only_last
+        self.history = []
+
+    def on_loop_start(self):
+        return self.callback.on_loop_start()
+
+    def on_action_planned(self, logits):
+        return self.callback.on_action_planned(logits)
+
+    def on_step_taken(self, transition):
+        return self.callback.on_step_taken(transition)
+
+    def on_episode_end(self):
+        logs = self.callback.on_episode_end()
+        self.history.append(logs)
+        return logs
+
+    def on_loop_finish(self, is_aborted):
+        self._store()
+        return self.callback.on_loop_finish(is_aborted)
+
+    def _store(self):
+        if not os.path.isfile(self.path):
+            os.makedirs(os.path.dirname(self.path), exist_ok=True)
+
+            with open(self.path, "w") as f:
+                logs_file = csv.DictWriter(f, self.history[0].keys())
+                logs_file.writeheader()
+
+        with open(self.path, "a") as f:
+            logs_file = csv.DictWriter(f, self.history[0].keys())
+            if self.only_last:
+                logs_file.writerow(self.history[-1])
+            else:
+                logs_file.writerows(self.history)
+            self.history = []
+
+
 class BasicStats(Callback):
+    """Gather basic episode statistics like:
+      * number of steps,
+      * return,
+      * max reward,
+      * min reward.
+    """
+
     def __init__(self, save_path=None):
         self._reset()
 
@@ -111,6 +170,9 @@ class Tournament(Callback):
     def results(self):
         return self.wins, self.losses, self.draws
 
+    def on_loop_start(self):
+        self.reset()
+
     def on_step_taken(self, transition):
         if transition.is_terminal:
             if transition.reward == 0:
@@ -121,7 +183,7 @@ class Tournament(Callback):
                 self.losses += 1
 
     def on_episode_end(self):
-        return {"P1 wins": self.wins, "P2 wins": self.losses, "draws": self.draws}
+        return {"wannabe": self.wins, "best": self.losses, "draws": self.draws}
 
     def reset(self):
         self.wins, self.losses, self.draws = 0, 0, 0

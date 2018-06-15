@@ -106,3 +106,4 @@ ENV/
 # Own
 *.json
 checkpoints/
+logs/

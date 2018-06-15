@@ -27,7 +27,8 @@
         "n_tournaments"            : 20,
         "save_checkpoint_folder"   : "./checkpoints",
         "save_checkpoint_filename" : "best",
-        "save_log_path"            : "./training.log",
+        "save_train_log_path"      : "./logs/training.log",
+        "save_tournament_log_path" : "./logs/tournament.log",
         "update_threshold"         : 0.55
      }
 }

@@ -8,7 +8,7 @@ import click
 from algos.alphazero import build_keras_nn, Planner
 from env import GameEnv
 from nn import KerasNet
-from callbacks import BasicStats, Storage, Tournament
+from callbacks import BasicStats, CSVSaverWrapper, Storage, Tournament
 
 # Get and set up logger level and formatter
 log.basicConfig(level=log.DEBUG, format="[%(levelname)s]: %(message)s")
@@ -87,9 +87,11 @@ def train(context={}):
     ]
 
     # Create callbacks, storage and tournament
-    basicstats = BasicStats()
     storage = Storage(storage_params)
-    tournament = Tournament()
+    train_stats = CSVSaverWrapper(
+        BasicStats(), train_params.get('save_train_log_path', './logs/training.log'))
+    tournament_stats = CSVSaverWrapper(
+        Tournament(), train_params.get('save_tournament_log_path', './logs/tournament.log'), True)
 
     # Load storage date from disk (path in config)
     storage.load()
@@ -104,7 +106,7 @@ def train(context={}):
         hrl.loop(env, self_play_players, policy='deterministic', warmup=10,
                  n_episodes=train_params.get('n_self_plays', 100),
                  name="Self-play  " + iter_counter_str,
-                 callbacks=[basicstats, storage])
+                 callbacks=[train_stats, storage])
         storage.store()
 
         # TRAINING - improve neural net
@@ -116,13 +118,12 @@ def train(context={}):
                           np.array(target_pis), np.array(target_values)])
 
         # ARENA - only the best will remain!
-        tournament.reset()
         hrl.loop(env, tournament_players, alternate_players=True, policy='deterministic', warmup=5,
                  n_episodes=train_params.get('n_tournaments', 20),
                  name="Tournament " + iter_counter_str,
-                 callbacks=[tournament])
+                 callbacks=[tournament_stats])
 
-        wins, losses, draws = tournament.results
+        wins, losses, draws = tournament_stats.callback.results
         if wins + losses > 0 and float(wins) / (wins + losses) > update_threshold:
             best_fname = utils.make_ckpt_fname(game_name, save_filename)
             log.info("New best player: {}".format(best_fname))
