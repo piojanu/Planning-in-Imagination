@@ -56,7 +56,7 @@ class Storage(Callback):
 
         self.params = params
         self.small_bag = deque()
-        self.big_bag = deque(maxlen=params.get("exp_replay_size", 100000))
+        self.big_bag = deque()
 
         self._recent_action_probs = None
 
@@ -66,13 +66,13 @@ class Storage(Callback):
     def on_step_taken(self, transition):
         small_package = transition.state, self._recent_action_probs, transition.reward
         self.small_bag.append(small_package)
-        if len(self.small_bag) == self.small_bag.maxlen:
+        if len(self.small_bag) >= self.params.get("exp_replay_size", 100000):
             self.small_bag.popleft()
 
         if transition.is_terminal:
             for package in self.small_bag:
                 big_package = package[0], package[1], transition.reward
-                if len(self.big_bag) == self.big_bag.maxlen:
+                if len(self.big_bag) >= self.params.get("exp_replay_size", 100000):
                     self.big_bag.popleft()
                 self.big_bag.append(big_package)
 
@@ -105,6 +105,10 @@ class Storage(Callback):
             log.info("File with train examples found. Reading it.")
             with open(path, "rb") as f:
                 self.big_bag = Unpickler(f).load()
+
+            # Prune dataset if too big
+            while len(self.big_bag) > self.params.get("exp_replay_size", 100000):
+                self.big_bag.popleft()
 
 
 class Tournament(Callback):
