@@ -73,6 +73,8 @@ class Planner(VFPlanner):
             nn (NeuralNet): Artificial neural mind used to evaluate leaf states.
             params (dict): MCTS search hyper-parameters. Available:
               * 'c' (float)           : UCT exploration-exploitation trade-off param (Default: 1.)
+              * 'dirichlet_noise'     : Dirichlet noise added to root prior (Default: 0.03)
+              * 'noise_rate'          : Noise contribution to prior probabilities (Default: 0.25)
               * 'gamma' (float)       : Discounting factor for value. (Default: 1./no discounting)
               * 'n_simulations' (int) : Number of simulations to perform before choosing action.
                                         (Default: 25)
@@ -80,11 +82,16 @@ class Planner(VFPlanner):
 
         VFPlanner.__init__(self, model, nn, params)
 
-    def evaluate(self, leaf_node):
+        self.dirichlet_noise = params.get('dirichlet_noise', 0.03)
+        self.noise_rate = params.get('noise_rate', 0.25)
+
+    def evaluate(self, leaf_node, train_mode, is_root=False):
         """Expand and evaluate leaf node.
 
         Args:
             leaf_node (object): Leaf node to expand and evaluate.
+            train_mode (bool): Informs whether add additional Dirichlet noise for exploration.
+            is_root (bool): Whether this is tree root. (Default: False)
 
         Returns:
             (float): Node (state) value.
@@ -98,6 +105,11 @@ class Planner(VFPlanner):
         # Take first element in batch
         pi = pi[0]
         value = value[0]
+
+        # Add Dirichlet noise to root node prior
+        if is_root and train_mode:
+            pi = (1 - self.noise_rate) * pi + self.noise_rate * \
+                np.random.dirichlet([self.dirichlet_noise, ] * len(pi))
 
         # Get valid actions
         valid_moves = self.model.get_valid_moves(leaf_node.state, leaf_node.player)

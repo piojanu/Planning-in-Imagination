@@ -113,7 +113,7 @@ class Environment(metaclass=ABCMeta):
 
         Args:
             train_mode (bool): Informs environment if it's training or evaluation
-        mode. E.g. in train mode graphics could not be rendered. (Default: True)
+        mode. (Default: True)
             first_player (int): Index of player who starts game. (Default: 0)
 
         Returns:
@@ -176,12 +176,14 @@ class Mind(metaclass=ABCMeta):
     """Artificial mind of RL agent."""
 
     @abstractmethod
-    def plan(self, state, player):
+    def plan(self, state, player, train_mode=True):
         """Do forward pass through agent model, inference/planning on state.
 
         Args:
             state (numpy.Array): State of game to inference on.
             player (int): Current player index.
+            train_mode (bool): Informs planner whether it's in training or evaluation mode.
+        E.g. in evaluation it can optimise graph, disable exploration etc. (Default: True)
 
         Returns:
             numpy.Array: Actions scores (e.g. unnormalized log probabilities/Q-values/etc.)
@@ -218,7 +220,7 @@ class Vision(object):
         return self._process_state(state), self._process_reward(reward)
 
 
-def ply(env, mind, player=0, policy='deterministic', vision=Vision(), step=0, callbacks=[], **kwargs):
+def ply(env, mind, player=0, policy='deterministic', train_mode=True, vision=Vision(), step=0, callbacks=[], **kwargs):
     """Conduct single ply (turn taken by one of the players).
 
     Args:
@@ -226,6 +228,8 @@ def ply(env, mind, player=0, policy='deterministic', vision=Vision(), step=0, ca
         mind (Mind): Mind to use while deciding on action to take in the env.
         player (int): Player index which ply this is. (Default: 0)
         policy (string: Describes the way of choosing action from mind predictions (see Note).
+        train_mode (bool): Informs env and planner whether it's in training or evaluation mode.
+    (Default: True)
         vision (Vision): State and reward preprocessing. (Default: no preprocessing)
         step (int): Current step number in this episode, used by some policies. (Default: 0)
         callbacks (list of Callback objects): Objects that can listen to events during play.
@@ -263,7 +267,7 @@ def ply(env, mind, player=0, policy='deterministic', vision=Vision(), step=0, ca
     curr_state, _ = vision(env.current_state)
 
     # Infer what to do
-    logits = mind.plan(curr_state, player)
+    logits = mind.plan(curr_state, player, train_mode)
     callbacks_list.on_action_planned(logits)
 
     # Get valid actions and logits of those actions
@@ -344,8 +348,8 @@ def loop(env, minds, n_episodes=1, max_steps=-1, alternate_players=False, policy
         n_episodes (int): Number of episodes to play. (Default: 1)
         max_steps (int): Maximum number of steps in episode. No limit when -1. (Default: -1)
         policy (string: Describes the way of choosing action from mind predictions (see Note).
-        train_mode (bool): Informs environment whether it's in training or evaluation mode.
-    E.g. in train mode graphics could not be rendered. (Default: True)
+        train_mode (bool): Informs env and planner whether it's in training or evaluation mode.
+    (Default: True)
         vision (Vision): State and reward preprocessing. (Default: no preprocessing)
         name (string): Name shown in progress bar. (Default: "Loop")
         callbacks (list of Callback objects): Objects that can listen to events during play.
@@ -383,7 +387,8 @@ def loop(env, minds, n_episodes=1, max_steps=-1, alternate_players=False, policy
                     mind = minds
 
                 # Conduct ply and update next player
-                transition = ply(env, mind, player, policy, vision, step, callbacks, **kwargs)
+                transition = ply(
+                    env, mind, player, policy, train_mode, vision, step, callbacks, **kwargs)
                 player = transition.next_player
 
                 # Increment step counter
