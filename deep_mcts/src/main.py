@@ -8,7 +8,7 @@ import click
 from algos.alphazero import build_keras_nn, Planner
 from env import GameEnv
 from nn import KerasNet
-from callbacks import BasicStats, CSVSaverWrapper, Storage, Tournament
+from callbacks import BasicStats, CSVSaverWrapper, Storage, Tournament, RenderCallback
 
 # Get and set up logger level and formatter
 log.basicConfig(level=log.DEBUG, format="[%(levelname)s]: %(message)s")
@@ -172,12 +172,13 @@ def test(context, first_model_path, second_model_path, n_games, render):
     second_player_net.load_checkpoint_from_path(second_model_path)
 
     tournament = Tournament()
+    render_callback = RenderCallback(env, render)
     first_player = Planner(game, first_player_net, planner_params)
     second_player = Planner(game, second_player_net, planner_params)
     hrl.loop(env, [first_player, second_player], alternate_players=True, policy='deterministic', warmup=0,
                  n_episodes=n_games,
                  name="Test  models: {} vs {}".format(first_model_path.split("/")[-1], second_model_path.split("/")[-1]),
-                 callbacks=[tournament], train_mode=not render)
+                 callbacks=[render_callback, tournament])
 
     log.info("{} vs {} results: {}".format(first_model_path.split("/")[-1], second_model_path.split("/")[-1], tournament.results))
 
