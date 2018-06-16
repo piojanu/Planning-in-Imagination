@@ -1,0 +1,6 @@
+[submodule "deep_mcts/third_party/alpha-zero-general"]
+	path = deep_mcts/third_party/alpha-zero-general
+	url = https://github.com/suragnair/alpha-zero-general.git
+[submodule "deep_mcts/third_party/progress"]
+	path = deep_mcts/third_party/progress
+	url = https://github.com/verigak/progress.git

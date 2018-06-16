@@ -6,11 +6,11 @@ import h5py
 import cv2
 
 
-def get_data(data_path, train_fraction=0.9, valid_fraction=0.05):
+def get_data(data_path, train_fraction=0.9, valid_fraction=0.05, context=1):
     if data_path.endswith('.hdf5'):
-        data = Hdf5Data(data_path, train_fraction, valid_fraction)
+        data = Hdf5Data(data_path, train_fraction, valid_fraction, context)
     else:
-        data = NpzData(data_path, train_fraction, valid_fraction)
+        data = NpzData(data_path, train_fraction, valid_fraction, context)
     return data
 
 
@@ -37,15 +37,22 @@ class NpzData(Data):
     All data is loaded and preprocessed at once (works with small datasets).
     """
 
-    def __init__(self, data_path, train_fraction=0.9, valid_fraction=0.05):
+    def __init__(self, data_path, train_fraction=0.9, valid_fraction=0.05, context=1):
         super(NpzData, self).__init__(data_path, train_fraction, valid_fraction)
         print("Loading data...")
         data = np.load(data_path)
         print("Loaded data.")
 
-        states = data["states"].reshape((-1, 1, 80, 80))
-
+        states = data["states"].reshape((-1, 1, 80, 80)).astype(np.float16)
         states = (states - 127.5) / 127.5
+
+        states_concat = np.zeros((states.shape[0], context, 80, 80), dtype=np.float32)
+        states = np.vstack([np.broadcast_to(states[0], (context-1, 1, 80, 80)), states])
+        for i in range(states_concat.shape[0]):
+            states_concat[i] = states[i:i + context].reshape((1, context, 80, 80))
+
+        next_states = np.vstack([states[context:], states[-1:]])
+        states = states_concat
 
         # Transforming actions to one-hot form
         actions = data["actions"]
@@ -53,8 +60,6 @@ class NpzData(Data):
         for action_id, action in enumerate(actions):
             actions_one_hot[action_id, action] = 1
 
-        # Selecting next states from states moved by 1 index
-        next_states = np.vstack([states[1:], states[-1:]])
         data_tuple = (states, next_states, actions_one_hot)
 
         assert states.shape[0] == actions_one_hot.shape[0], "Number of states and actions is inconsistent"
@@ -73,7 +78,7 @@ class Hdf5Data(Data):
     Since HDF5 files are huge and compressed, data is loaded and preprocessed dynamically.
     """
 
-    def __init__(self, data_path, train_fraction=0.9, valid_fraction=0.05, num_traj=20):
+    def __init__(self, data_path, train_fraction=0.9, valid_fraction=0.05, context=1, num_traj=20):
         super(Hdf5Data, self).__init__(data_path, train_fraction, valid_fraction)
         self.data = h5py.File(data_path, "r")
         traj_len = self.data.attrs["TRAJECTORY_LEN"]
@@ -88,7 +93,7 @@ class Hdf5Data(Data):
         test_size = data_size - train_size - valid_size
         test_window_size = 2*traj_len if test_size > 2*traj_len else test_size
 
-        fn = Hdf5Data.fetch_and_preprocess_hdf5
+        fn = Hdf5Data.get_fetch_and_preprocess_fn(context)
 
         print("Initializing training set...")
         self.train_set = PrefetchDataset(data=self.data, beg_idx=0, end_idx=train_size,
@@ -107,41 +112,52 @@ class Hdf5Data(Data):
         self.data.close()
 
     @staticmethod
-    def fetch_and_preprocess_hdf5(data, beg, end):
-        """Load and preprocess chunk of data from HDF5 file.
+    def get_fetch_and_preprocess_fn(context):
+        def fetch_and_preprocess_hdf5(data, beg, end):
+            """Load and preprocess chunk of data from HDF5 file.
 
-        Preprocessing used:
-          - states:
-            - resize to 80x80
-            - change to gray scale
-            - normalize
-          - actions:
-            - change to one-hot
+            Preprocessing used:
+              - states:
+                - resize to 80x80
+                - change to gray scale
+                - normalize
+                - concat `context` nubmer of frames as input
+              - actions:
+                - change to one-hot
 
-        Args:
-            data (hdf5 file): Open HDF5 file with trajectories.
-            beg (int): Beginning index of chunk to load.
-            end (int): Ending index of chunk to load.
+            Args:
+                data (hdf5 file): Open HDF5 file with trajectories.
+                beg (int): Beginning index of chunk to load.
+                end (int): Ending index of chunk to load.
 
-        Returns:
-            tuple: States, next states, actions (one-hot).
-        """
-        buf_size = end - beg
-        transitions = data["transition"][beg:end]
-        states = np.zeros((buf_size, 1, 80, 80))
-        for i, s in enumerate(data["state"][beg:end]):
-            s = cv2.resize(s, (80, 80))
-            s = cv2.cvtColor(s, cv2.COLOR_BGR2GRAY)
-            s = (s - 127.5) / 127.5
-            states[i][0] = s
+            Returns:
+                tuple: States, next states, actions (one-hot).
+            """
+            buf_size = end - beg
+            transitions = data["transition"][beg:end]
+            states = np.zeros((buf_size, 1, 80, 80), dtype=np.float32)
+            for i, s in enumerate(data["state"][beg:end].astype(np.float32)):
+                s = cv2.resize(s, (80, 80))
+                s = cv2.cvtColor(s, cv2.COLOR_RGB2GRAY)
+                s = (s - 127.5) / 127.5
+                states[i][0] = s
 
-        actions = transitions[:, 1]
-        actions_one_hot = np.zeros((actions.shape[0], 4))
-        for action_id, action in enumerate(actions):
-            actions_one_hot[action_id, int(action)] = 1
+            states_concat = np.zeros((states.shape[0], context, 80, 80), dtype=np.float32)
+            states = np.vstack([np.broadcast_to(states[0], (context-1, 1, 80, 80)), states])
+            for i in range(states_concat.shape[0]):
+                states_concat[i] = states[i:i + context].reshape((1, context, 80, 80))
 
-        next_states = np.vstack([states[1:], states[-1:]])
-        return states, next_states, actions_one_hot
+            next_states = np.vstack([states[context:], states[-1:]])
+            states = states_concat
+
+            actions = transitions[:, 1]
+            actions_one_hot = np.zeros((actions.shape[0], 4))
+            for action_id, action in enumerate(actions):
+                actions_one_hot[action_id, int(action)] = 1
+
+            return states, next_states, actions_one_hot
+
+        return fetch_and_preprocess_hdf5
 
 
 class Dataset(object):

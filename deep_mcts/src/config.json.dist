@@ -1,0 +1,34 @@
+{
+    "neural_net": {
+        "loss"           : ["categorical_crossentropy", "mean_squared_error"],
+        "lr"             : 0.01,
+        "momentum"       : 0.0,
+        "decay"          : 0.0,
+        "batch_size"     : 32,
+        "epochs"         : 50,
+        "val_split"      : 0.2,
+        "patience"       : 5,
+        "l2_regularizer" : 0.001,
+        "dropout"        : 0.4
+    },
+    "planner": {
+        "c"             : 1.0,
+        "gamma"         : 1.0,
+        "n_simulations" : 25
+    },
+    "storage": {
+        "exp_replay_size" : 100000,
+        "save_data_path"  : "./checkpoints/data.examples"
+    },
+    "train": {
+        "game"                     : "tictactoe",
+        "max_iter"                 : -1,
+        "n_self_plays"             : 100,
+        "n_tournaments"            : 20,
+        "save_checkpoint_folder"   : "./checkpoints",
+        "save_checkpoint_filename" : "best",
+        "save_train_log_path"      : "./logs/training.log",
+        "save_tournament_log_path" : "./logs/tournament.log",
+        "update_threshold"         : 0.55
+     }
+}

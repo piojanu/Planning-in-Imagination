@@ -1,15 +1,17 @@
 import torch, torch.optim as optim, torch.nn.functional as F
-from matplotlib import pyplot as plt
 import argparse
-from models import autoencoder, GenerativeModelMini
+import time
+from models import GenerativeModelMini
 from utils import eval_in_batches, test_model
 from dataset import get_data
 
 
 def run_eval(data, model):
     restored_model = torch.load("{}.model".format(model.name))
+    if torch.cuda.is_available():
+        restored_model.cuda()
 
-    test_loss = eval_in_batches(restored_model, data.valid_set)
+    test_loss = eval_in_batches(restored_model, data.test_set)
     val_loss = eval_in_batches(restored_model, data.valid_set)
     train_loss = eval_in_batches(restored_model, data.train_set)
 
@@ -18,20 +20,23 @@ def run_eval(data, model):
     test_model(restored_model, data.test_set)
 
 
-def run_training(data, model, batch_size=100, num_epochs=500, init_lr=0.0001, patience=10, eval_size=1000):
+def run_training(data, model, batch_size=100, num_epochs=1000, init_lr=0.0015, patience=30, eval_size=1000):
     num_steps = data.train_set.num_samples // batch_size
     intervals_without_improvement = 0
 
     optimizer = optim.Adam(model.parameters(), lr=init_lr)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 1, 0.99)
 
+    # Uncomment to calculate reference loss from scratch
     # Calculating reference loss as mean loss between state and next state
-    ref_loss_accumulated = 0
-    num_evals = data.train_set.num_samples // eval_size
-    for _ in range(num_evals):
-        states, next_states, _ = data.train_set.get_next_batch(eval_size)
-        loss = F.mse_loss(torch.Tensor(states), torch.Tensor(next_states))
-        ref_loss_accumulated += loss.item()
-    reference_loss = ref_loss_accumulated / num_evals
+    # ref_loss_accumulated = 0
+    # num_evals = data.train_set.num_samples // eval_size
+    # for _ in range(num_evals):
+    #     states, next_states, _ = data.train_set.get_next_batch(eval_size)
+    #     loss = F.mse_loss(torch.Tensor(states), torch.Tensor(next_states))
+    #     ref_loss_accumulated += loss.item()
+    # reference_loss = ref_loss_accumulated / num_evals
+    reference_loss = 0.0036
 
     # Placeholders for losses history for plots
     val_loss_hist = []
@@ -42,10 +47,10 @@ def run_training(data, model, batch_size=100, num_epochs=500, init_lr=0.0001, pa
         # Performing crossvaldiation
         global_step = num_steps * epoch
         # adjust_learning_rate(optimizer, init_lr, gamma=0.98, global_step=global_step, decay_interval=100)
-
+        eval_time = time.time()
         val_loss = eval_in_batches(model, data.valid_set)
         train_loss = eval_in_batches(model, data.train_set)
-
+        eval_time = time.time() - eval_time
         print("Epoch: {}, step: {}, loss: [val: {}, train: {}, ref: {}], lr: {}".format(epoch, global_step,
                                                                                         val_loss, train_loss,
                                                                                         reference_loss,
@@ -64,7 +69,7 @@ def run_training(data, model, batch_size=100, num_epochs=500, init_lr=0.0001, pa
 
         if intervals_without_improvement == patience:
             break
-
+        train_time = time.time()
         for step in range(num_steps):
             # Training
             states_batch, next_states_batch, actions_batch = data.train_set.get_next_batch(batch_size)
@@ -72,8 +77,7 @@ def run_training(data, model, batch_size=100, num_epochs=500, init_lr=0.0001, pa
             next_states_train_tensor = torch.Tensor(next_states_batch)
             actions_train_tensor = torch.Tensor(actions_batch)
 
-            if states_train_tensor.shape != next_states_train_tensor.shape:
-                raise Exception("states and next states shape does not match!")
+            assert states_train_tensor.shape[0] == next_states_train_tensor.shape[0], "states and next states shape does not match!"
 
             # predictions_train = model(states_train_tensor, actions_train_tensor)
             predictions_train = model(states_train_tensor, actions_train_tensor)
@@ -84,16 +88,12 @@ def run_training(data, model, batch_size=100, num_epochs=500, init_lr=0.0001, pa
             loss.backward()
 
             optimizer.step()
+        scheduler.step()
+    train_time = time.time() - train_time
+    print("Eval time: {}. train time {}".format(eval_time, train_time))
 
     print("Training finished, min val loss: {}, reference loss: {}, train loss: {}".format(min(val_loss_hist),
                                                                                            reference_loss, train_loss))
-
-    plt.plot(steps_hist, val_loss_hist)
-    plt.plot(steps_hist, train_loss_hist)
-    plt.ylabel('MSE', fontsize=18)
-    plt.xlabel('global step', fontsize=18)
-    plt.legend(['validation error', 'train error'], fontsize=14)
-    plt.show()
 
 
 if __name__ == "__main__":
@@ -101,18 +101,18 @@ if __name__ == "__main__":
     parser.add_argument("--train", action="store_true")
     parser.add_argument("--eval", action="store_true")
     parser.add_argument("--dataset", default="buffer100k.npz")
-    parser.add_argument("--model", default="generative")
+    parser.add_argument("--model", default="concat-input")
     args = parser.parse_args()
 
-    data = get_data(args.dataset)
-
     # Creating model
-    if args.model == "generative":
-        model = GenerativeModelMini()
-    elif args.model == "autoencoder":
-        model = autoencoder()
-    else:
-        raise Exception("Model has to be either generative or autoencoder")
+    context = 1
+    if args.model == "concat-input":
+        context = 4
+
+    model = GenerativeModelMini(input_channels=context)
+    data = get_data(args.dataset, context=context)
+
+    print("Using {}".format(args.model))
 
     # Choosing HW
     if torch.cuda.is_available():
