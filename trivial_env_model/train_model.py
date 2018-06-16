@@ -109,8 +109,9 @@ if __name__ == "__main__":
     if args.model == "concat-input":
         context = 4
 
-    model = GenerativeModelMini(input_channels=context)
     data = get_data(args.dataset, context=context)
+    model = GenerativeModelMini(input_channels=context, action_space=data.action_space)
+    print("Action space: {}".format(data.action_space))
 
     print("Using {}".format(args.model))
 

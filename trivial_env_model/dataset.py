@@ -7,6 +7,18 @@ import cv2
 
 
 def get_data(data_path, train_fraction=0.9, valid_fraction=0.05, context=1):
+    """ Get Data object for handling train/valid/test sets of data.
+    Type of Data object is decided based on file extension: .npz of .hdf5.
+
+    Args:
+        data_path (str): Path to data file, either .npz or .hdf5.
+        train_fraction (float): Fraction of data to be used for train set.
+        valid_fraction (float): Fraction of data to be used for valid set.
+        context (int): Number of frames, which will be concatenated for input.
+
+    Returns:
+        Data: Data object with train/valid/test sets.
+    """
     if data_path.endswith('.hdf5'):
         data = Hdf5Data(data_path, train_fraction, valid_fraction, context)
     else:
@@ -17,11 +29,13 @@ def get_data(data_path, train_fraction=0.9, valid_fraction=0.05, context=1):
 class Data(object):
     """Generate train/valid/test sets from given data file."""
 
-    def __init__(self, data_path, train_fraction=0.9, valid_fraction=0.05):
+    def __init__(self, data_path, train_fraction=0.9, valid_fraction=0.05, context=1):
         self.data_path = data_path
         self.train_fraction = train_fraction
         self.valid_fraction = valid_fraction
         self.test_fraction = 1.0 - train_fraction - valid_fraction
+        self.context = context
+        self.action_space = 0
         assert self.test_fraction > 0, "Not enough data for test set"
         self.train_set = None
         self.valid_set = None
@@ -38,7 +52,7 @@ class NpzData(Data):
     """
 
     def __init__(self, data_path, train_fraction=0.9, valid_fraction=0.05, context=1):
-        super(NpzData, self).__init__(data_path, train_fraction, valid_fraction)
+        super(NpzData, self).__init__(data_path, train_fraction, valid_fraction, context)
         print("Loading data...")
         data = np.load(data_path)
         print("Loaded data.")
@@ -55,8 +69,9 @@ class NpzData(Data):
         states = states_concat
 
         # Transforming actions to one-hot form
+        self.action_space = 4
         actions = data["actions"]
-        actions_one_hot = np.zeros((actions.shape[0], 4))
+        actions_one_hot = np.zeros((actions.shape[0], self.action_space))
         for action_id, action in enumerate(actions):
             actions_one_hot[action_id, action] = 1
 
@@ -79,11 +94,12 @@ class Hdf5Data(Data):
     """
 
     def __init__(self, data_path, train_fraction=0.9, valid_fraction=0.05, context=1, num_traj=20):
-        super(Hdf5Data, self).__init__(data_path, train_fraction, valid_fraction)
+        super(Hdf5Data, self).__init__(data_path, train_fraction, valid_fraction, context)
         self.data = h5py.File(data_path, "r")
         traj_len = self.data.attrs["TRAJECTORY_LEN"]
         if num_traj is None:
             num_traj = self.data.attrs["NUM_EPISODES"]
+        self.action_space = self.data.attrs["ACTION_SPACE"]
         data_size = num_traj * traj_len
 
         train_size = int(train_fraction * data_size)
@@ -93,7 +109,7 @@ class Hdf5Data(Data):
         test_size = data_size - train_size - valid_size
         test_window_size = 2*traj_len if test_size > 2*traj_len else test_size
 
-        fn = Hdf5Data.get_fetch_and_preprocess_fn(context)
+        fn = Hdf5Data.get_fetch_and_preprocess_fn(self.context, self.action_space)
 
         print("Initializing training set...")
         self.train_set = PrefetchDataset(data=self.data, beg_idx=0, end_idx=train_size,
@@ -112,7 +128,7 @@ class Hdf5Data(Data):
         self.data.close()
 
     @staticmethod
-    def get_fetch_and_preprocess_fn(context):
+    def get_fetch_and_preprocess_fn(context, action_space):
         def fetch_and_preprocess_hdf5(data, beg, end):
             """Load and preprocess chunk of data from HDF5 file.
 
@@ -151,7 +167,7 @@ class Hdf5Data(Data):
             states = states_concat
 
             actions = transitions[:, 1]
-            actions_one_hot = np.zeros((actions.shape[0], 4))
+            actions_one_hot = np.zeros((actions.shape[0], action_space))
             for action_id, action in enumerate(actions):
                 actions_one_hot[action_id, int(action)] = 1
 
