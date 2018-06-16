@@ -12,9 +12,11 @@
         "dropout"        : 0.4
     },
     "planner": {
-        "c"             : 1.0,
-        "gamma"         : 1.0,
-        "n_simulations" : 25
+        "c"               : 1.0,
+        "dirichlet_noise" : 0.03,
+        "noise_ratio"     : 0.25,
+        "gamma"           : 1.0,
+        "n_simulations"   : 25
     },
     "storage": {
         "exp_replay_size" : 100000,

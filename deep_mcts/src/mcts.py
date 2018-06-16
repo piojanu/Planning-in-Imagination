@@ -40,11 +40,13 @@ class MCTS(Mind, metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def evaluate(self, leaf_node):
+    def evaluate(self, leaf_node, train_mode, is_root=False):
         """Expand and evaluate leaf node.
 
         Args:
             leaf_node (object): Leaf node to expand and evaluate.
+            train_mode (bool): Informs Neural Net whether it's in training or evaluation mode.
+            is_root (bool): Whether this is tree root. (Default: False)
 
         Returns:
             (float): Node (state) value.
@@ -63,22 +65,23 @@ class MCTS(Mind, metaclass=ABCMeta):
 
         pass
 
-    def plan(self, state, player):
+    def plan(self, state, player, train_mode):
         """Conduct planning on state.
 
         Args:
             state (numpy.Array): State of game to plan on.
             player (int): Current player index.
+            train_mode (bool): Informs planner whether it's in training mode and should enable
+        additional exploration. (Default: True)
 
         Returns:
-            numpy.Array: Planning result, normalized action probabilities.
-            numpy.Array: Planning result, normalized action probabilities.
+            numpy.Array: Planning result, unnormalized action probabilities.
         """
 
         # Create root node
         # TODO (pj): Implement reusing subtrees in next moves.
         self._root = Node(state, player)
-        _ = self.evaluate(self._root)
+        _ = self.evaluate(self._root, train_mode, is_root=True)
 
         # Perform simulations
         for idx in range(self.n_simulations):
@@ -86,7 +89,7 @@ class MCTS(Mind, metaclass=ABCMeta):
             leaf, path = self.simulate(self._root)
 
             # Expand and evaluate
-            value = self.evaluate(leaf)
+            value = self.evaluate(leaf, train_mode)
 
             # Backup value
             self.backup(path, value)

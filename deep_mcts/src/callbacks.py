@@ -185,3 +185,20 @@ class Tournament(Callback):
 
     def reset(self):
         self.wins, self.losses, self.draws = 0, 0, 0
+
+
+class RenderCallback(Callback):
+    def __init__(self, env, render):
+        self.env = env
+        self.render = render
+
+    def on_step_taken(self, _):
+        self.do_render()
+
+    def on_episode_end(self):
+        self.do_render()
+        return {}
+
+    def do_render(self):
+        if self.render:
+            self.env.render()

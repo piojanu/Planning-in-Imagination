@@ -108,11 +108,13 @@ class Planner(MCTS):
 
             current_node = next_node
 
-    def evaluate(self, leaf_node):
+    def evaluate(self, leaf_node, train_mode, is_root=False):
         """Expand and evaluate leaf node.
 
         Args:
             leaf_node (object): Leaf node to expand and evaluate.
+            train_mode (bool): Informs Neural Net whether it's in training or evaluation mode.
+            is_root (bool): Whether this is tree root. (Default: False)
 
         Returns:
             (float): Node (state) value.

@@ -8,7 +8,7 @@ import click
 from algos.alphazero import build_keras_nn, Planner
 from env import GameEnv
 from nn import KerasNet
-from callbacks import BasicStats, CSVSaverWrapper, Storage, Tournament
+from callbacks import BasicStats, CSVSaverWrapper, Storage, Tournament, RenderCallback
 
 # Get and set up logger level and formatter
 log.basicConfig(level=log.DEBUG, format="[%(levelname)s]: %(message)s")
@@ -103,7 +103,8 @@ def train(context={}):
             else "{:03d}/inf".format(iter + 1)
 
         # SELF-PLAY - gather data using best nn
-        hrl.loop(env, self_play_players, policy='deterministic', warmup=10,
+        hrl.loop(env, self_play_players,
+                 policy='deterministic', warmup=12,
                  n_episodes=train_params.get('n_self_plays', 100),
                  name="Self-play  " + iter_counter_str,
                  callbacks=[train_stats, storage])
@@ -118,7 +119,9 @@ def train(context={}):
                           np.array(target_pis), np.array(target_values)])
 
         # ARENA - only the best will remain!
-        hrl.loop(env, tournament_players, alternate_players=True, policy='deterministic', warmup=5,
+        hrl.loop(env, tournament_players,
+                 policy='deterministic', warmup=12, temperature=0.2,
+                 alternate_players=True, train_mode=False,
                  n_episodes=train_params.get('n_tournaments', 20),
                  name="Tournament " + iter_counter_str,
                  callbacks=[tournament_stats])
@@ -172,12 +175,13 @@ def test(context, first_model_path, second_model_path, n_games, render):
     second_player_net.load_checkpoint_from_path(second_model_path)
 
     tournament = Tournament()
+    render_callback = RenderCallback(env, render)
     first_player = Planner(game, first_player_net, planner_params)
     second_player = Planner(game, second_player_net, planner_params)
-    hrl.loop(env, [first_player, second_player], alternate_players=True, policy='deterministic', warmup=0,
-                 n_episodes=n_games,
+    hrl.loop(env, [first_player, second_player], alternate_players=True, policy='deterministic',
+                 n_episodes=n_games, train_mode=False,
                  name="Test  models: {} vs {}".format(first_model_path.split("/")[-1], second_model_path.split("/")[-1]),
-                 callbacks=[tournament], train_mode=not render)
+                 callbacks=[render_callback, tournament])
 
     log.info("{} vs {} results: {}".format(first_model_path.split("/")[-1], second_model_path.split("/")[-1], tournament.results))
 

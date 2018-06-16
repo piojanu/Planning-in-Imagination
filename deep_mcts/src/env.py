@@ -67,6 +67,10 @@ class GameEnv(Environment):
 
         self.game = GameModel(eval(name)())
 
+    @property
+    def valid_actions(self):
+        return self.game.get_valid_moves(self.current_state, self.player)
+
     def step(self, action):
         next_state, next_player = self.game.get_next_state(
             action=action, board=self.current_state, player=self.player)
@@ -74,25 +78,18 @@ class GameEnv(Environment):
         reward = float(int(end * (-1) ** self.player))
         self.player = next_player
         self._curr_state = next_state
-        self._display()
         return next_state, next_player, reward, end != 0
 
     def reset(self, train_mode=True, first_player=0):
         self.train_mode = train_mode
         self.player = first_player
         self._curr_state = self.game.get_init_board()
-        self._display()
         return self._curr_state, self.player
 
-    @property
-    def valid_actions(self):
-        return self.game.get_valid_moves(self.current_state, self.player)
-
-    def _display(self):
+    def render(self):
         """Display board when environment is in test mode.
         """
-        if not self.train_mode:
-            print("<---")
-            print(' '.join(map(str, range(len(self.current_state[0])))))
-            print(self.current_state)
-            print("<---")
+        print("<---")
+        print(' '.join(map(str, range(len(self.current_state[0])))))
+        print(self.current_state)
+        print("<---")
