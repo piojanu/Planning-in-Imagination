@@ -26,20 +26,26 @@ def main(context, config_file):
 @main.command()
 @click.pass_context
 def train(context={}):
-    """Train player by self-play, retraining from self-played frames and changing best player when new trained player
-    beats currently best player.
+    """Train player by self-play, retraining from self-played frames and changing best player when
+    new trained player beats currently best player.
 
     Args:
         context (click.core.Context): context object.
             context.obj (JSON dict): configuration parameters
             Parameters for training:
-                * 'game' (string):                     game name (Default: tictactoe)
-                * 'update_threshold' (float):          required threshold to be new best player (Default: 0.55)
-                * 'max_iter' (int):                    number of train process iterations (Default: -1)
-                * 'save_checkpoint_folder' (string):   folder to save best models (Default: "checkpoints")
-                * 'save_checkpoint_filename' (string): filename of best model (Default: "bestnet")
-                * 'n_self_plays' (int):                number of self played episodes (Default: 100)
-                * 'n_tournaments' (int):               number of tournament episodes (Default: 20)
+                * 'game' (string)                     : game name (Default: tictactoe)
+                * 'update_threshold' (float):         : required threshold to be new best player
+                                                        (Default: 0.55)
+                * 'policy_warmup' (int)               : how many stochastic warmup steps should take
+                                                        deterministic policy (Default: 12)
+                * 'max_iter' (int)                    : number of train process iterations
+                                                        (Default: -1)
+                * 'save_checkpoint_folder' (string)   : folder to save best models
+                                                        (Default: "checkpoints")
+                * 'save_checkpoint_filename' (string) : filename of best model (Default: "bestnet")
+                * 'n_self_plays' (int)                : number of self played episodes
+                                                        (Default: 100)
+                * 'n_tournaments' (int)               : number of tournament episodes (Default: 20)
 
     """
     params = context.obj
@@ -104,7 +110,7 @@ def train(context={}):
 
         # SELF-PLAY - gather data using best nn
         hrl.loop(env, self_play_players,
-                 policy='deterministic', warmup=12,
+                 policy='deterministic', warmup=train_params.get('policy_warmup', 12),
                  n_episodes=train_params.get('n_self_plays', 100),
                  name="Self-play  " + iter_counter_str,
                  callbacks=[train_stats, storage])
@@ -120,7 +126,7 @@ def train(context={}):
 
         # ARENA - only the best will remain!
         hrl.loop(env, tournament_players,
-                 policy='deterministic', warmup=12, temperature=0.2,
+                 policy='deterministic', warmup=train_params.get('policy_warmup', 12), temperature=0.2,
                  alternate_players=True, train_mode=False,
                  n_episodes=train_params.get('n_tournaments', 20),
                  name="Tournament " + iter_counter_str,
@@ -179,11 +185,13 @@ def test(context, first_model_path, second_model_path, n_games, render):
     first_player = Planner(game, first_player_net, planner_params)
     second_player = Planner(game, second_player_net, planner_params)
     hrl.loop(env, [first_player, second_player], alternate_players=True, policy='deterministic',
-                 n_episodes=n_games, train_mode=False,
-                 name="Test  models: {} vs {}".format(first_model_path.split("/")[-1], second_model_path.split("/")[-1]),
-                 callbacks=[render_callback, tournament])
+             n_episodes=n_games, train_mode=False,
+             name="Test  models: {} vs {}".format(first_model_path.split(
+                 "/")[-1], second_model_path.split("/")[-1]),
+             callbacks=[render_callback, tournament])
 
-    log.info("{} vs {} results: {}".format(first_model_path.split("/")[-1], second_model_path.split("/")[-1], tournament.results))
+    log.info("{} vs {} results: {}".format(first_model_path.split("/")
+                                           [-1], second_model_path.split("/")[-1], tournament.results))
 
 
 if __name__ == "__main__":
