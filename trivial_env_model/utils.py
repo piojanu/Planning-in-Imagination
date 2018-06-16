@@ -38,23 +38,20 @@ def eval_in_batches(model, dataset, eval_size=1000):
     return loss_accumulated/num_batches
 
 
-def test_model(model, dataset, interval=0.003, concat=True):
+def test_model(model, dataset, interval=0.003):
     fig = plt.figure(figsize=(1, 3))
     model = torch.load("{}.model".format(model.name))
-    for _ in range(dataset.num_samples):
+    for i in range(dataset.num_samples):
         states, next_states, actions = dataset.get_next_batch(1)
         prediction = model(torch.unsqueeze(torch.Tensor(states[0]), 0), torch.unsqueeze(torch.Tensor(actions[0]), 0))
 
         fig.add_subplot(1, 3, 1)
-        # if concat:
-        #     plt.imshow(state[3].reshape(80, 80).astype(np.float32))
-        # else:
-        #     plt.imshow(state.reshape(80, 80).astype(np.float32))
-        plt.imshow(states[0].reshape(80, 80))
+        plt.imshow(states[0][-1].astype(np.float32))
         fig.add_subplot(1, 3, 2)
         plt.imshow(prediction.detach().cpu().numpy().reshape(80, 80))
+        plt.title("Step: {}".format(i))
         fig.add_subplot(1, 3, 3)
-        plt.imshow(next_states[0].reshape(80, 80).astype(np.float32))
+        plt.imshow(next_states[0][0].astype(np.float32))
 
         plt.show(block=False)
 
