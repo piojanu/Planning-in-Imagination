@@ -111,25 +111,28 @@ class Planner(VFPlanner):
             pi = (1 - self.noise_rate) * pi + self.noise_rate * \
                 np.random.dirichlet([self.dirichlet_noise, ] * len(pi))
 
-        # Get valid actions
+        # Get valid actions probabilities
         valid_moves = self.model.get_valid_moves(leaf_node.state, leaf_node.player)
 
-        # Renormalize valid actions probabilities
-        probs = np.zeros_like(pi)
-        probs[valid_moves] = pi[valid_moves]
+        # Create edges of this node
+        edges = {}
 
-        sum_probs = np.sum(probs)
-        if sum_probs <= 0:
-            # If all valid moves were masked make all valid moves equally probable
-            log.warn("All valid moves were masked, do workaround!")
-            probs[valid_moves] = 1
-        probs = probs / sum_probs
+        # Renormalize valid actions probabilities, but only if there are any valid actions
+        if len(valid_moves) != 0:
+            probs = np.zeros_like(pi)
+            probs[valid_moves] = pi[valid_moves]
+            sum_probs = np.sum(probs)
+            if sum_probs <= 0:
+                # If all valid moves were masked make all valid moves equally probable
+                log.warn("All valid moves were masked, do workaround!")
+                probs[valid_moves] = 1
+            probs = probs / sum_probs
+
+            # Fill this node edges with priors
+            for m in valid_moves:
+                edges[m] = Edge(prior=probs[m])
 
         # Expand node with edges
-        edges = {}
-        for m in valid_moves:
-            edges[m] = Edge(prior=probs[m])
-
         leaf_node.expand(edges)
 
         # Get value from result array
