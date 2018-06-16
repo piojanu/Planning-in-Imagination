@@ -56,7 +56,7 @@ class GenerativeModel(nn.Module):
 
 
 class GenerativeModelMini(nn.Module):
-    def __init__(self, dense_size=200, input_channels=1):
+    def __init__(self, dense_size=200, input_channels=1, action_space=4):
         nn.Module.__init__(self)
 
         # Convolutional layers
@@ -65,7 +65,7 @@ class GenerativeModelMini(nn.Module):
 
         # dense layers
         self.state_dense = nn.Linear(32 * 7 * 7, dense_size)
-        self.action_dense = nn.Linear(4, dense_size)
+        self.action_dense = nn.Linear(action_space, dense_size)
         self.action_state_dense = nn.Linear(dense_size, 32 * 7 * 7)
 
         # Deconv layers

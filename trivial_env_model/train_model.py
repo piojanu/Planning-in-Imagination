@@ -1,8 +1,9 @@
 import torch, torch.optim as optim, torch.nn.functional as F
 import argparse
-from models import GenerativeModelMini
-from utils import eval_in_batches, test_model, load_data
 import time
+from models import GenerativeModelMini
+from utils import eval_in_batches, test_model
+from dataset import get_data
 
 
 def run_eval(data, model):
@@ -10,16 +11,17 @@ def run_eval(data, model):
     if torch.cuda.is_available():
         restored_model.cuda()
 
-    val_loss = eval_in_batches(restored_model, data["val"]["states"], data["val"]["next_states"], data["val"]["actions"])
-    train_loss = eval_in_batches(restored_model, data["train"]["states"], data["train"]["next_states"], data["train"]["actions"])
+    test_loss = eval_in_batches(restored_model, data.test_set)
+    val_loss = eval_in_batches(restored_model, data.valid_set)
+    train_loss = eval_in_batches(restored_model, data.train_set)
 
-    print("Model evaluation: val_loss: {}, train_loss: {}".format(val_loss, train_loss))
+    print("Model evaluation: test_loss: {}, val_loss: {}, train_loss: {}".format(test_loss, val_loss, train_loss))
 
-    test_model(restored_model, data["val"]["states"], data["val"]["next_states"], data["val"]["actions"])
+    test_model(restored_model, data.test_set)
 
 
 def run_training(data, model, batch_size=100, num_epochs=1000, init_lr=0.0015, patience=30, eval_size=1000):
-    num_steps = data["train"]["states"].shape[0] // batch_size
+    num_steps = data.train_set.num_samples // batch_size
     intervals_without_improvement = 0
 
     optimizer = optim.Adam(model.parameters(), lr=init_lr)
@@ -28,10 +30,10 @@ def run_training(data, model, batch_size=100, num_epochs=1000, init_lr=0.0015, p
     # Uncomment to calculate reference loss from scratch
     # Calculating reference loss as mean loss between state and next state
     # ref_loss_accumulated = 0
-    # num_evals = data["train"]["states"].shape[0] // eval_size
-    # for eval in range(num_evals):
-    #     loss = F.mse_loss(torch.Tensor(data["train"]["states"][eval * eval_size:(eval + 1) * eval_size]),
-    #                    torch.Tensor(data["train"]["next_states"][eval * eval_size:(eval + 1) * eval_size]))
+    # num_evals = data.train_set.num_samples // eval_size
+    # for _ in range(num_evals):
+    #     states, next_states, _ = data.train_set.get_next_batch(eval_size)
+    #     loss = F.mse_loss(torch.Tensor(states), torch.Tensor(next_states))
     #     ref_loss_accumulated += loss.item()
     # reference_loss = ref_loss_accumulated / num_evals
     reference_loss = 0.0036
@@ -46,8 +48,8 @@ def run_training(data, model, batch_size=100, num_epochs=1000, init_lr=0.0015, p
         global_step = num_steps * epoch
         # adjust_learning_rate(optimizer, init_lr, gamma=0.98, global_step=global_step, decay_interval=100)
         eval_time = time.time()
-        val_loss = eval_in_batches(model, data["val"]["states"], data["val"]["next_states"], data["val"]["actions"])
-        train_loss = eval_in_batches(model, data["train"]["states"], data["train"]["next_states"], data["train"]["actions"])
+        val_loss = eval_in_batches(model, data.valid_set)
+        train_loss = eval_in_batches(model, data.train_set)
         eval_time = time.time() - eval_time
         print("Epoch: {}, step: {}, loss: [val: {}, train: {}, ref: {}], lr: {}".format(epoch, global_step,
                                                                                         val_loss, train_loss,
@@ -70,10 +72,10 @@ def run_training(data, model, batch_size=100, num_epochs=1000, init_lr=0.0015, p
         train_time = time.time()
         for step in range(num_steps):
             # Training
-            states_train_tensor = torch.Tensor(data["train"]["states"][step * batch_size:(step + 1) * batch_size])
-            next_states_train_tensor = torch.Tensor(
-                data["train"]["next_states"][step * batch_size:(step + 1) * batch_size])
-            actions_train_tensor = torch.Tensor(data["train"]["actions"][step * batch_size:(step + 1) * batch_size])
+            states_batch, next_states_batch, actions_batch = data.train_set.get_next_batch(batch_size)
+            states_train_tensor = torch.Tensor(states_batch)
+            next_states_train_tensor = torch.Tensor(next_states_batch)
+            actions_train_tensor = torch.Tensor(actions_batch)
 
             assert states_train_tensor.shape[0] == next_states_train_tensor.shape[0], "states and next states shape does not match!"
 
@@ -102,15 +104,14 @@ if __name__ == "__main__":
     parser.add_argument("--model", default="concat-input")
     args = parser.parse_args()
 
-    # Loading data and creating model
+    # Creating model
+    context = 1
     if args.model == "concat-input":
-        data = load_data(args.dataset, concat=True)
-        model = GenerativeModelMini(input_channels=4)
-    elif args.model == "single-input":
-        data = load_data(args.dataset, concat=False)
-        model = GenerativeModelMini(input_channels=1)
-    else:
-        raise Exception("Model has to be either generative or autoencoder")
+        context = 4
+
+    data = get_data(args.dataset, context=context)
+    model = GenerativeModelMini(input_channels=context, action_space=data.action_space)
+    print("Action space: {}".format(data.action_space))
 
     print("Using {}".format(args.model))
 
@@ -130,5 +131,6 @@ if __name__ == "__main__":
         run_eval(data, model)
     else:
         raise Exception("Please specify either train or eval param")
+    data.close()
 
 
