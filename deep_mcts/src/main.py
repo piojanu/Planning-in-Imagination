@@ -154,9 +154,8 @@ def play(context):
 @click.pass_context
 @click.argument('first_model_path', nargs=1, type=click.Path(exists=True))
 @click.argument('second_model_path', nargs=1, type=click.Path(exists=True))
-@click.option('-n', '--n-games', help="Number of games (Default: 10)", default=10)
 @click.option('--render/--no-render', help="Enable rendering game (Default: True)", default=True)
-def test(context, first_model_path, second_model_path, n_games, render):
+def test(context, first_model_path, second_model_path, render):
     """Test two models. Play `n_games` between themselves.
 
         Args:
@@ -185,7 +184,7 @@ def test(context, first_model_path, second_model_path, n_games, render):
     first_player = Planner(game, first_player_net, planner_params)
     second_player = Planner(game, second_player_net, planner_params)
     hrl.loop(env, [first_player, second_player], alternate_players=True, policy='deterministic',
-             n_episodes=n_games, train_mode=False,
+             n_episodes=2, train_mode=False,
              name="Test  models: {} vs {}".format(first_model_path.split(
                  "/")[-1], second_model_path.split("/")[-1]),
              callbacks=[render_callback, tournament])
