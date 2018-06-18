@@ -75,7 +75,9 @@ class NpzData(Data):
         for action_id, action in enumerate(actions):
             actions_one_hot[action_id, action] = 1
 
-        data_tuple = (states, next_states, actions_one_hot)
+        rewards = np.zeros((states.shape[0], 1))
+
+        data_tuple = (states, next_states, actions_one_hot, rewards)
 
         assert states.shape[0] == actions_one_hot.shape[0], "Number of states and actions is inconsistent"
 
@@ -103,7 +105,7 @@ class Hdf5Data(Data):
         data_size = num_traj * traj_len
 
         train_size = int(train_fraction * data_size)
-        train_window_size = 4*traj_len if train_size > 4*traj_len else train_size
+        train_window_size = 2*traj_len if train_size > 2*traj_len else train_size
         valid_size = int(valid_fraction * data_size)
         valid_window_size = 2*traj_len if valid_size > 2*traj_len else valid_size
         test_size = data_size - train_size - valid_size
@@ -114,7 +116,7 @@ class Hdf5Data(Data):
         print("Initializing training set...")
         self.train_set = PrefetchDataset(data=self.data, beg_idx=0, end_idx=train_size,
                                          window_size=train_window_size,
-                                         fetch_and_preprocess_fn=fn, n_threads=4)
+                                         fetch_and_preprocess_fn=fn, n_threads=2)
         print("Initializing validation set...")
         self.valid_set = PrefetchDataset(data=self.data, beg_idx=train_size, end_idx=train_size + valid_size,
                                          window_size=valid_window_size,
@@ -171,7 +173,9 @@ class Hdf5Data(Data):
             for action_id, action in enumerate(actions):
                 actions_one_hot[action_id, int(action)] = 1
 
-            return states, next_states, actions_one_hot
+            rewards = transitions[:, 2].reshape(-1, 1)
+
+            return states, next_states, actions_one_hot, rewards
 
         return fetch_and_preprocess_hdf5
 
@@ -280,12 +284,12 @@ class PrefetchDataset(Dataset):
         t = self.prefetch_threads[thread_id]
         t.join()
         if not self.window_data:
+            # Allocate `n_threads` times the size for every data tensor
             for i, nd in enumerate(t.new_data):
-                self.window_data.append(np.vstack([nd for _ in range(self.n_threads)]))
-        else:
-            beg = thread_id * self.prefetch_size
-            for i, wd in enumerate(self.window_data):
-                wd[beg:beg+self.prefetch_size] = t.new_data[i]
+                self.window_data.append(np.zeros((self.n_threads * nd.shape[0], *nd.shape[1:])))
+        beg = thread_id * self.prefetch_size
+        for i, wd in enumerate(self.window_data):
+            wd[beg:beg+self.prefetch_size] = t.new_data[i]
 
     def get_next_batch(self, batch_size):
         beg = self.window_cur_idx

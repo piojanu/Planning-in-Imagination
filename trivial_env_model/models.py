@@ -68,6 +68,9 @@ class GenerativeModelMini(nn.Module):
         self.action_dense = nn.Linear(action_space, dense_size)
         self.action_state_dense = nn.Linear(dense_size, 32 * 7 * 7)
 
+        self.rewards_fc1 = nn.Linear(dense_size, 100)
+        self.rewards_fc2 = nn.Linear(100, 1)
+
         # Deconv layers
         self.deconv1 = nn.ConvTranspose2d(in_channels=32, out_channels=32, kernel_size=3, stride=3, padding=0)
         self.deconv2 = nn.ConvTranspose2d(in_channels=32, out_channels=1, kernel_size=5, stride=4, padding=3, output_padding=1)
@@ -86,6 +89,9 @@ class GenerativeModelMini(nn.Module):
         action_dense = self.action_dense(action)
         state_action_tranformation = state_dense*action_dense
 
+        reward1_relu = F.relu(self.rewards_fc1(state_action_tranformation))
+        reward = self.rewards_fc2(reward1_relu)
+
         # Output dense
         action_state_dense = self.action_state_dense(state_action_tranformation)
 
@@ -93,7 +99,7 @@ class GenerativeModelMini(nn.Module):
 
         deconv1_relu = F.relu(self.deconv1(deflat))
         deconv2 = self.deconv2(deconv1_relu)
-        return F.tanh(deconv2)
+        return F.tanh(deconv2), reward
 
     @property
     def name(self):
