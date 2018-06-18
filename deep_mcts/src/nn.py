@@ -57,12 +57,13 @@ class NeuralNet(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def load_checkpoint(self, folder, filename):
+    def load_checkpoint(self, path, filename=None):
         """Loads parameters of the neural network from folder/filename.
 
         Args:
-            folder (string): Directory for loading checkpoints from.
-            filename (string): File name of saved nn checkpoint.
+            path (string): Directory for loading checkpoints from or full path to file
+        if filename is None.
+            filename (string): File name of saved nn checkpoint. (Default: None)
         """
 
         pass
@@ -159,25 +160,19 @@ class KerasNet(NeuralNet):
             os.mkdir(folder)
         self.model.save_weights(filepath)
 
-    def load_checkpoint(self, folder, filename):
+    def load_checkpoint(self, path, filename=None):
         """Loads parameters of the neural network from folder/filename.
 
         Args:
-            folder (string): Directory for loading checkpoints from.
-            filename (string): File name of saved nn checkpoint.
+            path (string): Directory for loading checkpoints from or full path to file
+        if filename is None.
+            filename (string): File name of saved nn checkpoint. (Default: None)
         """
 
-        filepath = os.path.join(folder, filename)
-        if not os.path.exists(filepath):
-            raise("No model in path {}".format(filepath))
-        self.model.load_weights(filepath)
-
-    def load_checkpoint_from_path(self, filepath):
-        """Loads parameters of the neural network from file path.
-
-        Args:
-            filepath (string): Path to saved nn checkpoint.
-        """
+        if filename is None:
+            filepath = path
+        else:
+            filepath = os.path.join(path, filename)
 
         if not os.path.exists(filepath):
             raise("No model in path {}".format(filepath))
