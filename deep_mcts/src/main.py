@@ -51,18 +51,24 @@ def train(context={}):
             context.obj (JSON dict): configuration parameters
             Parameters for training:
                 * 'game' (string)                     : game name (Default: tictactoe)
-                * 'update_threshold' (float):         : required threshold to be new best player
-                                                        (Default: 0.55)
-                * 'policy_warmup' (int)               : how many stochastic warmup steps should take
-                                                        deterministic policy (Default: 12)
                 * 'max_iter' (int)                    : number of train process iterations
                                                         (Default: -1)
-                * 'save_checkpoint_folder' (string)   : folder to save best models
-                                                        (Default: "checkpoints")
-                * 'save_checkpoint_filename' (string) : filename of best model (Default: "bestnet")
+                * 'min_examples' (int)                : minimum number of examples to start training
+                                                        nn, if -1 then no threshold. (Default: -1)
+                * 'policy_warmup' (int)               : how many stochastic warmup steps should take
+                                                        deterministic policy (Default: 12)
                 * 'n_self_plays' (int)                : number of self played episodes
                                                         (Default: 100)
                 * 'n_tournaments' (int)               : number of tournament episodes (Default: 20)
+                * 'save_checkpoint_folder' (string)   : folder to save best models
+                                                        (Default: "checkpoints")
+                * 'save_checkpoint_filename' (string) : filename of best model (Default: "bestnet")
+                * 'save_train_log_path' (string)      : where to save train logs.
+                                                        (Default: "./logs/training.log")
+                * 'save_tournament_log_path' (string) : where to save tournament logs.
+                                                        (Default: "./logs/tournament.log")
+                * 'update_threshold' (float):         : required threshold to be new best player
+                                                        (Default: 0.55)
 
     """
     nn_params, planner_params, storage_params, train_params, env, game_name, game = context.obj
@@ -111,6 +117,7 @@ def train(context={}):
 
     iter = 0
     max_iter = train_params.get("max_iter", -1)
+    min_examples = train_params.get("min_examples", -1)
     while max_iter == -1 or iter < max_iter:
         iter_counter_str = "{:03d}/{:03d}".format(iter + 1, max_iter) if max_iter > 0 \
             else "{:03d}/inf".format(iter + 1)
@@ -122,6 +129,11 @@ def train(context={}):
                  name="Self-play  " + iter_counter_str, verbose=2,
                  callbacks=[train_stats, storage])
         storage.store()
+
+        # Proceed to training only if threshold is fulfilled
+        if len(storage.big_bag) <= min_examples:
+            log.warn("Skip training, gather minimum {} training examples!".format(min_examples))
+            continue
 
         # TRAINING - improve neural net
         trained_data = storage.big_bag
