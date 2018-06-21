@@ -4,54 +4,6 @@ from mcts import MCTS
 from nn import KerasNet
 from tree.basic import Node, Edge
 
-from keras.backend import image_data_format
-from keras.layers import Activation, BatchNormalization, Conv2D, Dense, Dropout, Flatten, Reshape
-from keras.models import Sequential
-from keras.regularizers import l2
-
-
-def build_keras_nn(game, params):
-    """Build neural network model in Keras.
-
-    Args:
-        game (Game): Perfect information dynamics/game. Used to get information
-    like action/state space sizes etc.
-        params (dict): Neural Net architecture hyper-parameters. Available:
-          * 'l2_regularizer' (float) : L2 weight decay rate.
-                                       (Default: 0.001)
-          * 'dropout' (float)        : Dense layers dropout rate.
-                                       (Default: 0.4)
-    """
-
-    l2_reg = params.get("l2_regularizer", 0.001)
-    dropout = params.get("dropout", 0.4)
-
-    DATA_FORMAT = image_data_format()
-    BOARD_HEIGHT, BOARD_WIDTH = game.get_board_size()
-
-    def conv2d_n_batchnorm(model, filters, padding='same'):
-        model.add(Conv2D(filters, kernel_size=(3, 3), padding=padding,
-                         kernel_regularizer=l2(l2_reg)))
-        if DATA_FORMAT == 'channels_first':
-            model.add(BatchNormalization(axis=1))
-        else:
-            model.add(BatchNormalization(axis=3))
-        model.add(Activation(activation='relu'))
-
-    model = Sequential()
-    if DATA_FORMAT == 'channels_first':
-        model.add(Reshape((1, BOARD_HEIGHT, BOARD_WIDTH), input_shape=(BOARD_HEIGHT, BOARD_WIDTH)))
-    else:
-        model.add(Reshape((BOARD_HEIGHT, BOARD_WIDTH, 1), input_shape=(BOARD_HEIGHT, BOARD_WIDTH)))
-    conv2d_n_batchnorm(model, filters=128, padding='same')
-    conv2d_n_batchnorm(model, filters=256, padding='valid')
-    model.add(Flatten())
-    model.add(Dense(1024, activation='relu', kernel_regularizer=l2(l2_reg)))
-    model.add(Dropout(dropout))
-    model.add(Dense(1, activation='tanh', kernel_regularizer=l2(l2_reg)))
-
-    return model
-
 
 class Planner(MCTS):
     """MCTS search operations and planning logic."""
