@@ -4,7 +4,7 @@ import os
 from abc import ABCMeta, abstractmethod
 
 from keras.optimizers import SGD
-from keras.callbacks import EarlyStopping
+from keras.callbacks import CSVLogger, EarlyStopping
 
 
 class NeuralNet(metaclass=ABCMeta):
@@ -93,6 +93,8 @@ class KerasNet(NeuralNet):
                                       which training will be stopped. You need to set val_split > 0
                                       in order to have it work. Set to -1 for no early stopping.
                                       (Default: 5)
+              * 'save_training_log_path' (string) : where to save nn train logs.
+                                                    (Default: "./logs/training.log")
         """
 
         self.model = model
@@ -112,6 +114,10 @@ class KerasNet(NeuralNet):
                 self.callbacks.append(EarlyStopping(monitor='val_loss', patience=self.patience))
             else:
                 log.warn("Early stopping DISABLED! Patience > 0 byt val_split <= 0.")
+
+        # Add CSVLogger
+        self.callbacks.append(CSVLogger(
+            params.get('save_training_log_path', './logs/training.log'), append=True))
 
         model.compile(loss=self.loss,
                       optimizer=SGD(lr=self.lr,

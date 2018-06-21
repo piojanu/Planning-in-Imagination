@@ -63,8 +63,8 @@ def train(context={}):
                 * 'save_checkpoint_folder' (string)   : folder to save best models
                                                         (Default: "checkpoints")
                 * 'save_checkpoint_filename' (string) : filename of best model (Default: "bestnet")
-                * 'save_train_log_path' (string)      : where to save train logs.
-                                                        (Default: "./logs/training.log")
+                * 'save_self_play_log_path' (string)  : where to save self-play logs.
+                                                        (Default: "./logs/self-play.log")
                 * 'save_tournament_log_path' (string) : where to save tournament logs.
                                                         (Default: "./logs/tournament.log")
                 * 'update_threshold' (float):         : required threshold to be new best player
@@ -108,7 +108,7 @@ def train(context={}):
     # Create callbacks, storage and tournament
     storage = Storage(storage_params)
     train_stats = CSVSaverWrapper(
-        BasicStats(), train_params.get('save_train_log_path', './logs/training.log'))
+        BasicStats(), train_params.get('save_self_play_log_path', './logs/self-play.log'))
     tournament_stats = CSVSaverWrapper(
         Tournament(), train_params.get('save_tournament_log_path', './logs/tournament.log'), True)
 
