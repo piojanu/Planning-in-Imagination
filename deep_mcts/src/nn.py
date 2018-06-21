@@ -35,13 +35,14 @@ class NeuralNet(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def train(self, data, targets):
+    def train(self, data, targets, callbacks=[]):
         """Perform training according to passed parameters in :method:`build` call.
 
         Args:
             data (numpy.Array): States to train on.
             targets (numpy.Array): Ground truth targets, depend on specific model.
-        """
+            callbacks (list): Extra callbacks to pass to keras model fit method. (Default: [])
+         """
 
         pass
 
@@ -138,19 +139,20 @@ class KerasNet(NeuralNet):
 
         return self.model.predict(state)
 
-    def train(self, data, targets):
+    def train(self, data, targets, callbacks):
         """Perform training according to passed parameters in `build` call.
 
         Args:
             data (numpy.Array): States to train on.
             targets (numpy.Array): Ground truth targets, depend on specific model.
+            callbacks (list): Extra callbacks to pass to keras model fit method. (Default: [])
         """
 
         self.model.fit(data, targets,
                        batch_size=self.batch_size,
                        epochs=self.epochs,
                        validation_split=self.val_split,
-                       callbacks=self.callbacks)
+                       callbacks=self.callbacks + callbacks)
 
     def save_checkpoint(self, folder, filename):
         """Saves the current neural network (with its parameters) in folder/filename.
