@@ -4,6 +4,9 @@ import logging as log
 import numpy as np
 import utils
 import click
+import math
+
+from tabulate import tabulate
 
 from algos.alphazero import build_keras_nn, Planner
 from env import GameEnv
@@ -20,7 +23,21 @@ log.basicConfig(level=log.DEBUG, format="[%(levelname)s]: %(message)s")
               help="Config file (Default: config.json)", default="config.json")
 def main(context, config_file):
     # Parse .json file with arguments
-    context.obj = json.loads(config_file.read())
+    params = json.loads(config_file.read())
+
+    # Get specific modules params
+    nn_params = params.get("neural_net", {})
+    planner_params = params.get("planner", {})
+    storage_params = params.get("storage", {})
+    train_params = params.get("train", {})
+
+    # Create environment and game model
+    game_name = train_params.get('game', 'tictactoe')
+    env = GameEnv(name=game_name)
+    game = env.game
+
+    # Create context
+    context.obj = (nn_params, planner_params, storage_params, train_params, env, game_name, game)
 
 
 @main.command()
@@ -34,36 +51,32 @@ def train(context={}):
             context.obj (JSON dict): configuration parameters
             Parameters for training:
                 * 'game' (string)                     : game name (Default: tictactoe)
-                * 'update_threshold' (float):         : required threshold to be new best player
-                                                        (Default: 0.55)
-                * 'policy_warmup' (int)               : how many stochastic warmup steps should take
-                                                        deterministic policy (Default: 12)
                 * 'max_iter' (int)                    : number of train process iterations
                                                         (Default: -1)
-                * 'save_checkpoint_folder' (string)   : folder to save best models
-                                                        (Default: "checkpoints")
-                * 'save_checkpoint_filename' (string) : filename of best model (Default: "bestnet")
+                * 'min_examples' (int)                : minimum number of examples to start training
+                                                        nn, if -1 then no threshold. (Default: -1)
+                * 'policy_warmup' (int)               : how many stochastic warmup steps should take
+                                                        deterministic policy (Default: 12)
                 * 'n_self_plays' (int)                : number of self played episodes
                                                         (Default: 100)
                 * 'n_tournaments' (int)               : number of tournament episodes (Default: 20)
+                * 'save_checkpoint_folder' (string)   : folder to save best models
+                                                        (Default: "checkpoints")
+                * 'save_checkpoint_filename' (string) : filename of best model (Default: "bestnet")
+                * 'save_train_log_path' (string)      : where to save train logs.
+                                                        (Default: "./logs/training.log")
+                * 'save_tournament_log_path' (string) : where to save tournament logs.
+                                                        (Default: "./logs/tournament.log")
+                * 'update_threshold' (float):         : required threshold to be new best player
+                                                        (Default: 0.55)
 
     """
-    params = context.obj
-    # Get params for different MCTS parts
-    nn_params = params.get("neural_net", {})
-    planner_params = params.get("planner", {})
-    storage_params = params.get("storage", {})
-    train_params = params.get("train", {})
+    nn_params, planner_params, storage_params, train_params, env, game_name, game = context.obj
 
     # Get params for best model ckpt creation and update threshold
     save_folder = train_params.get('save_checkpoint_folder', 'checkpoints')
     save_filename = train_params.get('save_checkpoint_filename', 'bestnet')
     update_threshold = train_params.get("update_threshold", 0.55)
-
-    # Create environment and game model
-    game_name = train_params.get('game', 'tictactoe')
-    env = GameEnv(name=game_name)
-    game = env.game
 
     # Create Minds, current and best
     current_net = KerasNet(build_keras_nn(game, nn_params), nn_params)
@@ -104,6 +117,7 @@ def train(context={}):
 
     iter = 0
     max_iter = train_params.get("max_iter", -1)
+    min_examples = train_params.get("min_examples", -1)
     while max_iter == -1 or iter < max_iter:
         iter_counter_str = "{:03d}/{:03d}".format(iter + 1, max_iter) if max_iter > 0 \
             else "{:03d}/inf".format(iter + 1)
@@ -112,9 +126,14 @@ def train(context={}):
         hrl.loop(env, self_play_players,
                  policy='deterministic', warmup=train_params.get('policy_warmup', 12),
                  n_episodes=train_params.get('n_self_plays', 100),
-                 name="Self-play  " + iter_counter_str,
+                 name="Self-play  " + iter_counter_str, verbose=2,
                  callbacks=[train_stats, storage])
         storage.store()
+
+        # Proceed to training only if threshold is fulfilled
+        if len(storage.big_bag) <= min_examples:
+            log.warn("Skip training, gather minimum {} training examples!".format(min_examples))
+            continue
 
         # TRAINING - improve neural net
         trained_data = storage.big_bag
@@ -129,7 +148,7 @@ def train(context={}):
                  policy='deterministic', warmup=train_params.get('policy_warmup', 12), temperature=0.2,
                  alternate_players=True, train_mode=False,
                  n_episodes=train_params.get('n_tournaments', 20),
-                 name="Tournament " + iter_counter_str,
+                 name="Tournament " + iter_counter_str, verbose=2,
                  callbacks=[tournament_stats])
 
         wins, losses, draws = tournament_stats.callback.results
@@ -163,21 +182,14 @@ def test(context, first_model_path, second_model_path, render):
             first_model_path: (string): Path to first player model.
             second_model_path (string): Path to second player model.
     """
-
-    params = context.obj
-    nn_params = params.get("neural_net", {})
-    planner_params = params.get("planner", {})
-    train_params = params.get("train", {})
-    game_name = train_params.get('game', 'tictactoe')
-    env = GameEnv(name=game_name)
-    game = env.game
+    nn_params, planner_params, _, train_params, env, game_name, game = context.obj
 
     # Create Minds, current and best
     first_player_net = KerasNet(build_keras_nn(game, nn_params), nn_params)
     second_player_net = KerasNet(build_keras_nn(game, nn_params), nn_params)
 
-    first_player_net.load_checkpoint_from_path(first_model_path)
-    second_player_net.load_checkpoint_from_path(second_model_path)
+    first_player_net.load_checkpoint(first_model_path)
+    second_player_net.load_checkpoint(second_model_path)
 
     tournament = Tournament()
     render_callback = RenderCallback(env, render)
@@ -191,6 +203,65 @@ def test(context, first_model_path, second_model_path, render):
 
     log.info("{} vs {} results: {}".format(first_model_path.split("/")
                                            [-1], second_model_path.split("/")[-1], tournament.results))
+
+
+@main.command()
+@click.pass_context
+@click.argument('checkpoints_dir', nargs=1, type=click.Path(exists=True))
+@click.option('-g', '--gap', help="Gap between versions of best model (Default: 2)", default=2)
+def validate(context, checkpoints_dir, gap):
+    """Validate trained models. Best networks play with each other.
+
+        Args:
+            checkpoints_dir: (string): Path to checkpoints with models.
+    """
+    nn_params, planner_params, _, train_params, env, game_name, game = context.obj
+
+    # Create players and their minds
+    first_player_net = KerasNet(build_keras_nn(game, nn_params), nn_params)
+    second_player_net = KerasNet(build_keras_nn(game, nn_params), nn_params)
+    first_player = Planner(game, first_player_net, planner_params)
+    second_player = Planner(game, second_player_net, planner_params)
+
+    # Create callbacks
+    tournament = Tournament()
+
+    # Get checkpoints paths
+    all_checkpoints_paths = utils.get_checkpoints_for_game(checkpoints_dir, game_name)
+
+    # Reduce gap to play at least one game when there is more than one checkpoint
+    if gap >= len(all_checkpoints_paths):
+        gap = len(all_checkpoints_paths) - 1
+        log.info("Gap is too big. Reduced to {}".format(gap))
+
+    # Gather players ids and checkpoints paths for cross play
+    players_ids = []
+    checkpoints_paths = []
+    for idx in range(0, len(all_checkpoints_paths), gap):
+        players_ids.append(idx)
+        checkpoints_paths.append(all_checkpoints_paths[idx])
+
+    # Create table for results, extra column for player id
+    results = np.zeros((len(checkpoints_paths), 1 + len(checkpoints_paths)), dtype=int)
+
+    for i, (first_player_id, first_checkpoint_path) in enumerate(zip(players_ids, checkpoints_paths)):
+        first_player_net.load_checkpoint(first_checkpoint_path)
+        results[i][0] = first_player_id
+
+        for j, (second_player_id, second_checkpoint_path) in enumerate(zip(players_ids, checkpoints_paths)):
+            if first_player_id != second_player_id:
+                second_player_net.load_checkpoint(second_checkpoint_path)
+
+                hrl.loop(env, [first_player, second_player], alternate_players=True, policy='deterministic',
+                         n_episodes=2, train_mode=False,
+                         name="{} vs {}".format(first_player_id, second_player_id),
+                         callbacks=[tournament])
+
+                wins, losses, _ = tournament.results
+                results[i][j + 1] = wins - losses
+
+    tab = tabulate(results, headers=players_ids, tablefmt="fancy_grid")
+    log.info("results:\n{}".format(tab))
 
 
 if __name__ == "__main__":

@@ -336,7 +336,7 @@ def ply(env, mind, player=0, policy='deterministic', train_mode=True, vision=Vis
     return transition
 
 
-def loop(env, minds, n_episodes=1, max_steps=-1, alternate_players=False, policy='deterministic', train_mode=True, vision=Vision(), name="Loop", callbacks=[], **kwargs):
+def loop(env, minds, n_episodes=1, max_steps=-1, alternate_players=False, policy='deterministic', train_mode=True, vision=Vision(), name="Loop", verbose=1, callbacks=[], **kwargs):
     """Conduct series of plies (turns taken by each player in order).
 
     Args:
@@ -352,6 +352,8 @@ def loop(env, minds, n_episodes=1, max_steps=-1, alternate_players=False, policy
     (Default: True)
         vision (Vision): State and reward preprocessing. (Default: no preprocessing)
         name (string): Name shown in progress bar. (Default: "Loop")
+        verbose (int): Specify how much information to log (0: nothing, 1: progress bar, 2: logs).
+    (Default: 1)
         callbacks (list of Callback objects): Objects that can listen to events during play.
     (Default: [])
         **kwargs: Other keyword arguments may be needed depending on chosen policy.
@@ -373,7 +375,8 @@ def loop(env, minds, n_episodes=1, max_steps=-1, alternate_players=False, policy
     try:
         # Play given number of episodes
         first_player = 0
-        pbar = tqdm(range(n_episodes), ascii=True, desc=name)
+        pbar = tqdm(range(n_episodes), ascii=True, desc=name,
+                    disable=True if verbose == 0 else False)
         for iter in pbar:
             step = 0
             _, player = env.reset(train_mode, first_player=first_player)
@@ -396,10 +399,13 @@ def loop(env, minds, n_episodes=1, max_steps=-1, alternate_players=False, policy
 
                 # Finish if this transition was terminal
                 if transition.is_terminal:
-                    # Update bar suffix
-                    logs = callbacks_list.on_episode_end()
-                    pbar.write("Iter. {:3}".format(iter) + ": [ " +
-                               ", ".join(["{}: {:.4g}".format(k, float(v)) for k, v in logs.items()]) + " ]")
+                    if verbose >= 2:
+                        # Update bar suffix
+                        logs = callbacks_list.on_episode_end()
+                        pbar.write("Iter. {:3}".format(iter) + ": [ " + ", ".join(
+                            ["{}: {:.4g}".format(k, float(v)) for k, v in logs.items()]) + " ]")
+
+                    # Finish episode
                     break
 
             # Change first player

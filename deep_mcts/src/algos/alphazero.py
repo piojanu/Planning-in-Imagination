@@ -31,7 +31,7 @@ def build_keras_nn(game, params):
     ACTION_SIZE = game.get_action_size()
 
     def conv2d_n_batchnorm(x, filters, padding='same'):
-        conv = Conv2D(filters, kernel_size=(3, 3), padding=padding,
+        conv = Conv2D(filters, kernel_size=(3, 3), padding=padding, strides=2,
                       kernel_regularizer=l2(l2_reg))(x)
         if DATA_FORMAT == 'channels_first':
             bn = BatchNormalization(axis=1)(conv)
@@ -49,7 +49,8 @@ def build_keras_nn(game, params):
         x = Reshape((BOARD_HEIGHT, BOARD_WIDTH, 1))(boards_input)
 
     x = conv2d_n_batchnorm(x, filters=128, padding='same')
-    x = conv2d_n_batchnorm(x, filters=256, padding='valid')
+    x = conv2d_n_batchnorm(x, filters=256, padding='same')
+    x = conv2d_n_batchnorm(x, filters=512, padding='same')
     x = Flatten()(x)
     x = Dense(1024, activation='relu', kernel_regularizer=l2(l2_reg))(x)
     x = Dropout(dropout)(x)

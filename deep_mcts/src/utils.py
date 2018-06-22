@@ -21,3 +21,10 @@ def get_newest_ckpt_fname(dirname):
     latest_file = max(list_of_files, key=os.path.getctime)
 
     return os.path.basename(latest_file)
+
+
+def get_checkpoints_for_game(dirname, game_name):
+    """Looks for files with game_name in filename and '.ckpt' extension in dirname."""
+    list_of_files = sorted(glob.glob(os.path.join(dirname, '*' + game_name + '*.ckpt')))
+
+    return list_of_files

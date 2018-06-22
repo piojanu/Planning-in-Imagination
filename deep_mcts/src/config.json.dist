@@ -25,6 +25,7 @@
     "train": {
         "game"                     : "tictactoe",
         "max_iter"                 : -1,
+        "min_examples"             : -1,
         "policy_warmup"            : 12,
         "n_self_plays"             : 100,
         "n_tournaments"            : 20,
