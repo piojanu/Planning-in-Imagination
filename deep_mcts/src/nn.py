@@ -6,7 +6,7 @@ from abc import ABCMeta, abstractmethod
 from keras.optimizers import SGD
 from keras.callbacks import CSVLogger, EarlyStopping
 from keras.backend import image_data_format
-from keras.layers import Activation, BatchNormalization, Conv2D, Dense, Dropout, Flatten, Input, Reshape
+from keras.layers import Activation, add, BatchNormalization, Conv2D, Dense, Flatten, GlobalAveragePooling2D, Input, Reshape
 from keras.models import Model
 from keras.regularizers import l2
 
@@ -126,7 +126,7 @@ class KerasNet(NeuralNet):
 
         return self.model.predict(state)
 
-    def train(self, data, targets, callbacks):
+    def train(self, data, targets, callbacks=[]):
         """Perform training according to passed parameters in `build` call.
 
         Args:
@@ -181,66 +181,97 @@ def build_keras_nn(game, params):
         game (Game): Perfect information dynamics/game. Used to get information
     like action/state space sizes etc.
         params (dict): Neural Net architecture hyper-parameters. Available:
+          * 'architecture' (dict)    : ResNet like architecture description. If conv_filters = -1 or
+                                       residual_filters = -1, then no conv layer/residual blocks.
+          * 'loss' (string)          : Loss function name, passed to keras model.compile(...) method.
+                                       (Default: ["categorical_crossentropy", "mean_squared_error"])
           * 'l2_regularizer' (float) : L2 weight decay rate.
-                                       (Default: 0.001)
-          * 'dropout' (float)        : Dense layers dropout rate.
-                                       (Default: 0.4)
-          * 'loss' (string)     : Loss function name, passed to keras model.compile(...) method.
-                                  (Default: "MSE")
-          * 'lr' (float)        : Learning rate of SGD with momentum optimizer. Float > 0.
-                                  (Default: 0.01)
-          * 'momentum' (float)  : Parameter that accelerates SGD in the relevant direction and
-                                  dampens oscillations. Float >= 0 (Default: 0.)
-          * 'decay' (float)     : Learning rate decay over each update. Float >= 0. (Default: 0.)
+                                       (Default: 0.0001)
+          * 'lr' (float)             : Learning rate of SGD with momentum optimizer. Float > 0.
+                                       (Default: 0.1)
+          * 'momentum' (float)       : Parameter that accelerates SGD in the relevant direction and
+                                       dampens oscillations. Float >= 0 (Default: 0.9)
     """
 
-    decay = params.get('decay', 0.)
-    dropout = params.get("dropout", 0.4)
-    l2_reg = params.get("l2_regularizer", 0.001)
-    loss = params.get('loss', "MSE")
-    lr = params.get('lr', 0.01)
-    momentum = params.get('momentum', 0.)
+    architecture = params.get("architecture", {})
+    conv_filters = architecture.get("conv_filters", 256)
+    conv_kernel = architecture.get("conv_kernel", 5)
+    conv_stride = architecture.get("conv_stride", 2)
+    residual_bottleneck = architecture.get("residual_bottleneck", 128)
+    residual_filters = architecture.get("residual_filters", 256)
+    residual_kernel = architecture.get("residual_kernel", 3)
+    residual_num = architecture.get("residual_num", 3)
+    use_avgpool = architecture.get("use_avgpool", False)
+    dense_size = architecture.get("dense_size", 512)
+
+    loss = params.get('loss', ["categorical_crossentropy", "mean_squared_error"])
+    l2_reg = params.get("l2_regularizer", 0.0001)
+    lr = params.get('lr', 0.1)
+    momentum = params.get('momentum', 0.9)
 
     DATA_FORMAT = image_data_format()
     BOARD_HEIGHT, BOARD_WIDTH = game.get_board_size()
     ACTION_SIZE = game.get_action_size()
 
-    def conv2d_n_batchnorm(x, filters, padding='same'):
-        conv = Conv2D(filters, kernel_size=(3, 3), padding=padding, strides=2,
-                      kernel_regularizer=l2(l2_reg))(x)
+    def conv2d_n_batchnorm(x, filters, kernel_size, strides=1, shortcut=None):
+        conv = Conv2D(filters, kernel_size=kernel_size, strides=strides,
+                      padding="same", kernel_regularizer=l2(l2_reg), data_format=DATA_FORMAT)(x)
+
         if DATA_FORMAT == 'channels_first':
             bn = BatchNormalization(axis=1)(conv)
         else:
             bn = BatchNormalization(axis=3)(conv)
-        return Activation(activation='relu')(bn)
 
-    # Build model
+        if shortcut is not None:
+            out = add([bn, shortcut])
+        else:
+            out = bn
 
+        return Activation(activation='relu')(out)
+
+    def residual_block(x, filters, bottleneck, kernel_size):
+        y = conv2d_n_batchnorm(x, bottleneck, kernel_size=1, strides=1)
+        y = conv2d_n_batchnorm(y, bottleneck, kernel_size, strides=1)
+        return conv2d_n_batchnorm(y, filters, kernel_size=1, strides=1, shortcut=x)
+
+    # Add batch dimension to inputs
     boards_input = Input(shape=(BOARD_HEIGHT, BOARD_WIDTH))
-
     if DATA_FORMAT == 'channels_first':
         x = Reshape((1, BOARD_HEIGHT, BOARD_WIDTH))(boards_input)
     else:
         x = Reshape((BOARD_HEIGHT, BOARD_WIDTH, 1))(boards_input)
 
-    x = conv2d_n_batchnorm(x, filters=128, padding='same')
-    x = conv2d_n_batchnorm(x, filters=256, padding='same')
-    x = conv2d_n_batchnorm(x, filters=512, padding='same')
-    x = Flatten()(x)
-    x = Dense(1024, activation='relu', kernel_regularizer=l2(l2_reg))(x)
-    x = Dropout(dropout)(x)
-    x = Dense(512, activation='relu', kernel_regularizer=l2(l2_reg))(x)
-    x = Dropout(dropout)(x)
+    # Input convolution
+    if conv_filters > 0:
+        x = conv2d_n_batchnorm(
+            x, filters=conv_filters, kernel_size=conv_kernel, strides=conv_stride)
 
+    # Tower of residual blocks
+    if residual_filters > 0:
+        for _ in range(residual_num):
+            x = residual_block(x, residual_filters, residual_bottleneck, residual_kernel)
+
+    # Flatten or global avgpool
+    if use_avgpool:
+        x = GlobalAveragePooling2D(data_format=DATA_FORMAT)(x)
+    else:
+        x = Flatten()(x)
+
+    # Heads
+    x = Dense(dense_size, activation='relu', kernel_regularizer=l2(l2_reg))(x)
     pi = Dense(ACTION_SIZE, activation='softmax', kernel_regularizer=l2(l2_reg), name='pi')(x)
     value = Dense(1, activation='tanh', kernel_regularizer=l2(l2_reg), name='value')(x)
 
+    # Create model
     model = Model(inputs=boards_input, outputs=[pi, value])
 
+    # Compile model
     model.compile(loss=loss,
                   optimizer=SGD(lr=lr,
                                 momentum=momentum,
-                                decay=decay,
                                 nesterov=True),
                   metrics=['accuracy'])
+
+    # Log model architecture
+    model.summary(print_fn=lambda x: log.debug("%s", x))
     return model

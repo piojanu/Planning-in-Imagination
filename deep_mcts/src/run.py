@@ -5,7 +5,6 @@ import logging as log
 import numpy as np
 import utils
 import click
-import math
 
 from keras.callbacks import ModelCheckpoint
 from tabulate import tabulate
