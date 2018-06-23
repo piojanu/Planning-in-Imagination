@@ -83,7 +83,7 @@ class GameEnv(Environment):
     def reset(self, train_mode=True, first_player=0):
         self.train_mode = train_mode
         self.player = first_player
-        self._curr_state = self.game.get_init_board()
+        self._curr_state = self.game.get_canonical_form(self.game.get_init_board(), self.player)
         return self._curr_state, self.player
 
     def render(self):

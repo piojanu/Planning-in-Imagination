@@ -206,7 +206,8 @@ def train(ctx, checkpoint, best_save):
 @click.argument('first_model_path', nargs=1, type=click.Path(exists=True))
 @click.argument('second_model_path', nargs=1, type=click.Path(exists=True))
 @click.option('--render/--no-render', help="Enable rendering game (Default: True)", default=True)
-def clash(ctx, first_model_path, second_model_path, render):
+@click.option('-n', '--n-games', help="Number of games (Default: 2)", default=2)
+def clash(ctx, first_model_path, second_model_path, render, n_games):
     """Test two models. Play `n_games` between themselves.
 
         Args:
@@ -227,7 +228,7 @@ def clash(ctx, first_model_path, second_model_path, render):
     first_player = Planner(game, first_player_net, planner_params)
     second_player = Planner(game, second_player_net, planner_params)
     hrl.loop(env, [first_player, second_player], alternate_players=True, policy='deterministic',
-             n_episodes=2, train_mode=False,
+             n_episodes=n_games, train_mode=False,
              name="Test  models: {} vs {}".format(first_model_path.split(
                  "/")[-1], second_model_path.split("/")[-1]),
              callbacks=[render_callback, tournament])
@@ -293,6 +294,8 @@ def cross_play(ctx, checkpoints_dir, gap):
 
     tab = tabulate(results, headers=players_ids, tablefmt="fancy_grid")
     log.info("results:\n{}".format(tab))
+    for player_id, checkpoint_path in zip(players_ids, checkpoints_paths):
+        log.debug("{}: {}".format(player_id, checkpoint_path))
 
 
 if __name__ == "__main__":
