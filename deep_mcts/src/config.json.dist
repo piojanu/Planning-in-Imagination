@@ -1,37 +1,40 @@
 {
     "neural_net": {
-        "loss"           : ["categorical_crossentropy", "mean_squared_error"],
-        "lr"             : 0.01,
-        "momentum"       : 0.0,
-        "decay"          : 0.0,
-        "batch_size"     : 32,
-        "epochs"         : 50,
-        "val_split"      : 0.2,
-        "patience"       : 5,
-        "l2_regularizer" : 0.001,
-        "dropout"        : 0.4
+        "decay"                    : 0.000001,
+        "dropout"                  : 0.3,
+        "loss"                     : ["categorical_crossentropy", "mean_squared_error"],
+        "l2_regularizer"           : 0.0001,
+        "lr"                       : 0.01,
+        "momentum"                 : 0.9
+    },
+    "training": {
+        "batch_size"               : 32,
+        "epochs"                   : 50,
+        "patience"                 : 5,
+        "val_split"                : 0.2,
+        "save_training_log_path"   : "./logs/training.log"
     },
     "planner": {
-        "c"               : 1.0,
-        "dirichlet_noise" : 0.03,
-        "noise_ratio"     : 0.25,
-        "gamma"           : 1.0,
-        "n_simulations"   : 25
+        "c"                        : 1.0,
+        "dirichlet_noise"          : 0.03,
+        "noise_ratio"              : 0.25,
+        "gamma"                    : 1.0,
+        "n_simulations"            : 25
     },
     "storage": {
-        "exp_replay_size" : 100000,
-        "save_data_path"  : "./checkpoints/data.examples"
+        "exp_replay_size"          : 100000,
+        "save_data_path"           : "./checkpoints/data.examples"
     },
-    "train": {
+    "self_play": {
         "game"                     : "tictactoe",
         "max_iter"                 : -1,
         "min_examples"             : -1,
         "policy_warmup"            : 12,
-        "n_self_plays"             : 100,
-        "n_tournaments"            : 20,
+        "n_self_plays"             : 25,
+        "n_tournaments"            : 10,
         "save_checkpoint_folder"   : "./checkpoints",
         "save_checkpoint_filename" : "best",
-        "save_train_log_path"      : "./logs/training.log",
+        "save_self_play_log_path"  : "./logs/self-play.log",
         "save_tournament_log_path" : "./logs/tournament.log",
         "update_threshold"         : 0.55
      }

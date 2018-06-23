@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import humblerl as hrl
 import json
 import logging as log
@@ -6,11 +7,12 @@ import utils
 import click
 import math
 
+from keras.callbacks import ModelCheckpoint
 from tabulate import tabulate
 
-from algos.alphazero import build_keras_nn, Planner
+from algos.alphazero import Planner
 from env import GameEnv
-from nn import KerasNet
+from nn import build_keras_nn, KerasNet
 from callbacks import BasicStats, CSVSaverWrapper, Storage, Tournament, RenderCallback
 
 # Get and set up logger level and formatter
@@ -19,36 +21,37 @@ log.basicConfig(level=log.DEBUG, format="[%(levelname)s]: %(message)s")
 
 @click.group()
 @click.pass_context
-@click.option('-c', '--config-file', type=click.File('r'),
-              help="Config file (Default: config.json)", default="config.json")
-def main(context, config_file):
+@click.option('-c', '--config-path', type=click.File('r'),
+              help="Path to configuration file (Default: config.json)", default="config.json")
+def cli(ctx, config_path):
     # Parse .json file with arguments
-    params = json.loads(config_file.read())
+    params = json.loads(config_path.read())
 
     # Get specific modules params
     nn_params = params.get("neural_net", {})
+    training_params = params.get("training", {})
     planner_params = params.get("planner", {})
     storage_params = params.get("storage", {})
-    train_params = params.get("train", {})
+    self_play_params = params.get("self_play", {})
 
     # Create environment and game model
-    game_name = train_params.get('game', 'tictactoe')
+    game_name = self_play_params.get('game', 'tictactoe')
     env = GameEnv(name=game_name)
     game = env.game
 
     # Create context
-    context.obj = (nn_params, planner_params, storage_params, train_params, env, game_name, game)
+    ctx.obj = (nn_params, training_params, planner_params,
+               storage_params, self_play_params, env, game_name, game)
 
 
-@main.command()
+@cli.command()
 @click.pass_context
-def train(context={}):
+def self_play(ctx):
     """Train player by self-play, retraining from self-played frames and changing best player when
     new trained player beats currently best player.
 
     Args:
-        context (click.core.Context): context object.
-            context.obj (JSON dict): configuration parameters
+        ctx (click.core.Context): context object.
             Parameters for training:
                 * 'game' (string)                     : game name (Default: tictactoe)
                 * 'max_iter' (int)                    : number of train process iterations
@@ -62,25 +65,25 @@ def train(context={}):
                 * 'n_tournaments' (int)               : number of tournament episodes (Default: 20)
                 * 'save_checkpoint_folder' (string)   : folder to save best models
                                                         (Default: "checkpoints")
-                * 'save_checkpoint_filename' (string) : filename of best model (Default: "bestnet")
-                * 'save_train_log_path' (string)      : where to save train logs.
-                                                        (Default: "./logs/training.log")
+                * 'save_checkpoint_filename' (string) : filename of best model (Default: "best")
+                * 'save_self_play_log_path' (string)  : where to save self-play logs.
+                                                        (Default: "./logs/self-play.log")
                 * 'save_tournament_log_path' (string) : where to save tournament logs.
                                                         (Default: "./logs/tournament.log")
                 * 'update_threshold' (float):         : required threshold to be new best player
                                                         (Default: 0.55)
 
     """
-    nn_params, planner_params, storage_params, train_params, env, game_name, game = context.obj
+    nn_params, training_params, planner_params, storage_params, self_play_params, env, game_name, game = ctx.obj
 
     # Get params for best model ckpt creation and update threshold
-    save_folder = train_params.get('save_checkpoint_folder', 'checkpoints')
-    save_filename = train_params.get('save_checkpoint_filename', 'bestnet')
-    update_threshold = train_params.get("update_threshold", 0.55)
+    save_folder = self_play_params.get('save_checkpoint_folder', 'checkpoints')
+    save_filename = self_play_params.get('save_checkpoint_filename', 'best')
+    update_threshold = self_play_params.get("update_threshold", 0.55)
 
     # Create Minds, current and best
-    current_net = KerasNet(build_keras_nn(game, nn_params), nn_params)
-    best_net = KerasNet(build_keras_nn(game, nn_params), nn_params)
+    current_net = KerasNet(build_keras_nn(game, nn_params), training_params)
+    best_net = KerasNet(build_keras_nn(game, nn_params), training_params)
 
     # Load best nn if available
     try:
@@ -108,24 +111,24 @@ def train(context={}):
     # Create callbacks, storage and tournament
     storage = Storage(storage_params)
     train_stats = CSVSaverWrapper(
-        BasicStats(), train_params.get('save_train_log_path', './logs/training.log'))
+        BasicStats(), self_play_params.get('save_self_play_log_path', './logs/self-play.log'))
     tournament_stats = CSVSaverWrapper(
-        Tournament(), train_params.get('save_tournament_log_path', './logs/tournament.log'), True)
+        Tournament(), self_play_params.get('save_tournament_log_path', './logs/tournament.log'), True)
 
     # Load storage date from disk (path in config)
     storage.load()
 
     iter = 0
-    max_iter = train_params.get("max_iter", -1)
-    min_examples = train_params.get("min_examples", -1)
+    max_iter = self_play_params.get("max_iter", -1)
+    min_examples = self_play_params.get("min_examples", -1)
     while max_iter == -1 or iter < max_iter:
         iter_counter_str = "{:03d}/{:03d}".format(iter + 1, max_iter) if max_iter > 0 \
             else "{:03d}/inf".format(iter + 1)
 
         # SELF-PLAY - gather data using best nn
         hrl.loop(env, self_play_players,
-                 policy='deterministic', warmup=train_params.get('policy_warmup', 12),
-                 n_episodes=train_params.get('n_self_plays', 100),
+                 policy='deterministic', warmup=self_play_params.get('policy_warmup', 12),
+                 n_episodes=self_play_params.get('n_self_plays', 100),
                  name="Self-play  " + iter_counter_str, verbose=2,
                  callbacks=[train_stats, storage])
         storage.store()
@@ -145,9 +148,9 @@ def train(context={}):
 
         # ARENA - only the best will remain!
         hrl.loop(env, tournament_players,
-                 policy='deterministic', warmup=train_params.get('policy_warmup', 12), temperature=0.2,
+                 policy='deterministic', warmup=self_play_params.get('policy_warmup', 12), temperature=0.2,
                  alternate_players=True, train_mode=False,
-                 n_episodes=train_params.get('n_tournaments', 20),
+                 n_episodes=self_play_params.get('n_tournaments', 20),
                  name="Tournament " + iter_counter_str, verbose=2,
                  callbacks=[tournament_stats])
 
@@ -162,31 +165,59 @@ def train(context={}):
         iter += 1
 
 
-@main.command()
+@cli.command()
 @click.pass_context
-def play(context):
-    """Play without training."""
-    # TODO (mj): Fill implementation and docstring
+@click.option('-ckpt', '--checkpoint', help="Path to NN checkpoint, if None then start fresh (Default: None)", type=click.Path(), default=None)
+@click.option('-best', '--best_save', help="Path where to save current best NN checkpoint, if None then don't save (Default: None)", type=click.Path(), default=None)
+def train(ctx, checkpoint, best_save):
+    """Train NN from passed configuration."""
+
+    nn_params, training_params, _, storage_params, _, _, _, game = ctx.obj
+
+    # Create Keras NN
+    net = KerasNet(build_keras_nn(game, nn_params), training_params)
+
+    # Load checkpoint nn if available
+    if checkpoint:
+        net.load_checkpoint(checkpoint)
+        log.info("Loaded checkpoint: {}".format(checkpoint))
+
+    # Create model checkpoint callback if path passed
+    callbacks = []
+    if best_save:
+        callbacks.append(ModelCheckpoint(best_save, save_best_only=True, verbose=1))
+
+    # Create storage and load data
+    storage = Storage(storage_params)
+    storage.load()
+
+    # Prepare training data
+    trained_data = storage.big_bag
+    boards_input, target_pis, target_values = list(zip(*trained_data))
+
+    # Run training
+    net.train(data=np.array(boards_input),
+              targets=[np.array(target_pis), np.array(target_values)],
+              callbacks=callbacks)
 
 
-@main.command()
+@cli.command()
 @click.pass_context
 @click.argument('first_model_path', nargs=1, type=click.Path(exists=True))
 @click.argument('second_model_path', nargs=1, type=click.Path(exists=True))
 @click.option('--render/--no-render', help="Enable rendering game (Default: True)", default=True)
-def test(context, first_model_path, second_model_path, render):
+def clash(ctx, first_model_path, second_model_path, render):
     """Test two models. Play `n_games` between themselves.
 
         Args:
-
             first_model_path: (string): Path to first player model.
             second_model_path (string): Path to second player model.
     """
-    nn_params, planner_params, _, train_params, env, game_name, game = context.obj
+    nn_params, training_params, planner_params, _, _, env, game_name, game = ctx.obj
 
     # Create Minds, current and best
-    first_player_net = KerasNet(build_keras_nn(game, nn_params), nn_params)
-    second_player_net = KerasNet(build_keras_nn(game, nn_params), nn_params)
+    first_player_net = KerasNet(build_keras_nn(game, nn_params), training_params)
+    second_player_net = KerasNet(build_keras_nn(game, nn_params), training_params)
 
     first_player_net.load_checkpoint(first_model_path)
     second_player_net.load_checkpoint(second_model_path)
@@ -205,21 +236,21 @@ def test(context, first_model_path, second_model_path, render):
                                            [-1], second_model_path.split("/")[-1], tournament.results))
 
 
-@main.command()
+@cli.command()
 @click.pass_context
 @click.argument('checkpoints_dir', nargs=1, type=click.Path(exists=True))
 @click.option('-g', '--gap', help="Gap between versions of best model (Default: 2)", default=2)
-def validate(context, checkpoints_dir, gap):
+def cross_play(ctx, checkpoints_dir, gap):
     """Validate trained models. Best networks play with each other.
 
         Args:
             checkpoints_dir: (string): Path to checkpoints with models.
     """
-    nn_params, planner_params, _, train_params, env, game_name, game = context.obj
+    nn_params, training_params, planner_params, _, _, env, game_name, game = ctx.obj
 
     # Create players and their minds
-    first_player_net = KerasNet(build_keras_nn(game, nn_params), nn_params)
-    second_player_net = KerasNet(build_keras_nn(game, nn_params), nn_params)
+    first_player_net = KerasNet(build_keras_nn(game, nn_params), training_params)
+    second_player_net = KerasNet(build_keras_nn(game, nn_params), training_params)
     first_player = Planner(game, first_player_net, planner_params)
     second_player = Planner(game, second_player_net, planner_params)
 
@@ -234,7 +265,7 @@ def validate(context, checkpoints_dir, gap):
         gap = len(all_checkpoints_paths) - 1
         log.info("Gap is too big. Reduced to {}".format(gap))
 
-    # Gather players ids and checkpoints paths for cross play
+    # Gather players ids and checkpoints paths for cross-play
     players_ids = []
     checkpoints_paths = []
     for idx in range(0, len(all_checkpoints_paths), gap):
@@ -265,4 +296,4 @@ def validate(context, checkpoints_dir, gap):
 
 
 if __name__ == "__main__":
-    main()
+    cli()
