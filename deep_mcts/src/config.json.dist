@@ -1,36 +1,45 @@
 {
     "neural_net": {
-        "decay"                    : 0.000001,
-        "dropout"                  : 0.3,
+        "architecture": {
+            "conv_filters"         : 256,
+            "conv_kernel"          : 5,
+            "conv_stride"          : 2,
+            "residual_bottleneck"  : 128,
+            "residual_filters"     : 256,
+            "residual_kernel"      : 3,
+            "residual_num"         : 3,
+            "use_avgpool"          : true,
+            "dense_size"           : 512
+        },
         "loss"                     : ["categorical_crossentropy", "mean_squared_error"],
-        "l2_regularizer"           : 0.0001,
-        "lr"                       : 0.01,
-        "momentum"                 : 0.9
+        "l2_regularizer" 	   : 0.0001,
+        "lr"             	   : 0.02,
+        "momentum"       	   : 0.9
     },
     "training": {
-        "batch_size"               : 32,
-        "epochs"                   : 50,
-        "patience"                 : 5,
-        "val_split"                : 0.2,
+        "batch_size"     	   : 256,
+        "epochs"        	   : 500,
+        "patience"       	   : 10,
+        "val_split"   		   : 0.2,
         "save_training_log_path"   : "./logs/training.log"
     },
     "planner": {
         "c"                        : 1.0,
-        "dirichlet_noise"          : 0.03,
-        "noise_ratio"              : 0.25,
-        "gamma"                    : 1.0,
-        "n_simulations"            : 25
+        "dirichlet_noise" 	   : 0.3,
+        "noise_ratio"     	   : 0.25,
+        "gamma"           	   : 1.0,
+        "n_simulations"  	   : 100
     },
     "storage": {
-        "exp_replay_size"          : 100000,
-        "save_data_path"           : "./checkpoints/data.examples"
+        "exp_replay_size"	   : 200000,
+        "save_data_path"  	   : "./checkpoints/data.examples"
     },
     "self_play": {
-        "game"                     : "tictactoe",
+        "game"                     : "othello",
         "max_iter"                 : -1,
-        "min_examples"             : -1,
+        "min_examples"             : 10000,
         "policy_warmup"            : 12,
-        "n_self_plays"             : 25,
+        "n_self_plays"             : 100,
         "n_tournaments"            : 10,
         "save_checkpoint_folder"   : "./checkpoints",
         "save_checkpoint_filename" : "best",

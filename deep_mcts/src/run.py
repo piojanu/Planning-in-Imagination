@@ -3,9 +3,9 @@ import humblerl as hrl
 import json
 import logging as log
 import numpy as np
+import os
 import utils
 import click
-import math
 
 from keras.callbacks import ModelCheckpoint
 from tabulate import tabulate
@@ -142,9 +142,18 @@ def self_play(ctx):
         trained_data = storage.big_bag
         boards_input, target_pis, target_values = list(zip(*trained_data))
 
-        current_net.load_checkpoint(save_folder, utils.get_newest_ckpt_fname(save_folder))
+        current_net.model.set_weights(best_net.model.get_weights())
+
+        temp_fpath = os.path.join(
+            save_folder, utils.make_ckpt_fname(game_name, save_filename + "_temp"))
         current_net.train(data=np.array(boards_input), targets=[
-                          np.array(target_pis), np.array(target_values)])
+                          np.array(target_pis), np.array(target_values)],
+                          callbacks=[ModelCheckpoint(temp_fpath, save_best_only=True, verbose=1)])
+        try:
+            current_net.load_checkpoint(temp_fpath)
+            log.debug("Loaded best model from training: %s", temp_fpath)
+        except:
+            log.debug("Trained model didn't improve: %s", temp_fpath)
 
         # ARENA - only the best will remain!
         hrl.loop(env, tournament_players,
