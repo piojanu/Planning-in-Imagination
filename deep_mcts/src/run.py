@@ -165,6 +165,12 @@ def self_play(ctx):
 
         wins, losses, draws = tournament_stats.callback.results
         if wins + losses > 0 and float(wins) / (wins + losses) > update_threshold:
+            # CLASH - validate new best in deterministic setup
+            hrl.loop(env, tournament_players, policy='deterministic', alternate_players=True,
+                     train_mode=False, n_episodes=2, name="Clash " + iter_counter_str,
+                     verbose=2, callbacks=[tournament_stats])
+
+            # Save best
             best_fname = utils.make_ckpt_fname(game_name, save_filename)
             log.info("New best player: {}".format(best_fname))
             current_net.save_checkpoint(save_folder, best_fname)
