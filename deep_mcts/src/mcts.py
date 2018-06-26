@@ -92,7 +92,7 @@ class MCTS(Mind, metaclass=ABCMeta):
             value = self.evaluate(leaf, train_mode)
 
             # Backup value
-            self.backup(path, value)
+            self.backup(path, -value)  # NOTE: Node higher in the tree is opponent node, invert value
 
         # Get actions' visit counts
         actions = np.zeros(self.model.get_action_size())

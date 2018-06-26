@@ -97,4 +97,5 @@ class Planner(MCTS):
         return_t = value
         for edge in reversed(path):
             edge.update(return_t)
-            return_t *= self.gamma
+            # NOTE: Node higher in tree is opponent node, invert negate value
+            return_t *= -self.gamma
