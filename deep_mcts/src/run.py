@@ -291,28 +291,32 @@ def cross_play(ctx, checkpoints_dir, gap):
         checkpoints_paths.append(all_checkpoints_paths[idx])
 
     # Create table for results, extra column for player id
-    results = np.zeros((len(checkpoints_paths), 1 + len(checkpoints_paths)), dtype=int)
+    results = np.zeros((len(checkpoints_paths), len(checkpoints_paths)), dtype=int)
 
     for i, (first_player_id, first_checkpoint_path) in enumerate(zip(players_ids, checkpoints_paths)):
         first_player_net.load_checkpoint(first_checkpoint_path)
-        results[i][0] = first_player_id
 
-        for j, (second_player_id, second_checkpoint_path) in enumerate(zip(players_ids, checkpoints_paths)):
-            if first_player_id != second_player_id:
-                second_player_net.load_checkpoint(second_checkpoint_path)
+        for j in range(i + 1, len(players_ids)):
+            second_player_id, second_checkpoint_path = players_ids[j], checkpoints_paths[j]
+            second_player_net.load_checkpoint(second_checkpoint_path)
 
-                hrl.loop(env, [first_player, second_player], alternate_players=True, policy='deterministic',
-                         n_episodes=2, train_mode=False,
-                         name="{} vs {}".format(first_player_id, second_player_id),
-                         callbacks=[tournament])
+            hrl.loop(env, [first_player, second_player], alternate_players=True, policy='deterministic',
+                     n_episodes=2, train_mode=False,
+                     name="{} vs {}".format(first_player_id, second_player_id),
+                     callbacks=[tournament])
 
-                wins, losses, _ = tournament.results
-                results[i][j + 1] = wins - losses
+            wins, losses, _ = tournament.results
+            results[i][j] = wins - losses
+            results[j][i] = losses - wins
 
-    tab = tabulate(results, headers=players_ids, tablefmt="fancy_grid")
-    log.info("results:\n{}".format(tab))
+    scoreboard = np.concatenate(
+        (np.array(players_ids).reshape(-1, 1), results, np.sum(results, axis=1).reshape(-1, 1)),
+        axis=1
+    )
+    tab = tabulate(scoreboard, headers=players_ids + ["sum", ], tablefmt="fancy_grid")
+    log.info("Results:\n{}".format(tab))
     for player_id, checkpoint_path in zip(players_ids, checkpoints_paths):
-        log.debug("{}: {}".format(player_id, checkpoint_path))
+        log.info("{}: {}".format(player_id, checkpoint_path))
 
 
 if __name__ == "__main__":
