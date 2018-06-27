@@ -152,6 +152,7 @@ def self_play(ctx):
         try:
             current_net.load_checkpoint(temp_fpath)
             log.debug("Loaded best model from training: %s", temp_fpath)
+            os.remove(temp_fpath)
         except:
             log.debug("Trained model didn't improve: %s", temp_fpath)
 
