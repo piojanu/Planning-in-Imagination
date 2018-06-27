@@ -66,6 +66,8 @@ class GameEnv(Environment):
         """
 
         self.game = GameModel(eval(name)())
+        self._last_action = -1
+        self._last_player = -1
 
     @property
     def valid_actions(self):
@@ -76,8 +78,10 @@ class GameEnv(Environment):
             action=action, board=self.current_state, player=self.player)
         end = self.game.get_game_ended(next_state, self.player)
         reward = float(int(end * (-1) ** self.player))
-        self.player = next_player
         self._curr_state = next_state
+        self._last_action = action
+        self._last_player = self.player
+        self.player = next_player
         return next_state, next_player, reward, end != 0
 
     def reset(self, train_mode=True, first_player=0):
@@ -89,7 +93,7 @@ class GameEnv(Environment):
     def render(self):
         """Display board when environment is in test mode.
         """
-        print("<---")
-        print(' '.join(map(str, range(len(self.current_state[0])))))
+
+        print("Player {}, Action {}".format(self._last_player, self._last_action))
         print(self.current_state)
         print("<---")

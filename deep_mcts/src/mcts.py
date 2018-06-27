@@ -1,3 +1,4 @@
+import logging as log
 import numpy as np
 
 from abc import ABCMeta, abstractmethod
@@ -24,6 +25,14 @@ class MCTS(Mind, metaclass=ABCMeta):
         self.n_simulations = params.get('n_simulations', 25)
 
         self._root = None
+
+        self._debug_last_cmd = "s"
+        self._debug_run = False
+        self._debug_continue = False
+
+    @abstractmethod
+    def _log_debug(self):
+        pass
 
     @abstractmethod
     def simulate(self, start_node):
@@ -92,7 +101,37 @@ class MCTS(Mind, metaclass=ABCMeta):
             value = self.evaluate(leaf, train_mode)
 
             # Backup value
-            self.backup(path, value)
+            # NOTE: Node higher in the tree is opponent node, invert value
+            self.backup(path, -value)
+
+            if log.getLogger(__name__).isEnabledFor(log.DEBUG):
+                # Debug menu:
+                if not self._debug_continue and not self._debug_run:
+                    cmd = input(
+                        "\nPlayer {} | Run this player (r), Continue to next planning (c), Step simulation (s): ".format(
+                            player))
+                    if cmd == "":
+                        cmd = self._debug_last_cmd
+
+                    if cmd == "r":
+                        self._debug_run = True
+                        continue
+                    elif cmd == "c":
+                        self._debug_continue = True
+                        continue
+
+                    self._debug_last_cmd = cmd
+
+                    log.debug("##### Simulation num.: %d #####\n", idx + 1)
+                    self._log_debug()
+
+        # Finished simulation, reset debug continue flag and print final log
+        if log.getLogger(__name__).isEnabledFor(log.DEBUG):
+            # If simulation skipped log final debug log
+            if self._debug_continue or self._debug_run:
+                self._log_debug()
+
+            self._debug_continue = False
 
         # Get actions' visit counts
         actions = np.zeros(self.model.get_action_size())

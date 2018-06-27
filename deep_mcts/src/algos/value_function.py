@@ -26,6 +26,9 @@ class Planner(MCTS):
         self.c = params.get('c', 1.)
         self.gamma = params.get('gamma', 1.)
 
+    def _log_debug(self):
+        pass
+
     def simulate(self, start_node):
         """Search through tree from start node to leaf.
 
@@ -97,4 +100,5 @@ class Planner(MCTS):
         return_t = value
         for edge in reversed(path):
             edge.update(return_t)
-            return_t *= self.gamma
+            # NOTE: Node higher in tree is opponent node, invert negate value
+            return_t *= -self.gamma

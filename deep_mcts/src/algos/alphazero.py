@@ -28,6 +28,57 @@ class Planner(VFPlanner):
         self.dirichlet_noise = params.get('dirichlet_noise', 0.03)
         self.noise_rate = params.get('noise_rate', 0.25)
 
+    def _log_debug(self):
+        # Evaluate root state
+        relative_state = self.model.get_canonical_form(self._root.state, self._root.player)
+        pi, value = self.nn.predict(np.expand_dims(relative_state, axis=0))
+
+        # Log root state
+        log.debug("Current player (%d) state:\n%s\n", self._root.player, self._root.state)
+
+        # Action size must be multiplication of board width
+        BOARD_WIDTH = self._root.state.shape[1]
+        action_size = self.model.get_action_size()
+        if action_size % BOARD_WIDTH == 1:
+            # There is extra 'null' action, ignore it
+            # NOTE: For this WA to work 'null' action has to have last idx in the environment!
+            action_size -= 1
+
+        # Log MCTS actions scores and qvalues and NN prior probs
+        visits = np.zeros(action_size)
+        qvalues = np.zeros_like(visits)
+        scores = np.zeros_like(visits)
+        for action, edge in self._root.edges.items():
+            visits[action] = edge.num_visits
+            qvalues[action] = edge.qvalue
+            scores[action] = edge.qvalue
+
+        ucts = np.zeros_like(visits)
+        for action, edge in self._root.edges.items():
+            ucts[action] = self.c * edge.prior * \
+                np.sqrt(1 + np.sum(visits)) / (1 + edge.num_visits)
+            scores[action] += ucts[action]
+
+        log.debug("Actions visits:\n%s\n", visits.reshape([-1, BOARD_WIDTH]))
+        log.debug("Prior probabilities:\n%s\n", np.array2string(
+            pi[0][:action_size].reshape([-1, BOARD_WIDTH]), formatter={'float_kind': lambda x: "%.5f" % x}))
+        log.debug("Exploration bonuses:\n%s\n", np.array2string(
+            ucts.reshape([-1, BOARD_WIDTH]), formatter={'float_kind': lambda x: "%.5f" % x}))
+        log.debug("Actions qvalues:\n%s\n", np.array2string(
+            qvalues.reshape([-1, BOARD_WIDTH]), formatter={'float_kind': lambda x: "%.5f" % x}))
+        log.debug("Actions scores:\n%s\n", np.array2string(
+            scores.reshape([-1, BOARD_WIDTH]), formatter={'float_kind': lambda x: "%.5f" % x}))
+
+        # Log MCTS root value and NN predicted value
+        state_visits = 0
+        state_value = 0
+        for action, edge in self._root.edges.items():
+            state_visits += edge.num_visits
+            state_value += edge.qvalue * edge.num_visits
+
+        log.debug("MCTS root value: %.5f", state_value / state_visits)
+        log.debug("NN root value: %.5f\n", value[0])
+
     def evaluate(self, leaf_node, train_mode, is_root=False):
         """Expand and evaluate leaf node.
 

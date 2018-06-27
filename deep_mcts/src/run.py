@@ -15,15 +15,16 @@ from env import GameEnv
 from nn import build_keras_nn, KerasNet
 from callbacks import BasicStats, CSVSaverWrapper, Storage, Tournament, RenderCallback
 
-# Get and set up logger level and formatter
-log.basicConfig(level=log.DEBUG, format="[%(levelname)s]: %(message)s")
-
 
 @click.group()
 @click.pass_context
 @click.option('-c', '--config-path', type=click.File('r'),
               help="Path to configuration file (Default: config.json)", default="config.json")
-def cli(ctx, config_path):
+@click.option('--debug/--no-debug', help="Enable debug logging (Default: False)", default=False)
+def cli(ctx, config_path, debug):
+    # Get and set up logger level and formatter
+    log.basicConfig(level=log.DEBUG if debug else log.INFO, format="[%(levelname)s]: %(message)s")
+
     # Parse .json file with arguments
     params = json.loads(config_path.read())
 
@@ -152,8 +153,9 @@ def self_play(ctx):
         try:
             current_net.load_checkpoint(temp_fpath)
             log.debug("Loaded best model from training: %s", temp_fpath)
+            os.remove(temp_fpath)
         except:
-            log.debug("Trained model didn't improve: %s", temp_fpath)
+            log.debug("Trained model didn't improve or no val split!")
 
         # ARENA - only the best will remain!
         hrl.loop(env, tournament_players,
@@ -165,6 +167,12 @@ def self_play(ctx):
 
         wins, losses, draws = tournament_stats.callback.results
         if wins + losses > 0 and float(wins) / (wins + losses) > update_threshold:
+            # CLASH - validate new best in deterministic setup
+            hrl.loop(env, tournament_players, policy='deterministic', alternate_players=True,
+                     train_mode=False, n_episodes=2, name="Clash " + iter_counter_str,
+                     verbose=2, callbacks=[tournament_stats])
+
+            # Save best
             best_fname = utils.make_ckpt_fname(game_name, save_filename)
             log.info("New best player: {}".format(best_fname))
             current_net.save_checkpoint(save_folder, best_fname)
