@@ -56,7 +56,7 @@ class Planner(VFPlanner):
         ucts = np.zeros_like(visits)
         for action, edge in self._root.edges.items():
             ucts[action] = self.c * edge.prior * \
-                np.sqrt(np.log(1 + np.sum(visits)) / (1 + edge.num_visits))
+                np.sqrt(1 + np.sum(visits)) / (1 + edge.num_visits)
             scores[action] += ucts[action]
 
         log.debug("Actions visits:\n%s\n", visits.reshape([-1, BOARD_WIDTH]))
