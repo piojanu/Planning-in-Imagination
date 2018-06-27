@@ -1,0 +1,50 @@
+{
+    "neural_net": {
+        "architecture": {
+	    "conv_filters"         : 256,
+	    "conv_kernel"          : 5,
+	    "conv_stride"          : 2,
+	    "residual_bottleneck"  : 128,
+	    "residual_filters"     : 256,
+	    "residual_kernel"      : 3,
+	    "residual_num"         : 3,
+	    "use_avgpool"          : true,
+	    "dense_size"           : 512
+        },
+        "loss"                     : ["categorical_crossentropy", "mean_squared_error"],
+        "l2_regularizer" 	   : 0.0001,
+        "lr"             	   : 0.02,
+        "momentum"       	   : 0.9
+    },
+    "training": {
+        "batch_size"     	   : 256,
+        "epochs"        	   : 100,
+        "patience"       	   : 10,
+        "val_split"   		   : 0.2,
+        "save_training_log_path"   : "./logs/training_connect4.log"
+    },
+    "planner": {
+        "c"                        : 1.0,
+        "dirichlet_noise" 	   : 0.3,
+        "noise_ratio"     	   : 0.25,
+        "gamma"           	   : 1.0,
+        "n_simulations"  	   : 50
+    },
+    "storage": {
+        "exp_replay_size"	   : 300000,
+        "save_data_path"  	   : "./checkpoints/connect4/data.examples"
+    },
+    "self_play": {
+        "game"                     : "connect4",
+        "max_iter"                 : -1,
+        "min_examples"             : 10000,
+        "policy_warmup"            : 6,
+        "n_self_plays"             : 100,
+        "n_tournaments"            : 10,
+        "save_checkpoint_folder"   : "./checkpoints/connect4",
+        "save_checkpoint_filename" : "best",
+        "save_self_play_log_path"  : "./logs/self-play_connect4.log",
+        "save_tournament_log_path" : "./logs/tournament_connect4.log",
+        "update_threshold"         : 0.55
+     }
+}
