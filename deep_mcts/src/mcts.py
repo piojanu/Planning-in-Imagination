@@ -1,3 +1,4 @@
+import logging as log
 import numpy as np
 
 from abc import ABCMeta, abstractmethod
@@ -24,6 +25,10 @@ class MCTS(Mind, metaclass=ABCMeta):
         self.n_simulations = params.get('n_simulations', 25)
 
         self._root = None
+
+    @abstractmethod
+    def _log_debug(self):
+        pass
 
     @abstractmethod
     def simulate(self, start_node):
@@ -92,11 +97,15 @@ class MCTS(Mind, metaclass=ABCMeta):
             value = self.evaluate(leaf, train_mode)
 
             # Backup value
-            self.backup(path, -value)  # NOTE: Node higher in the tree is opponent node, invert value
+            # NOTE: Node higher in the tree is opponent node, invert value
+            self.backup(path, -value)
 
         # Get actions' visit counts
         actions = np.zeros(self.model.get_action_size())
         for action, edge in self._root.edges.items():
             actions[action] = edge.num_visits
+
+        if log.getLogger(__name__).isEnabledFor(log.DEBUG):
+            self._log_debug()
 
         return actions

@@ -26,6 +26,9 @@ class Planner(MCTS):
         self.c = params.get('c', 1.)
         self.gamma = params.get('gamma', 1.)
 
+    def _log_debug(self):
+        pass
+
     def simulate(self, start_node):
         """Search through tree from start node to leaf.
 

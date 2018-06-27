@@ -28,6 +28,36 @@ class Planner(VFPlanner):
         self.dirichlet_noise = params.get('dirichlet_noise', 0.03)
         self.noise_rate = params.get('noise_rate', 0.25)
 
+    def _log_debug(self):
+        # Evaluate root state
+        relative_state = self.model.get_canonical_form(self._root.state, self._root.player)
+        pi, value = self.nn.predict(np.expand_dims(relative_state, axis=0))
+
+        # Log MCTS actions scores and qvalues and NN prior probs
+        scores = np.zeros(self.model.get_action_size())
+        qvalues = np.zeros(self.model.get_action_size())
+        for action, edge in self._root.edges.items():
+            scores[action] = edge.num_visits
+            qvalues[action] = edge.qvalue
+
+        log.debug("Actions scores:\n%s\n", scores[:-1].reshape([-1, self._root.state.shape[1]]))
+        log.debug("Actions qvalues:\n%s\n", np.array2string(
+            qvalues[:-1].reshape([-1, self._root.state.shape[1]]),
+            formatter={'float_kind': lambda x: "%.5f" % x}))
+        log.debug("Prior probabilities:\n%s\n", np.array2string(
+            pi[0, :-1].reshape([-1, self._root.state.shape[1]]),
+            formatter={'float_kind': lambda x: "%.5f" % x}))
+
+        # Log MCTS root value and NN predicted value
+        state_visits = 0
+        state_value = 0
+        for action, edge in self._root.edges.items():
+            state_visits += edge.num_visits
+            state_value += edge.qvalue * edge.num_visits
+
+        log.debug("MCTS root value: %.5f", state_value / state_visits)
+        log.debug("NN root value: %.5f\n", value[0])
+
     def evaluate(self, leaf_node, train_mode, is_root=False):
         """Expand and evaluate leaf node.
 
