@@ -155,7 +155,7 @@ def self_play(ctx):
             log.debug("Loaded best model from training: %s", temp_fpath)
             os.remove(temp_fpath)
         except:
-            log.debug("Trained model didn't improve or no val split!")
+            log.debug("Trained model didn't improve or no val split.")
 
         # ARENA - only the best will remain!
         hrl.loop(env, tournament_players,

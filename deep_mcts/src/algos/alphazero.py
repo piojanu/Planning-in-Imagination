@@ -17,7 +17,7 @@ class Planner(VFPlanner):
             params (dict): MCTS search hyper-parameters. Available:
               * 'c' (float)           : UCT exploration-exploitation trade-off param (Default: 1.)
               * 'dirichlet_noise'     : Dirichlet noise added to root prior (Default: 0.03)
-              * 'noise_rate'          : Noise contribution to prior probabilities (Default: 0.25)
+              * 'noise_ratio'          : Noise contribution to prior probabilities (Default: 0.25)
               * 'gamma' (float)       : Discounting factor for value. (Default: 1./no discounting)
               * 'n_simulations' (int) : Number of simulations to perform before choosing action.
                                         (Default: 25)
@@ -26,7 +26,7 @@ class Planner(VFPlanner):
         VFPlanner.__init__(self, model, nn, params)
 
         self.dirichlet_noise = params.get('dirichlet_noise', 0.03)
-        self.noise_rate = params.get('noise_rate', 0.25)
+        self.noise_ratio = params.get('noise_ratio', 0.25)
 
     def _log_debug(self):
         # Evaluate root state
@@ -102,7 +102,7 @@ class Planner(VFPlanner):
 
         # Add Dirichlet noise to root node prior
         if is_root and train_mode:
-            pi = (1 - self.noise_rate) * pi + self.noise_rate * \
+            pi = (1 - self.noise_ratio) * pi + self.noise_ratio * \
                 np.random.dirichlet([self.dirichlet_noise, ] * len(pi))
 
         # Get valid actions probabilities
