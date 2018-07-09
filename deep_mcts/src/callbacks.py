@@ -200,7 +200,6 @@ class RenderCallback(Callback):
         self.do_render()
 
     def on_episode_end(self):
-        self.do_render()
         return {}
 
     def do_render(self):
