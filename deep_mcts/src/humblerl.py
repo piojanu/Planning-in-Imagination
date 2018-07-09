@@ -22,12 +22,13 @@ class Callback(metaclass=ABCMeta):
 
         pass
 
-    def on_action_planned(self, logits):
+    def on_action_planned(self, logits, metrics):
         """Event after Mind was evaluated.
 
         Args:
             logits (numpy.Array): Actions scores (e.g. unnormalized log probabilities/Q-values/etc.)
         possibly raw Artificial Neural Net output i.e. logits.
+            metrics (dict): Planning metrics.
 
         Note:
             You can assume, that this event occurs always before step finish.
@@ -85,9 +86,9 @@ class CallbackList(object):
         for callback in self.callbacks:
             callback.on_loop_start()
 
-    def on_action_planned(self, logits):
+    def on_action_planned(self, logits, metrics):
         for callback in self.callbacks:
-            callback.on_action_planned(logits)
+            callback.on_action_planned(logits, metrics)
 
     def on_step_taken(self, transition):
         for callback in self.callbacks:
@@ -176,18 +177,20 @@ class Mind(metaclass=ABCMeta):
     """Artificial mind of RL agent."""
 
     @abstractmethod
-    def plan(self, state, player, train_mode=True):
+    def plan(self, state, player, train_mode, debug_mode):
         """Do forward pass through agent model, inference/planning on state.
 
         Args:
             state (numpy.Array): State of game to inference on.
             player (int): Current player index.
             train_mode (bool): Informs planner whether it's in training or evaluation mode.
-        E.g. in evaluation it can optimise graph, disable exploration etc. (Default: True)
+        E.g. in evaluation it can optimise graph, disable exploration etc.
+            debug_mode (bool): Informs planner whether it's in debug mode or not.
 
         Returns:
             numpy.Array: Actions scores (e.g. unnormalized log probabilities/Q-values/etc.)
         possibly raw Artificial Neural Net output i.e. logits.
+            dict: Planning metrics, content possibly depended on :param:`debug_mode` value.
         """
 
         pass
@@ -220,7 +223,7 @@ class Vision(object):
         return self._process_state(state), self._process_reward(reward)
 
 
-def ply(env, mind, player=0, policy='deterministic', train_mode=True, vision=Vision(), step=0, callbacks=[], **kwargs):
+def ply(env, mind, player=0, policy='deterministic', vision=Vision(), step=0, train_mode=True, debug_mode=False, callbacks=[], **kwargs):
     """Conduct single ply (turn taken by one of the players).
 
     Args:
@@ -228,10 +231,11 @@ def ply(env, mind, player=0, policy='deterministic', train_mode=True, vision=Vis
         mind (Mind): Mind to use while deciding on action to take in the env.
         player (int): Player index which ply this is. (Default: 0)
         policy (string: Describes the way of choosing action from mind predictions (see Note).
-        train_mode (bool): Informs env and planner whether it's in training or evaluation mode.
-    (Default: True)
         vision (Vision): State and reward preprocessing. (Default: no preprocessing)
         step (int): Current step number in this episode, used by some policies. (Default: 0)
+        train_mode (bool): Informs env and planner whether it's in training or evaluation mode.
+    (Default: True)
+        debug_mode (bool): Informs planner whether it's in debug mode or not. (Default: False)
         callbacks (list of Callback objects): Objects that can listen to events during play.
     (Default: [])
         **kwargs: Other keyword arguments may be needed depending on chosen policy.
@@ -267,8 +271,8 @@ def ply(env, mind, player=0, policy='deterministic', train_mode=True, vision=Vis
     curr_state, _ = vision(env.current_state)
 
     # Infer what to do
-    logits = mind.plan(curr_state, player, train_mode)
-    callbacks_list.on_action_planned(logits)
+    logits, metrics = mind.plan(curr_state, player, train_mode, debug_mode)
+    callbacks_list.on_action_planned(logits, metrics)
 
     # Get valid actions and logits of those actions
     valid_actions = env.valid_actions
@@ -336,7 +340,7 @@ def ply(env, mind, player=0, policy='deterministic', train_mode=True, vision=Vis
     return transition
 
 
-def loop(env, minds, n_episodes=1, max_steps=-1, alternate_players=False, policy='deterministic', train_mode=True, vision=Vision(), name="Loop", verbose=1, callbacks=[], **kwargs):
+def loop(env, minds, n_episodes=1, max_steps=-1, alternate_players=False, policy='deterministic', vision=Vision(), name="Loop", train_mode=True, debug_mode=False, verbose=1, callbacks=[], **kwargs):
     """Conduct series of plies (turns taken by each player in order).
 
     Args:
@@ -348,10 +352,11 @@ def loop(env, minds, n_episodes=1, max_steps=-1, alternate_players=False, policy
         n_episodes (int): Number of episodes to play. (Default: 1)
         max_steps (int): Maximum number of steps in episode. No limit when -1. (Default: -1)
         policy (string: Describes the way of choosing action from mind predictions (see Note).
-        train_mode (bool): Informs env and planner whether it's in training or evaluation mode.
-    (Default: True)
         vision (Vision): State and reward preprocessing. (Default: no preprocessing)
         name (string): Name shown in progress bar. (Default: "Loop")
+        train_mode (bool): Informs env and planner whether it's in training or evaluation mode.
+    (Default: True)
+        debug_mode (bool): Informs planner whether it's in debug mode or not. (Default: False)
         verbose (int): Specify how much information to log (0: nothing, 1: progress bar, 2: logs).
     (Default: 1)
         callbacks (list of Callback objects): Objects that can listen to events during play.
@@ -370,8 +375,6 @@ def loop(env, minds, n_episodes=1, max_steps=-1, alternate_players=False, policy
     callbacks_list = CallbackList(callbacks)
     callbacks_list.on_loop_start()
 
-    # Flag indicating if loop was aborted
-    is_aborted = False
     try:
         # Play given number of episodes
         first_player = 0
@@ -391,7 +394,7 @@ def loop(env, minds, n_episodes=1, max_steps=-1, alternate_players=False, policy
 
                 # Conduct ply and update next player
                 transition = ply(
-                    env, mind, player, policy, train_mode, vision, step, callbacks, **kwargs)
+                    env, mind, player, policy, vision, step, train_mode, debug_mode, callbacks, **kwargs)
                 player = transition.next_player
 
                 # Increment step counter
@@ -399,9 +402,9 @@ def loop(env, minds, n_episodes=1, max_steps=-1, alternate_players=False, policy
 
                 # Finish if this transition was terminal
                 if transition.is_terminal:
+                    logs = callbacks_list.on_episode_end()
                     if verbose >= 2:
                         # Update bar suffix
-                        logs = callbacks_list.on_episode_end()
                         pbar.write("Iter. {:3}".format(iter) + ": [ " + ", ".join(
                             ["{}: {:.4g}".format(k, float(v)) for k, v in logs.items()]) + " ]")
 

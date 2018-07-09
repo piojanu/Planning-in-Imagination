@@ -28,8 +28,8 @@ class CSVSaverWrapper(Callback):
     def on_loop_start(self):
         return self.callback.on_loop_start()
 
-    def on_action_planned(self, logits):
-        return self.callback.on_action_planned(logits)
+    def on_action_planned(self, logits, metrics):
+        return self.callback.on_action_planned(logits, metrics)
 
     def on_step_taken(self, transition):
         return self.callback.on_step_taken(transition)
@@ -112,8 +112,12 @@ class Storage(Callback):
 
         self._recent_action_probs = None
 
-    def on_action_planned(self, logits):
-        self._recent_action_probs = logits / np.sum(logits)
+    def on_action_planned(self, logits, metrics):
+        # Softmax without temperature
+        exps = np.exp(logits - np.max(logits))
+        probs = exps / np.sum(exps)
+
+        self._recent_action_probs = probs
 
     def on_step_taken(self, transition):
         small_package = transition.state, self._recent_action_probs, transition.reward
