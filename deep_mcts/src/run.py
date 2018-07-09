@@ -159,14 +159,14 @@ def self_play(ctx):
 
         # ARENA - only the best will remain!
         hrl.loop(env, tournament_players,
-                 policy='deterministic', warmup=self_play_params.get('policy_warmup', 12), temperature=0.2,
+                 policy='deterministic', warmup=self_play_params.get('policy_warmup', 12), temperature=0.5,
                  alternate_players=True, train_mode=False,
                  n_episodes=self_play_params.get('n_tournaments', 20),
                  name="Tournament " + iter_counter_str, verbose=2,
                  callbacks=[tournament_stats])
 
         wins, losses, draws = tournament_stats.callback.results
-        if wins + losses > 0 and float(wins) / (wins + losses) > update_threshold:
+        if wins > 0 and float(wins) / (wins + losses + draws) > update_threshold:
             # CLASH - validate new best in deterministic setup
             hrl.loop(env, tournament_players, policy='deterministic', alternate_players=True,
                      train_mode=False, n_episodes=2, name="Clash " + iter_counter_str,
