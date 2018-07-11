@@ -84,7 +84,12 @@ class Planner(MCTS):
 
         # Take first element in batch
         pi = pi[0]
-        value = value[0]
+        value = value[0][0]
+
+        # Change value to game result if this is terminal state
+        end_result = self.model.get_game_ended(leaf_node.state, leaf_node.player)
+        if end_result != 0:
+            value = end_result
 
         # Add Dirichlet noise to root node prior
         if is_root and train_mode:
@@ -115,8 +120,7 @@ class Planner(MCTS):
         # Expand node with edges
         leaf_node.expand(edges)
 
-        # Get value from result array
-        return value[0]
+        return value
 
     def backup(self, path, value):
         """Backup value to ancestry nodes.

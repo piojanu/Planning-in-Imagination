@@ -158,8 +158,8 @@ def self_play(ctx):
                  name="Tournament " + iter_counter_str, verbose=2,
                  callbacks=[tournament_stats])
 
-        wins, losses, draws = tournament_stats.callback.results
-        if wins > 0 and float(wins) / (wins + losses + draws) > update_threshold:
+        wins, losses, _ = tournament_stats.callback.results
+        if wins > 0 and float(wins) / (wins + losses) > update_threshold:
             best_fname = utils.make_ckpt_fname(game_name, save_filename)
             log.info("New best player: {}".format(best_fname))
 
