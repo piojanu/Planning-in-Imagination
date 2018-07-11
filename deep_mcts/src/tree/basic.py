@@ -81,7 +81,7 @@ class Node(object):
         # Add exploration term to every edge's score
         for action, edge in self.edges.items():
             scores[(action, edge)] += c * edge.prior * \
-                np.sqrt(1 + state_visits) / (1 + edge.num_visits)
+                np.sqrt(state_visits) / (1 + edge.num_visits)
 
         # Choose next action and edge with highest score
         action_edge = max(scores, key=scores.get)

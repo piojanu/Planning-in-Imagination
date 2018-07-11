@@ -114,10 +114,7 @@ class Storage(Callback):
 
     def on_action_planned(self, logits, metrics):
         # Softmax without temperature
-        exps = np.exp(logits - np.max(logits))
-        probs = exps / np.sum(exps)
-
-        self._recent_action_probs = probs
+        self._recent_action_probs = logits / np.sum(logits)
 
     def on_step_taken(self, transition):
         small_package = transition.state, self._recent_action_probs, transition.reward

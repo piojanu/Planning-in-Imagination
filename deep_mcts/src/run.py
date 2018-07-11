@@ -128,7 +128,7 @@ def self_play(ctx):
 
         # SELF-PLAY - gather data using best nn
         hrl.loop(env, self_play_players,
-                 policy='deterministic', warmup=self_play_params.get('policy_warmup', 12),
+                 policy='proportional', warmup=self_play_params.get('policy_warmup', 12),
                  debug_mode=debug_mode, n_episodes=self_play_params.get('n_self_plays', 100),
                  name="Self-play  " + iter_counter_str, verbose=2,
                  callbacks=[train_stats, storage])
@@ -159,7 +159,7 @@ def self_play(ctx):
 
         # ARENA - only the best will remain!
         hrl.loop(env, tournament_players,
-                 policy='deterministic', warmup=self_play_params.get('policy_warmup', 12), temperature=0.5,
+                 policy='proportional', warmup=self_play_params.get('policy_warmup', 12), temperature=0.5,
                  alternate_players=True, train_mode=False, debug_mode=debug_mode,
                  n_episodes=self_play_params.get('n_tournaments', 20),
                  name="Tournament " + iter_counter_str, verbose=2,

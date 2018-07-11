@@ -253,9 +253,9 @@ def ply(env, mind, player=0, policy='deterministic', vision=Vision(), step=0, tr
 
     Note:
         Possible :attr:`policy` values are:
-          * 'deterministic': default, pass extra kwarg :attr:`warmup` to use stochastic policy
-                             during first steps until step < :attr:`warmup`.
-                             Stochastic annealing also apply.
+          * 'deterministic': default, also used after step >= :attr:`warmup` in stochastic and
+                             proportional policies. If this is a case, then temperature and
+                             annealing also apply.
           * 'stochastic'   : pass extra kwarg 'temperature', otherwise it's set to 1.
                              You can also anneal temperature using :attr:`decay`:
                              temp * (1. / (1. + decay * step)).
@@ -298,13 +298,31 @@ def ply(env, mind, player=0, policy='deterministic', vision=Vision(), step=0, tr
         # Sample from created distribution
         return np.random.choice(valid_actions, p=probs)
 
+    def proportional():
+        temp = kwargs.get('temperature', 1.)
+        decay = kwargs.get('decay', 0.)
+
+        # Ensure that all values starts from 0
+        np.maximum(valid_logits, 0, valid_logits)
+
+        # Decay temperature
+        if decay > 0:
+            temp *= 1. / (1. + decay * step)
+
+        # Normalized with temperature
+        exps = np.power(valid_logits, 1. / temp)
+        probs = exps / np.sum(exps)
+
+        # Sample from created distribution
+        return np.random.choice(valid_actions, p=probs)
+
     def egreedy():
         eps = kwargs.get('epsilon', 0.5)
         decay = kwargs.get('decay', 0.)
 
         # Decay epsilon
         if decay > 0:
-            epsilon *= 1. / (1. + decay * step)
+            eps *= 1. / (1. + decay * step)
 
         # With probability of epsilon...
         if np.random.rand(1) < eps:
@@ -316,13 +334,19 @@ def ply(env, mind, player=0, policy='deterministic', vision=Vision(), step=0, tr
 
     # Get action
     if policy == 'deterministic':
+        action = deterministic()
+    elif policy == 'stochastic':
         warmup = kwargs.get('warmup', 0)
         if step < warmup:
             action = stochastic()
         else:
             action = deterministic()
-    elif policy == 'stochastic':
-        action = stochastic()
+    elif policy == 'proportional':
+        warmup = kwargs.get('warmup', 0)
+        if step < warmup:
+            action = proportional()
+        else:
+            action = deterministic()
     elif policy == 'egreedy':
         action = egreedy()
     elif policy == 'identity':
