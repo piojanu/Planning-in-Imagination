@@ -85,12 +85,6 @@ class KerasNet(NeuralNet):
             params (dict): Train/inference hyper-parameters. Available:
               * 'batch_size' (int)  : Training batch size. (Default: 32)
               * 'epochs' (int)      : Number of epochs to train the model. (Default: 50)
-              * 'val_split' (float) : Fraction of the training data to be used as validation data.
-                                      Float >= 0 and < 1.. (Default: 0.2)
-              * 'patience'          : Number of epochs with no improvement in validation loss after
-                                      which training will be stopped. You need to set val_split > 0
-                                      in order to have it work. Set to -1 for no early stopping.
-                                      (Default: 5)
               * 'save_training_log_path' (string) : where to save nn train logs.
                                                     (Default: "./logs/training.log")
         """
@@ -98,21 +92,10 @@ class KerasNet(NeuralNet):
         self.model = model
         self.batch_size = params.get('batch_size', 32)
         self.epochs = params.get('epochs', 50)
-        self.val_split = params.get('val_split', 0.2)
-        self.patience = params.get('patience', 5)
 
-        # Initialize EarlyStopping callback if validation set is present
-        self.callbacks = []
-        if self.patience > 0:
-            if self.val_split > 0:
-                self.callbacks.append(EarlyStopping(monitor='val_loss',
-                                                    patience=self.patience))
-            else:
-                log.warn("Early stopping DISABLED! Patience > 0 byt val_split <= 0.")
-
-        # Add CSVLogger
-        self.callbacks.append(CSVLogger(
-            params.get('save_training_log_path', './logs/training.log'), append=True))
+        # Initialize callbacks list with CSVLogger
+        self.callbacks = [
+            CSVLogger(params.get('save_training_log_path', './logs/training.log'), append=True)]
 
     def predict(self, state):
         """Do forward pass through nn, inference on state.
@@ -138,7 +121,6 @@ class KerasNet(NeuralNet):
         self.model.fit(data, targets,
                        batch_size=self.batch_size,
                        epochs=self.epochs,
-                       validation_split=self.val_split,
                        callbacks=self.callbacks + callbacks)
 
     def save_checkpoint(self, folder, filename):

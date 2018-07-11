@@ -92,8 +92,10 @@ def self_play(ctx):
         log.info("Best mind has loaded latest checkpoint: {}".format(
             utils.get_newest_ckpt_fname(save_folder)))
     except:
-        best_net.save_checkpoint(save_folder, utils.make_ckpt_fname(game_name, save_filename))
-        log.info("Created initial checkpoint.")
+        log.info("No initial checkpoint, starting tabula rasa.")
+
+    # Copy best nn weights to current nn that will be trained
+    current_net.model.set_weights(best_net.model.get_weights())
 
     # Create players
     best_player = Planner(game, best_net, planner_params)
@@ -132,6 +134,8 @@ def self_play(ctx):
                  debug_mode=debug_mode, n_episodes=self_play_params.get('n_self_plays', 100),
                  name="Self-play  " + iter_counter_str, verbose=2,
                  callbacks=[train_stats, storage])
+
+        # Store gathered data
         storage.store()
 
         # Proceed to training only if threshold is fulfilled
@@ -143,21 +147,10 @@ def self_play(ctx):
         trained_data = storage.big_bag
         boards_input, target_pis, target_values = list(zip(*trained_data))
 
-        current_net.model.set_weights(best_net.model.get_weights())
+        current_net.train(data=np.array(boards_input),
+                          targets=[np.array(target_pis), np.array(target_values)])
 
-        temp_fpath = os.path.join(
-            save_folder, utils.make_ckpt_fname(game_name, save_filename + "_temp"))
-        current_net.train(data=np.array(boards_input), targets=[
-                          np.array(target_pis), np.array(target_values)],
-                          callbacks=[ModelCheckpoint(temp_fpath, save_best_only=True, verbose=1)])
-        try:
-            current_net.load_checkpoint(temp_fpath)
-            log.debug("Loaded best model from training: %s", temp_fpath)
-            os.remove(temp_fpath)
-        except:
-            log.debug("Trained model didn't improve or no val split.")
-
-        # ARENA - only the best will remain!
+        # ARENA - only the best will generate data!
         hrl.loop(env, tournament_players,
                  policy='proportional', warmup=self_play_params.get('policy_warmup', 12), temperature=0.5,
                  alternate_players=True, train_mode=False, debug_mode=debug_mode,
@@ -167,11 +160,12 @@ def self_play(ctx):
 
         wins, losses, draws = tournament_stats.callback.results
         if wins > 0 and float(wins) / (wins + losses + draws) > update_threshold:
-            # Save best
             best_fname = utils.make_ckpt_fname(game_name, save_filename)
             log.info("New best player: {}".format(best_fname))
+
+            # Save best and exchange weights
             current_net.save_checkpoint(save_folder, best_fname)
-            best_net.load_checkpoint(save_folder, best_fname)
+            best_net.model.set_weights(current_net.model.get_weights())
 
         # Increment iterator
         iter += 1

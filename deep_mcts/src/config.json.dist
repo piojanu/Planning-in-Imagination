@@ -18,9 +18,7 @@
     },
     "training": {
         "batch_size"     	   : 256,
-        "epochs"        	   : 500,
-        "patience"       	   : 10,
-        "val_split"   		   : 0.2,
+        "epochs"        	   : 25,
         "save_training_log_path"   : "./logs/training.log"
     },
     "planner": {
@@ -37,7 +35,7 @@
     "self_play": {
         "game"                     : "othello",
         "max_iter"                 : -1,
-        "min_examples"             : 10000,
+        "min_examples"             : 2000,
         "policy_warmup"            : 12,
         "n_self_plays"             : 100,
         "n_tournaments"            : 10,
