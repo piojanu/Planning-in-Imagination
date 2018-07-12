@@ -163,16 +163,21 @@ def build_keras_nn(game, params):
         game (Game): Perfect information dynamics/game. Used to get information
     like action/state space sizes etc.
         params (dict): Neural Net architecture hyper-parameters. Available:
-          * 'architecture' (dict)    : ResNet like architecture description. If conv_filters = -1 or
-                                       residual_filters = -1, then no conv layer/residual blocks.
-          * 'loss' (string)          : Loss function name, passed to keras model.compile(...) method.
-                                       (Default: ["categorical_crossentropy", "mean_squared_error"])
-          * 'l2_regularizer' (float) : L2 weight decay rate.
-                                       (Default: 0.0001)
-          * 'lr' (float)             : Learning rate of SGD with momentum optimizer. Float > 0.
-                                       (Default: 0.1)
-          * 'momentum' (float)       : Parameter that accelerates SGD in the relevant direction and
-                                       dampens oscillations. Float >= 0 (Default: 0.9)
+          * architecture related      : ResNet like architecture description. If conv_filters = -1 or
+                                        residual_filters = -1, then no conv layer/residual blocks.
+          * 'feature_extractor' (str) : "agz" (Default) - heads are the same like in AlphaGo Zero,
+                                        "avgpool"       - global avgpool after residual tower,
+                                        "flatten"       - flatten residual tower output.
+                                        After 'avgpool' and 'flatten' there is FC layer controlled
+                                        with 'dense_size' parameter.
+          * 'loss' (string)           : Loss function name, passed to keras model.compile(...) method.
+                                        (Default: ["categorical_crossentropy", "mean_squared_error"])
+          * 'l2_regularizer' (float)  : L2 weight decay rate.
+                                        (Default: 0.0001)
+          * 'lr' (float)              : Learning rate of SGD with momentum optimizer. Float > 0.
+                                        (Default: 0.1)
+          * 'momentum' (float)        : Parameter that accelerates SGD in the relevant direction and
+                                        dampens oscillations. Float >= 0 (Default: 0.9)
     """
 
     conv_filters = params.get("conv_filters", 256)
@@ -182,7 +187,7 @@ def build_keras_nn(game, params):
     residual_filters = params.get("residual_filters", 256)
     residual_kernel = params.get("residual_kernel", 3)
     residual_num = params.get("residual_num", 3)
-    use_avgpool = params.get("use_avgpool", False)
+    feature_extractor = params.get("feature_extractor", "agz")
     dense_size = params.get("dense_size", 512)
 
     loss = params.get('loss', ["categorical_crossentropy", "mean_squared_error"])
@@ -232,16 +237,23 @@ def build_keras_nn(game, params):
         for _ in range(residual_num):
             x = residual_block(x, residual_filters, residual_bottleneck, residual_kernel)
 
-    # Flatten or global avgpool
-    if use_avgpool:
+    # Final feature extractors
+    if feature_extractor == "agz":
+        pi = Flatten()(conv2d_n_batchnorm(x, filters=2, kernel_size=1, strides=1))
+        value = Flatten()(conv2d_n_batchnorm(x, filters=1, kernel_size=1, strides=1))
+        value = Dense(256, activation='relu', kernel_regularizer=l2(l2_reg))(value)
+    elif feature_extractor == "avgpool":
         x = GlobalAveragePooling2D(data_format=DATA_FORMAT)(x)
-    else:
+        pi = value = Dense(dense_size, activation='relu', kernel_regularizer=l2(l2_reg))(x)
+    elif feature_extractor == "flatten":
         x = Flatten()(x)
+        pi = value = Dense(dense_size, activation='relu', kernel_regularizer=l2(l2_reg))(x)
+    else:
+        raise ValueError("Unknown feature extractor! Possible values: 'agz', 'avgpool', 'flatten'")
 
     # Heads
-    x = Dense(dense_size, activation='relu', kernel_regularizer=l2(l2_reg))(x)
-    pi = Dense(ACTION_SIZE, activation='softmax', kernel_regularizer=l2(l2_reg), name='pi')(x)
-    value = Dense(1, activation='tanh', kernel_regularizer=l2(l2_reg), name='value')(x)
+    pi = Dense(ACTION_SIZE, activation='softmax', kernel_regularizer=l2(l2_reg), name='pi')(pi)
+    value = Dense(1, activation='tanh', kernel_regularizer=l2(l2_reg), name='value')(value)
 
     # Create model
     model = Model(inputs=boards_input, outputs=[pi, value])

@@ -1,13 +1,13 @@
 {
     "neural_net": {
         "conv_filters"             : 256,
-        "conv_kernel"              : 5,
-        "conv_stride"              : 2,
+        "conv_kernel"              : 3,
+        "conv_stride"              : 1,
         "residual_bottleneck"      : 128,
         "residual_filters"         : 256,
         "residual_kernel"          : 3,
         "residual_num"             : 3,
-        "use_avgpool"              : true,
+        "feature_extractor"        : "agz",
         "dense_size"               : 512,
         "loss"                     : ["categorical_crossentropy", "mean_squared_error"],
         "l2_regularizer"           : 0.0001,
@@ -24,7 +24,7 @@
         "dirichlet_noise" 	   : 0.3,
         "noise_ratio"     	   : 0.25,
         "gamma"           	   : 1.0,
-        "n_simulations"  	   : 100
+        "n_simulations"  	   : 50
     },
     "storage": {
         "exp_replay_size"	   : 200000,
