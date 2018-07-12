@@ -7,7 +7,7 @@ import os
 import utils
 import click
 
-from keras.callbacks import ModelCheckpoint
+from keras.callbacks import ModelCheckpoint, EarlyStopping
 from tabulate import tabulate
 
 from algos.alphazero import Planner
@@ -205,6 +205,80 @@ def train(ctx, checkpoint, best_save):
     net.train(data=np.array(boards_input),
               targets=[np.array(target_pis), np.array(target_values)],
               callbacks=callbacks)
+
+
+@cli.command()
+@click.pass_context
+@click.option('-n', '--n-steps', help="Number of optimization steps (Default: 100)", default=100)
+def hopt(ctx, n_steps):
+    """Hyper-parameter optimization of NN from passed configuration."""
+
+    from skopt import gp_minimize
+    from skopt.plots import plot_convergence
+    from skopt.space import Real, Integer, Categorical
+    from skopt.utils import use_named_args
+    import matplotlib.pyplot as plt
+
+    nn_params, training_params, _, storage_params, _, _, _, game, _ = ctx.obj
+
+    # Get training params
+    batch_size = training_params.get('batch_size', 32)
+    epochs = training_params.get('epochs', 50)
+
+    # Create storage and load data
+    storage = Storage(storage_params)
+    storage.load()
+
+    # Prepare training data
+    trained_data = storage.big_bag
+    boards_input, target_pis, target_values = list(zip(*trained_data))
+
+    data = np.array(boards_input)
+    targets = [np.array(target_pis), np.array(target_values)]
+
+    # Prepare search space
+    space = []
+    for k, v in nn_params.items():
+        # Ignore loss in hyper-param tuning
+        if isinstance(v, list) and k != "loss":
+            if isinstance(v[0], float):
+                space.append(Real(v[0], v[1], name=k))
+            elif isinstance(v[0], int):
+                space.append(Integer(v[0], v[1], name=k))
+            else:
+                space.append(Categorical(v, name=k))
+
+    @use_named_args(space)
+    def objective(**params):
+        # Prepare neural net parameters
+        for k, v in params.items():
+            nn_params[k] = v
+
+        # Build Keras neural net model
+        model = build_keras_nn(game, nn_params)
+
+        # Fit model
+        history = model.fit(data, targets,
+                            batch_size=batch_size,
+                            epochs=epochs,
+                            validation_split=0.2,
+                            callbacks=[EarlyStopping(patience=7)],
+                            verbose=0)
+
+        return history.history['val_loss'][-1]
+
+    # 100 iterations of minimization
+    model_gp = gp_minimize(objective, space, n_calls=n_steps, verbose=True)
+
+    # Print results
+    print("Best score: {}".format(model_gp.fun))
+    print("Best parameters:")
+    for i, dim in enumerate(space):
+        print("\t{} = {}".format(dim.name, model_gp.x[i]))
+
+    # Plot convergence
+    _ = plot_convergence(model_gp)
+    plt.savefig("hopt_convergence.png")
 
 
 @cli.command()
