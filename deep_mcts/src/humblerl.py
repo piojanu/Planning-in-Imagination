@@ -140,7 +140,7 @@ class Environment(metaclass=ABCMeta):
         Returns:
             np.Array: New state.
             int: Current player, first is 0.
-            float: Next reward.
+            float: Reward.
             bool: Flag indicating if episode has ended.
 
         Note:

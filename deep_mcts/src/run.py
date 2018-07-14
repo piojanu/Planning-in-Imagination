@@ -112,7 +112,7 @@ def self_play(ctx):
     ]
 
     # Create callbacks, storage and tournament
-    storage = Storage(storage_params)
+    storage = Storage(game, storage_params)
     train_stats = CSVSaverWrapper(
         BasicStats(), self_play_params.get('save_self_play_log_path', './logs/self-play.log'))
     tournament_stats = CSVSaverWrapper(
@@ -191,10 +191,10 @@ def train(ctx, checkpoint, best_save):
     # Create model checkpoint callback if path passed
     callbacks = []
     if best_save:
-        callbacks.append(ModelCheckpoint(best_save, save_best_only=True, verbose=1))
+        callbacks.append(ModelCheckpoint(best_save, save_best_only=False, verbose=0))
 
     # Create storage and load data
-    storage = Storage(storage_params)
+    storage = Storage(game, storage_params)
     storage.load()
 
     # Prepare training data
@@ -226,7 +226,7 @@ def hopt(ctx, n_steps):
     epochs = training_params.get('epochs', 50)
 
     # Create storage and load data
-    storage = Storage(storage_params)
+    storage = Storage(game, storage_params)
     storage.load()
 
     # Prepare training data
