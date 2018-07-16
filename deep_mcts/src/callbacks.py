@@ -128,7 +128,7 @@ class Storage(Callback):
         if transition.is_terminal:
             for player, state, mcts_pi in self.small_bag:
                 cannonical_state = self.model.get_canonical_form(state, player)
-                # Reward from env is from first player perspective,
+                # Reward from env is from player one perspective,
                 # so we check if current player is the first one
                 player_reward = transition.reward * (1 if player == 0 else -1)
                 self.big_bag.append((cannonical_state, mcts_pi, player_reward))
@@ -180,7 +180,7 @@ class Tournament(Callback):
     def on_step_taken(self, transition):
         if transition.is_terminal:
             # NOTE: Because players have fixed player id, and reward is returned from
-            # perspective of first player, we are indifferent to who is starting the game.
+            # perspective of player one, we are indifferent to who is starting the game.
             if transition.reward == 0:
                 self.draws += 1
             elif transition.reward > 0:

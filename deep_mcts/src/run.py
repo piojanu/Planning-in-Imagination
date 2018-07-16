@@ -133,7 +133,7 @@ def self_play(ctx):
                  policy='proportional', warmup=self_play_params.get('policy_warmup', 12),
                  debug_mode=debug_mode, n_episodes=self_play_params.get('n_self_plays', 100),
                  name="Self-play  " + iter_counter_str, verbose=2,
-                 callbacks=[train_stats, storage])
+                 callbacks=[best_player, train_stats, storage])
 
         # Store gathered data
         storage.store()
@@ -151,9 +151,12 @@ def self_play(ctx):
                           targets=[np.array(target_pis), np.array(target_values)])
 
         # ARENA - only the best will generate data!
+        # Clear players tree
+        current_player.clear_tree()
+        best_player.clear_tree()
+
         hrl.loop(env, tournament_players,
-                 policy='proportional', warmup=self_play_params.get('policy_warmup', 12), temperature=0.5,
-                 alternate_players=True, train_mode=False, debug_mode=debug_mode,
+                 policy='deterministic', alternate_players=True, train_mode=False, debug_mode=is_debug,
                  n_episodes=self_play_params.get('n_tournaments', 20),
                  name="Tournament " + iter_counter_str, verbose=2,
                  callbacks=[tournament_stats])
@@ -291,8 +294,8 @@ def clash(ctx, first_model_path, second_model_path, render, n_games):
     """Test two models. Play `n_games` between themselves.
 
         Args:
-            first_model_path: (string): Path to first player model.
-            second_model_path (string): Path to second player model.
+            first_model_path: (string): Path to player one model.
+            second_model_path (string): Path to player two model.
     """
     nn_params, training_params, planner_params, _, _, env, game_name, game, debug_mode = ctx.obj
 
@@ -362,6 +365,10 @@ def cross_play(ctx, checkpoints_dir, gap):
         for j in range(i + 1, len(players_ids)):
             second_player_id, second_checkpoint_path = players_ids[j], checkpoints_paths[j]
             second_player_net.load_checkpoint(second_checkpoint_path)
+
+            # Clear players tree
+            first_player.clear_tree()
+            second_player.clear_tree()
 
             hrl.loop(env, [first_player, second_player], alternate_players=True, policy='deterministic',
                      n_episodes=2, train_mode=False,
