@@ -2,11 +2,11 @@ import logging as log
 import numpy as np
 
 from abc import ABCMeta, abstractmethod
-from humblerl import Mind
+from humblerl import Callback, Mind
 from tree.basic import Node
 
 
-class MCTS(Mind, metaclass=ABCMeta):
+class MCTS(Callback, Mind, metaclass=ABCMeta):
     """MCTS search operations and planning logic."""
 
     def __init__(self, model, nn, params={}):
@@ -18,27 +18,29 @@ class MCTS(Mind, metaclass=ABCMeta):
             params (dict): MCTS search hyper-parameters. Available:
               * 'n_simulations' (int) : Number of simulations to perform before choosing action.
                                         (Default: 25)
+
+        Note:
+            Add it as callback to humblerl loop to clear tree between episodes in train mode.
         """
 
         self.model = model
         self.nn = nn
         self.n_simulations = params.get('n_simulations', 25)
 
-        self._root = None
+        self._tree = {}
 
-    def _debug_log(self, max_depth):
+    def _debug_log(self, root, player, max_depth):
         # Evaluate root state
-        relative_state = self.model.get_canonical_form(self._root.state, self._root.player)
-        pi, value = self.nn.predict(np.expand_dims(relative_state, axis=0))
+        pi, value = self.nn.predict(np.expand_dims(root.state, axis=0))
 
         # Log root state
-        log.debug("Current player: %d", self._root.player)
+        log.debug("Current player: %d", player)
         log.debug("Max search depth: %d", max_depth)
 
         # Log MCTS root value and NN predicted value
         state_visits = 0
         state_value = 0
-        for action, edge in self._root.edges.items():
+        for action, edge in root.edges.items():
             state_visits += edge.num_visits
             state_value += edge.qvalue * edge.num_visits
 
@@ -46,7 +48,7 @@ class MCTS(Mind, metaclass=ABCMeta):
         log.debug("NN root value: %.5f\n", value[0])
 
         # Action size must be multiplication of board width
-        BOARD_WIDTH = self._root.state.shape[1]
+        BOARD_WIDTH = root.state.shape[1]
         action_size = self.model.get_action_size()
         if action_size % BOARD_WIDTH == 1:
             # There is extra 'null' action, ignore it
@@ -57,13 +59,13 @@ class MCTS(Mind, metaclass=ABCMeta):
         visits = np.zeros(action_size)
         qvalues = np.zeros_like(visits)
         scores = np.zeros_like(visits)
-        for action, edge in self._root.edges.items():
+        for action, edge in root.edges.items():
             visits[action] = edge.num_visits
             qvalues[action] = edge.qvalue
             scores[action] = edge.qvalue
 
         ucts = np.zeros_like(visits)
-        for action, edge in self._root.edges.items():
+        for action, edge in root.edges.items():
             ucts[action] = self.c * edge.prior * \
                 np.sqrt(1 + np.sum(visits)) / (1 + edge.num_visits)
             scores[action] += ucts[action]
@@ -118,6 +120,55 @@ class MCTS(Mind, metaclass=ABCMeta):
 
         pass
 
+    def expand(self, state, player):
+        """Add new node to search tree.
+
+        Args:
+            state (np.array): Game state representation.
+            player (int): Current (in passed state) player id.
+
+        Return:
+            Node: Node in search tree representing given state.
+
+        Note:
+            For now just store mapping in 'tree' dict from state.tostring() to Node. arrays are so
+            small, that it'll have good performance:
+            https://stackoverflow.com/questions/16589791/most-efficient-property-to-hash-for-numpy-array
+
+            If you'll deal with bigger arrays in the future e.g. from Atari games, consider wrapping
+            it with own class with __hash__ and __eq__ implementation and in __hash_ convert
+            to string only smaller part of original array. Allow python to deal with collisions.
+        """
+
+        # NOTE: In whole tree we store and work on only canonical board representations.
+        #       Canonical means, that it's from perspective of CURRENT IN NODE player.
+        #       From perspective of some player means that he is 1 on the board.
+        canonical_state = self.model.get_canonical_form(state, player)
+
+        node = Node(canonical_state)
+        self._tree[canonical_state.tostring()] = node
+
+        return node
+
+    def clear_tree(self):
+        """Empty search tree."""
+        self._tree.clear()
+
+    def query_tree(self, state, player):
+        """Get node of given state from search tree.
+
+        Args:
+            state (np.array): Game state representation.
+            player (int): Current (in passed state) player id.
+        """
+
+        # NOTE: In whole tree we store and work on only canonical board representations.
+        #       Canonical means, that it's from perspective of CURRENT IN NODE player.
+        #       From perspective of some player means that he is 1 on the board.
+        canonical_state = self.model.get_canonical_form(state, player)
+
+        return self._tree.get(canonical_state.tostring(), None)
+
     def plan(self, state, player, train_mode, debug_mode):
         """Conduct planning on state.
 
@@ -133,16 +184,17 @@ class MCTS(Mind, metaclass=ABCMeta):
             dict: Planning metrics.
         """
 
-        # Create root node
-        # TODO (pj): Implement reusing subtrees in next moves.
-        self._root = Node(state, player)
-        _ = self.evaluate(self._root, train_mode, is_root=True)
+        # Get/create root node
+        root = self.query_tree(state, player)
+        if root == None:
+            root = self.expand(state, player)
+            _ = self.evaluate(root, train_mode, is_root=True)
 
         # Perform simulations
         max_depth = 0
         for idx in range(self.n_simulations):
             # Simulate
-            leaf, path = self.simulate(self._root)
+            leaf, path = self.simulate(root)
 
             # Keep max search depth
             max_depth = max(len(path), max_depth)
@@ -155,11 +207,17 @@ class MCTS(Mind, metaclass=ABCMeta):
             self.backup(path, -value)
 
         if debug_mode:
-            self._debug_log(max_depth)
+            self._debug_log(root, player, max_depth)
 
         # Get actions' visit counts
         actions = np.zeros(self.model.get_action_size())
-        for action, edge in self._root.edges.items():
+        for action, edge in root.edges.items():
             actions[action] = edge.num_visits
 
         return actions, {"max_depth": max_depth}
+
+    def on_episode_start(self, train_mode):
+        """Empty search tree between episodes if in train mode."""
+        if train_mode:
+            self.clear_tree()
+        return {}

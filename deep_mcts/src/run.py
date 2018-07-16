@@ -156,8 +156,8 @@ def self_play(ctx):
         best_player.clear_tree()
 
         hrl.loop(env, tournament_players,
-                 policy='deterministic', alternate_players=True, train_mode=False, debug_mode=is_debug,
-                 n_episodes=self_play_params.get('n_tournaments', 20),
+                 policy='deterministic', alternate_players=True, train_mode=False,
+                 debug_mode=debug_mode, n_episodes=self_play_params.get('n_tournaments', 20),
                  name="Tournament " + iter_counter_str, verbose=2,
                  callbacks=[tournament_stats])
 

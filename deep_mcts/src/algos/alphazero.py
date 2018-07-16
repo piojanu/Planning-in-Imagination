@@ -56,9 +56,14 @@ class Planner(MCTS):
 
             if next_node is None:
                 # This edge wasn't explored yet, create leaf node and return
+                # NOTE: We are taking move as fist player (id 0) because whole tree keeps only
+                #       canonical representations, it means that "we are" always player one (id 0).
                 next_state, player = self.model.get_next_state(
-                    current_node.state, current_node.player, action)
-                leaf_node = Node(next_state, player)
+                    board=current_node.state, player=0, action=action)
+                # NOTE: Because we are always playing with player one, the next player is always two.
+                #       And because next player is always two, we always reverse board to next
+                #       (the other one, no matter which one he was originally) player perspective.
+                leaf_node = self.expand(next_state, player)
                 edge.next_node = leaf_node
 
                 return leaf_node, path
@@ -77,45 +82,47 @@ class Planner(MCTS):
             (float): Node (state) value.
         """
 
-        # Get relative state
-        relative_state = self.model.get_canonical_form(leaf_node.state, leaf_node.player)
         # Evaluate state
-        pi, value = self.nn.predict(np.expand_dims(relative_state, axis=0))
+        pi, value = self.nn.predict(np.expand_dims(leaf_node.state, axis=0))
 
         # Take first element in batch
         pi = pi[0]
         value = value[0][0]
 
-        # Change value to game result if this is terminal state
-        end_result = self.model.get_game_ended(leaf_node.state, leaf_node.player)
-        if end_result != 0:
-            value = end_result
-
-        # Add Dirichlet noise to root node prior
-        if is_root and train_mode:
-            pi = (1 - self.noise_ratio) * pi + self.noise_ratio * \
-                np.random.dirichlet([self.dirichlet_noise, ] * len(pi))
-
-        # Get valid actions probabilities
-        valid_moves = self.model.get_valid_moves(leaf_node.state, leaf_node.player)
-
         # Create edges of this node
         edges = {}
 
-        # Renormalize valid actions probabilities, but only if there are any valid actions
-        if len(valid_moves) != 0:
-            probs = np.zeros_like(pi)
-            probs[valid_moves] = pi[valid_moves]
-            sum_probs = np.sum(probs)
-            if sum_probs <= 0:
-                # If all valid moves were masked make all valid moves equally probable
-                log.warn("All valid moves were masked, do workaround!")
-                probs[valid_moves] = 1
-            probs = probs / sum_probs
+        # Change value to game result if this is terminal state and don't expand possible moves
+        # NOTE: Remember that tree keeps states from perspective of player one (id 0)!
+        end_result = self.model.get_game_ended(leaf_node.state, 0)
+        if end_result != 0:
+            # Draw has some small value, truncate it and leave only:
+            # -1 (lose), 0 (draw), 1 (win)
+            value = float(int(end_result))
+        else:
+            # Add Dirichlet noise to root node prior
+            if is_root and train_mode:
+                pi = (1 - self.noise_ratio) * pi + self.noise_ratio * \
+                    np.random.dirichlet([self.dirichlet_noise, ] * len(pi))
 
-            # Fill this node edges with priors
-            for m in valid_moves:
-                edges[m] = Edge(prior=probs[m])
+            # Get valid actions probabilities
+            # NOTE: Remember that tree keeps states from perspective of player one (id 0)!
+            valid_moves = self.model.get_valid_moves(leaf_node.state, 0)
+
+            # Renormalize valid actions probabilities, but only if there are any valid actions
+            if len(valid_moves) != 0:
+                probs = np.zeros_like(pi)
+                probs[valid_moves] = pi[valid_moves]
+                sum_probs = np.sum(probs)
+                if sum_probs <= 0:
+                    # If all valid moves were masked make all valid moves equally probable
+                    log.warn("All valid moves were masked, do workaround!")
+                    probs[valid_moves] = 1
+                probs = probs / sum_probs
+
+                # Fill this node edges with priors
+                for m in valid_moves:
+                    edges[m] = Edge(prior=probs[m])
 
         # Expand node with edges
         leaf_node.expand(edges)

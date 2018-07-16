@@ -22,6 +22,18 @@ class Callback(metaclass=ABCMeta):
 
         pass
 
+    def on_episode_start(self, train_mode):
+        """Event when episode starts.
+
+        Args:
+            train_mode (bool): Informs whether episode is in training or evaluation mode.
+
+        Note:
+            You can assume, that this event occurs always before any action is taken in episode.
+        """
+
+        pass
+
     def on_action_planned(self, logits, metrics):
         """Event after Mind was evaluated.
 
@@ -60,7 +72,7 @@ class Callback(metaclass=ABCMeta):
             You can assume, that this event occurs after step to terminal state.
         """
 
-        pass
+        return {}
 
     def on_loop_finish(self, is_aborted):
         """Event after  was reset.
@@ -85,6 +97,10 @@ class CallbackList(object):
     def on_loop_start(self):
         for callback in self.callbacks:
             callback.on_loop_start()
+
+    def on_episode_start(self, train_mode):
+        for callback in self.callbacks:
+            callback.on_episode_start(train_mode)
 
     def on_action_planned(self, logits, metrics):
         for callback in self.callbacks:
@@ -410,6 +426,7 @@ def loop(env, minds, n_episodes=1, max_steps=-1, alternate_players=False, policy
         for iter in pbar:
             step = 0
             _, player = env.reset(train_mode, first_player=first_player)
+            callbacks_list.on_episode_start(train_mode)
 
             # Play until episode ends or max_steps limit reached
             while max_steps == -1 or step <= max_steps:
