@@ -14,6 +14,7 @@ from algos.alphazero import Planner
 from env import GameEnv
 from nn import build_keras_nn, KerasNet
 from callbacks import BasicStats, CSVSaverWrapper, Storage, Tournament, RenderCallback
+from metrics import ELOScoreboard
 
 
 @click.group()
@@ -359,9 +360,15 @@ def cross_play(ctx, checkpoints_dir, gap):
     # Create table for results, extra column for player id
     results = np.zeros((len(checkpoints_paths), len(checkpoints_paths)), dtype=int)
 
+    # Create ELO scoreboard
+    elo = ELOScoreboard(players_ids)
+
     for i, (first_player_id, first_checkpoint_path) in enumerate(zip(players_ids, checkpoints_paths)):
         first_player_net.load_checkpoint(first_checkpoint_path)
 
+        tournament_wins = tournament_draws = 0
+        opponents_ids = []
+        opponents_elo = []
         for j in range(i + 1, len(players_ids)):
             second_player_id, second_checkpoint_path = players_ids[j], checkpoints_paths[j]
             second_player_net.load_checkpoint(second_checkpoint_path)
@@ -375,15 +382,33 @@ def cross_play(ctx, checkpoints_dir, gap):
                      name="{} vs {}".format(first_player_id, second_player_id),
                      callbacks=[tournament])
 
-            wins, losses, _ = tournament.results
+            wins, losses, draws = tournament.results
+
+            # Book keeping
+            tournament_wins += wins
+            tournament_draws += draws
+
+            opponents_ids.append(second_player_id)
+            opponents_elo.append(elo.scores.loc[second_player_id, 'elo'])
+
             results[i][j] = wins - losses
             results[j][i] = losses - wins
 
+            # Update ELO rating of second player
+            elo.update_rating(second_player_id, [first_player_id], losses, draws)
+
+        # Update ELO rating of first player
+        elo.update_rating(first_player_id, opponents_ids, tournament_wins,
+                          tournament_draws, opponents_elo=opponents_elo)
+
     scoreboard = np.concatenate(
-        (np.array(players_ids).reshape(-1, 1), results, np.sum(results, axis=1).reshape(-1, 1)),
+        (np.array(players_ids).reshape(-1, 1),
+         results,
+         np.sum(results, axis=1).reshape(-1, 1),
+         elo.scores.elo.values.reshape(-1, 1).astype(np.int)),
         axis=1
     )
-    tab = tabulate(scoreboard, headers=players_ids + ["sum", ], tablefmt="fancy_grid")
+    tab = tabulate(scoreboard, headers=players_ids + ["sum", "elo"], tablefmt="fancy_grid")
     log.info("Results:\n{}".format(tab))
     for player_id, checkpoint_path in zip(players_ids, checkpoints_paths):
         log.info("{}: {}".format(player_id, checkpoint_path))

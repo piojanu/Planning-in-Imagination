@@ -122,7 +122,7 @@ class Storage(Callback):
         # what is the value of terminal/end state.
         small_package = transition.player, transition.state, self._recent_action_probs
         self.small_bag.append(small_package)
-        if len(self.small_bag) >= self.params.get("exp_replay_size", 100000):
+        if len(self.small_bag) > self.params.get("exp_replay_size", 100000):
             self.small_bag.popleft()
 
         if transition.is_terminal:
@@ -132,7 +132,7 @@ class Storage(Callback):
                 # so we check if current player is the first one
                 player_reward = transition.reward * (1 if player == 0 else -1)
                 self.big_bag.append((cannonical_state, mcts_pi, player_reward))
-                if len(self.big_bag) >= self.params.get("exp_replay_size", 100000):
+                if len(self.big_bag) > self.params.get("exp_replay_size", 100000):
                     self.big_bag.popleft()
             self.small_bag.clear()
 
