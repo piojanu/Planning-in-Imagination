@@ -91,11 +91,14 @@ def self_play(ctx):
 
     # Load best nn if available
     try:
-        best_net.load_checkpoint(save_folder, utils.get_newest_ckpt_fname(save_folder))
+        ckpt_path = utils.get_newest_ckpt_fname(save_folder)
+        best_net.load_checkpoint(save_folder, ckpt_path)
         log.info("Best mind has loaded latest checkpoint: {}".format(
             utils.get_newest_ckpt_fname(save_folder)))
+        global_epoch = int(ckpt_path.replace('_', '.').split('.')[-2])
     except:
         log.info("No initial checkpoint, starting tabula rasa.")
+        global_epoch = 0
 
     # Copy best nn weights to current nn that will be trained
     current_net.model.set_weights(best_net.model.get_weights())
@@ -150,8 +153,9 @@ def self_play(ctx):
         trained_data = storage.big_bag
         boards_input, target_pis, target_values = list(zip(*trained_data))
 
-        current_net.train(data=np.array(boards_input),
-                          targets=[np.array(target_pis), np.array(target_values)])
+        global_epoch = current_net.train(data=np.array(boards_input),
+                                         targets=[np.array(target_pis), np.array(target_values)],
+                                         initial_epoch=global_epoch)
 
         # ARENA - only the best will generate data!
         # Clear players tree
@@ -166,7 +170,7 @@ def self_play(ctx):
 
         wins, losses, _ = tournament_stats.callback.results
         if wins > 0 and float(wins) / (wins + losses) > update_threshold:
-            best_fname = utils.make_ckpt_fname(game_name, save_filename)
+            best_fname = "_".join([save_filename, game_name, str(global_epoch)]) + ".ckpt"
             log.info("New best player: {}".format(best_fname))
 
             # Save best and exchange weights

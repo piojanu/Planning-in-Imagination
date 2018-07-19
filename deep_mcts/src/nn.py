@@ -109,19 +109,28 @@ class KerasNet(NeuralNet):
 
         return self.model.predict(state)
 
-    def train(self, data, targets, callbacks=[]):
+    def train(self, data, targets, initial_epoch=0, callbacks=[]):
         """Perform training according to passed parameters in `build` call.
 
         Args:
             data (numpy.Array): States to train on.
             targets (numpy.Array): Ground truth targets, depend on specific model.
+            initial_epoch (int): Epoch at which to start training. (Default: 0)
             callbacks (list): Extra callbacks to pass to keras model fit method. (Default: [])
+
+        Return:
+            int: Number of training epochs to this moment.
         """
+
+        epochs = self.epochs + initial_epoch
 
         self.model.fit(data, targets,
                        batch_size=self.batch_size,
-                       epochs=self.epochs,
+                       epochs=epochs,
+                       initial_epoch=initial_epoch,
                        callbacks=self.callbacks + callbacks)
+
+        return epochs
 
     def save_checkpoint(self, folder, filename):
         """Saves the current neural network (with its parameters) in folder/filename.
