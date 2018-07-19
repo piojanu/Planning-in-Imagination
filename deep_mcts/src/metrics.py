@@ -12,11 +12,34 @@ class ELOScoreboard(object):
 
         Args:
             players (list): List of players ids (weights file name will be fine).
-            init_elo (float): Initial ELO of each player.
+            init_elo (float): Initial ELO of each player. (Default: 1000)
         """
 
         self.scores = pd.DataFrame(index=players_ids, columns=['elo'])
         self.scores.loc[:] = init_elo
+
+    @staticmethod
+    def load_csv(path):
+        """Loads ELO scoreboard from .csv file.
+
+        Args:
+            path (str): Path to .csv file with data.
+
+        Returns:
+            ELOScoreboard: ELO scoreboard object with loaded data.
+        """
+
+        df = pd.read_csv(path, index_col=0, header=None)
+        return ELOScoreboard(df.index, df.values)
+
+    def save_csv(self, path):
+        """Saves ELO scoreboard to .csv file.
+
+        Args:
+            path (str): Path to destination .csv file.
+        """
+
+        self.scores.to_csv(path, header=False)
 
     def update_rating(self, player, opponents, wins, draws, n_games=2, opponents_elo=None):
         """Update ELO rating of player after matches with opponents.

@@ -33,6 +33,7 @@ def cli(ctx, config_path, debug):
     nn_params = params.get("neural_net", {})
     training_params = params.get("training", {})
     planner_params = params.get("planner", {})
+    logging_params = params.get("logging", {})
     storage_params = params.get("storage", {})
     self_play_params = params.get("self_play", {})
 
@@ -42,8 +43,8 @@ def cli(ctx, config_path, debug):
     game = env.game
 
     # Create context
-    ctx.obj = (nn_params, training_params, planner_params, storage_params,
-               self_play_params, env, game_name, game, debug)
+    ctx.obj = (nn_params, training_params, planner_params, logging_params,
+               storage_params, self_play_params, env, game_name, game, debug)
 
 
 @cli.command()
@@ -76,11 +77,12 @@ def self_play(ctx):
                                                         (Default: 0.55)
 
     """
-    nn_params, training_params, planner_params, storage_params, self_play_params, env, game_name, game, debug_mode = ctx.obj
+
+    nn_params, training_params, planner_params, logging_params, storage_params, self_play_params, env, game_name, game, debug_mode = ctx.obj
 
     # Get params for best model ckpt creation and update threshold
-    save_folder = self_play_params.get('save_checkpoint_folder', 'checkpoints')
-    save_filename = self_play_params.get('save_checkpoint_filename', 'best')
+    save_folder = logging_params.get('save_checkpoint_folder', 'checkpoints')
+    save_filename = logging_params.get('save_checkpoint_filename', 'best')
     update_threshold = self_play_params.get("update_threshold", 0.55)
 
     # Create Minds, current and best
@@ -115,9 +117,9 @@ def self_play(ctx):
     # Create callbacks, storage and tournament
     storage = Storage(game, storage_params)
     train_stats = CSVSaverWrapper(
-        BasicStats(), self_play_params.get('save_self_play_log_path', './logs/self-play.log'))
+        BasicStats(), logging_params.get('save_self_play_log_path', './logs/self-play.log'))
     tournament_stats = CSVSaverWrapper(
-        Tournament(), self_play_params.get('save_tournament_log_path', './logs/tournament.log'), True)
+        Tournament(), logging_params.get('save_tournament_log_path', './logs/tournament.log'), True)
 
     # Load storage date from disk (path in config)
     storage.load()
@@ -182,7 +184,7 @@ def self_play(ctx):
 def train(ctx, checkpoint, best_save):
     """Train NN from passed configuration."""
 
-    nn_params, training_params, _, storage_params, _, _, _, game, _ = ctx.obj
+    nn_params, training_params, _, _, storage_params, _, _, _, game, _ = ctx.obj
 
     # Create Keras NN
     net = KerasNet(build_keras_nn(game, nn_params), training_params)
@@ -298,7 +300,7 @@ def clash(ctx, first_model_path, second_model_path, render, n_games):
             first_model_path: (string): Path to player one model.
             second_model_path (string): Path to player two model.
     """
-    nn_params, training_params, planner_params, _, _, env, game_name, game, debug_mode = ctx.obj
+    nn_params, training_params, planner_params, _, _, _, env, game_name, game, debug_mode = ctx.obj
 
     # Create Minds, current and best
     first_player_net = KerasNet(build_keras_nn(game, nn_params), training_params)
@@ -331,7 +333,7 @@ def cross_play(ctx, checkpoints_dir, gap):
         Args:
             checkpoints_dir: (string): Path to checkpoints with models.
     """
-    nn_params, training_params, planner_params, _, _, env, game_name, game, _ = ctx.obj
+    nn_params, training_params, planner_params, logging_params, _, _, env, game_name, game, _ = ctx.obj
 
     # Create players and their minds
     first_player_net = KerasNet(build_keras_nn(game, nn_params), training_params)
@@ -400,6 +402,9 @@ def cross_play(ctx, checkpoints_dir, gap):
         # Update ELO rating of first player
         elo.update_rating(first_player_id, opponents_ids, tournament_wins,
                           tournament_draws, opponents_elo=opponents_elo)
+
+    # Save elo to csv
+    elo.save_csv(logging_params.get('save_elo_scoreboard_path', './logs/scoreboard.csv'))
 
     scoreboard = np.concatenate(
         (np.array(players_ids).reshape(-1, 1),

@@ -26,6 +26,13 @@
         "gamma"           	   : 1.0,
         "n_simulations"  	   : 50
     },
+    "logging": {
+        "save_checkpoint_folder"   : "./checkpoints",
+        "save_checkpoint_filename" : "best",
+        "save_self_play_log_path"  : "./logs/self-play.log",
+        "save_tournament_log_path" : "./logs/tournament.log",
+	"save_elo_scoreboard_path" : "./logs/scoreboard.csv"
+    },
     "storage": {
         "exp_replay_size"	   : 200000,
         "save_data_path"  	   : "./checkpoints/data.examples"
@@ -37,10 +44,6 @@
         "policy_warmup"            : 12,
         "n_self_plays"             : 100,
         "n_tournaments"            : 10,
-        "save_checkpoint_folder"   : "./checkpoints",
-        "save_checkpoint_filename" : "best",
-        "save_self_play_log_path"  : "./logs/self-play.log",
-        "save_tournament_log_path" : "./logs/tournament.log",
         "update_threshold"         : 0.55
      }
 }
