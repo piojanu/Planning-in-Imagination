@@ -410,8 +410,9 @@ def cross_play(ctx, checkpoints_dir, gap):
     )
     tab = tabulate(scoreboard, headers=players_ids + ["sum", "elo"], tablefmt="fancy_grid")
     log.info("Results:\n{}".format(tab))
-    for player_id, checkpoint_path in zip(players_ids, checkpoints_paths):
-        log.info("{}: {}".format(player_id, checkpoint_path))
+    for player_id, player_elo, checkpoint_path in zip(players_ids, elo.scores['elo'], checkpoints_paths):
+        log.info("ITER: {:3}, ELO: {:4}, PATH: {}".format(
+            player_id, int(player_elo), checkpoint_path))
 
 
 if __name__ == "__main__":
