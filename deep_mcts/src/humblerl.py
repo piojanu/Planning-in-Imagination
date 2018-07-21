@@ -223,7 +223,8 @@ class Vision(object):
         return self._process_state(state), self._process_reward(reward)
 
 
-def ply(env, mind, player=0, policy='deterministic', vision=Vision(), step=0, train_mode=True, debug_mode=False, callbacks=[], **kwargs):
+def ply(env, mind, player=0, policy='deterministic', vision=Vision(), step=0, train_mode=True,
+        debug_mode=False, callbacks=[], **kwargs):
     """Conduct single ply (turn taken by one of the players).
 
     Args:
@@ -340,7 +341,9 @@ def ply(env, mind, player=0, policy='deterministic', vision=Vision(), step=0, tr
     return transition
 
 
-def loop(env, minds, n_episodes=1, max_steps=-1, alternate_players=False, policy='deterministic', vision=Vision(), name="Loop", train_mode=True, debug_mode=False, verbose=1, callbacks=[], **kwargs):
+def loop(env, minds, n_episodes=1, max_steps=-1, alternate_players=False, policy='deterministic',
+         vision=Vision(), name="Loop", train_mode=True, debug_mode=False, verbose=1, callbacks=[],
+         **kwargs):
     """Conduct series of plies (turns taken by each player in order).
 
     Args:

@@ -162,4 +162,4 @@ class MCTS(Mind, metaclass=ABCMeta):
         for action, edge in self._root.edges.items():
             actions[action] = edge.num_visits
 
-        return actions, {"max_depth", max_depth}
+        return actions, {"max_depth": max_depth}

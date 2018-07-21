@@ -75,7 +75,7 @@ def self_play(ctx):
                                                         (Default: 0.55)
 
     """
-    nn_params, training_params, planner_params, storage_params, self_play_params, env, game_name, game, is_debug = ctx.obj
+    nn_params, training_params, planner_params, storage_params, self_play_params, env, game_name, game, debug_mode = ctx.obj
 
     # Get params for best model ckpt creation and update threshold
     save_folder = self_play_params.get('save_checkpoint_folder', 'checkpoints')
@@ -129,7 +129,7 @@ def self_play(ctx):
         # SELF-PLAY - gather data using best nn
         hrl.loop(env, self_play_players,
                  policy='deterministic', warmup=self_play_params.get('policy_warmup', 12),
-                 debug_mode=is_debug, n_episodes=self_play_params.get('n_self_plays', 100),
+                 debug_mode=debug_mode, n_episodes=self_play_params.get('n_self_plays', 100),
                  name="Self-play  " + iter_counter_str, verbose=2,
                  callbacks=[train_stats, storage])
         storage.store()
@@ -160,7 +160,7 @@ def self_play(ctx):
         # ARENA - only the best will remain!
         hrl.loop(env, tournament_players,
                  policy='deterministic', warmup=self_play_params.get('policy_warmup', 12), temperature=0.5,
-                 alternate_players=True, train_mode=False, debug_mode=is_debug,
+                 alternate_players=True, train_mode=False, debug_mode=debug_mode,
                  n_episodes=self_play_params.get('n_tournaments', 20),
                  name="Tournament " + iter_counter_str, verbose=2,
                  callbacks=[tournament_stats])
@@ -226,7 +226,7 @@ def clash(ctx, first_model_path, second_model_path, render, n_games):
             first_model_path: (string): Path to first player model.
             second_model_path (string): Path to second player model.
     """
-    nn_params, training_params, planner_params, _, _, env, game_name, game, is_debug = ctx.obj
+    nn_params, training_params, planner_params, _, _, env, game_name, game, debug_mode = ctx.obj
 
     # Create Minds, current and best
     first_player_net = KerasNet(build_keras_nn(game, nn_params), training_params)
@@ -240,7 +240,7 @@ def clash(ctx, first_model_path, second_model_path, render, n_games):
     first_player = Planner(game, first_player_net, planner_params)
     second_player = Planner(game, second_player_net, planner_params)
     hrl.loop(env, [first_player, second_player], alternate_players=True, policy='deterministic',
-             n_episodes=n_games, train_mode=False, debug_mode=is_debug,
+             n_episodes=n_games, train_mode=False, debug_mode=debug_mode,
              name="Test  models: {} vs {}".format(first_model_path.split(
                  "/")[-1], second_model_path.split("/")[-1]),
              callbacks=[render_callback, tournament])

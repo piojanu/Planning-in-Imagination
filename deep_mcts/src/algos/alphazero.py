@@ -49,16 +49,17 @@ class Planner(MCTS):
             if action_edge is None:
                 # This is leaf node, return now
                 return current_node, path
+            action, edge = action_edge
 
-            path.append(action_edge[1])
-            next_node = action_edge[1].next_node
+            path.append(edge)
+            next_node = edge.next_node
 
             if next_node is None:
                 # This edge wasn't explored yet, create leaf node and return
                 next_state, player = self.model.get_next_state(
-                    current_node.state, current_node.player, action_edge[0])
+                    current_node.state, current_node.player, action)
                 leaf_node = Node(next_state, player)
-                action_edge[1].next_node = leaf_node
+                edge.next_node = leaf_node
 
                 return leaf_node, path
 
@@ -128,5 +129,5 @@ class Planner(MCTS):
         return_t = value
         for edge in reversed(path):
             edge.update(return_t)
-            # NOTE: Node higher in tree is opponent node, invert negate value
+            # NOTE: Node higher in tree is opponent node, negate value
             return_t *= -self.gamma
