@@ -28,8 +28,8 @@ class CSVSaverWrapper(Callback):
     def on_loop_start(self):
         return self.callback.on_loop_start()
 
-    def on_action_planned(self, logits):
-        return self.callback.on_action_planned(logits)
+    def on_action_planned(self, logits, metrics):
+        return self.callback.on_action_planned(logits, metrics)
 
     def on_step_taken(self, transition):
         return self.callback.on_step_taken(transition)
@@ -94,7 +94,7 @@ class BasicStats(Callback):
 
 
 class Storage(Callback):
-    def __init__(self, params={}):
+    def __init__(self, model, params={}):
         """
         Storage with train examples.
 
@@ -106,32 +106,38 @@ class Storage(Callback):
                                               (Default: "./checkpoints/data.examples")
         """
 
+        self.model = model
         self.params = params
         self.small_bag = deque()
         self.big_bag = deque()
 
         self._recent_action_probs = None
 
-    def on_action_planned(self, logits):
+    def on_action_planned(self, logits, metrics):
+        # Proportional without temperature
         self._recent_action_probs = logits / np.sum(logits)
 
     def on_step_taken(self, transition):
-        small_package = transition.state, self._recent_action_probs, transition.reward
+        # NOTE: We never pass terminal state (it would be next_state), so NN can't learn directly
+        # what is the value of terminal/end state.
+        small_package = transition.player, transition.state, self._recent_action_probs
         self.small_bag.append(small_package)
-        if len(self.small_bag) >= self.params.get("exp_replay_size", 100000):
+        if len(self.small_bag) > self.params.get("exp_replay_size", 100000):
             self.small_bag.popleft()
 
         if transition.is_terminal:
-            for package in self.small_bag:
-                big_package = package[0], package[1], transition.reward
-                if len(self.big_bag) >= self.params.get("exp_replay_size", 100000):
+            for player, state, mcts_pi in self.small_bag:
+                cannonical_state = self.model.get_canonical_form(state, player)
+                # Reward from env is from player one perspective,
+                # so we check if current player is the first one
+                player_reward = transition.reward * (1 if player == 0 else -1)
+                self.big_bag.append((cannonical_state, mcts_pi, player_reward))
+                if len(self.big_bag) > self.params.get("exp_replay_size", 100000):
                     self.big_bag.popleft()
-                self.big_bag.append(big_package)
+            self.small_bag.clear()
 
     def on_episode_end(self):
         logs = {"# samples": len(self.big_bag)}
-        self.small_bag.clear()
-
         return logs
 
     def store(self):
@@ -173,6 +179,8 @@ class Tournament(Callback):
 
     def on_step_taken(self, transition):
         if transition.is_terminal:
+            # NOTE: Because players have fixed player id, and reward is returned from
+            # perspective of player one, we are indifferent to who is starting the game.
             if transition.reward == 0:
                 self.draws += 1
             elif transition.reward > 0:
@@ -196,7 +204,6 @@ class RenderCallback(Callback):
         self.do_render()
 
     def on_episode_end(self):
-        self.do_render()
         return {}
 
     def do_render(self):

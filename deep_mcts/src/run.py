@@ -7,13 +7,14 @@ import os
 import utils
 import click
 
-from keras.callbacks import ModelCheckpoint
+from keras.callbacks import ModelCheckpoint, EarlyStopping
 from tabulate import tabulate
 
 from algos.alphazero import Planner
 from env import GameEnv
 from nn import build_keras_nn, KerasNet
 from callbacks import BasicStats, CSVSaverWrapper, Storage, Tournament, RenderCallback
+from metrics import ELOScoreboard
 
 
 @click.group()
@@ -32,6 +33,7 @@ def cli(ctx, config_path, debug):
     nn_params = params.get("neural_net", {})
     training_params = params.get("training", {})
     planner_params = params.get("planner", {})
+    logging_params = params.get("logging", {})
     storage_params = params.get("storage", {})
     self_play_params = params.get("self_play", {})
 
@@ -41,8 +43,8 @@ def cli(ctx, config_path, debug):
     game = env.game
 
     # Create context
-    ctx.obj = (nn_params, training_params, planner_params,
-               storage_params, self_play_params, env, game_name, game)
+    ctx.obj = (nn_params, training_params, planner_params, logging_params,
+               storage_params, self_play_params, env, game_name, game, debug)
 
 
 @cli.command()
@@ -75,11 +77,12 @@ def self_play(ctx):
                                                         (Default: 0.55)
 
     """
-    nn_params, training_params, planner_params, storage_params, self_play_params, env, game_name, game = ctx.obj
+
+    nn_params, training_params, planner_params, logging_params, storage_params, self_play_params, env, game_name, game, debug_mode = ctx.obj
 
     # Get params for best model ckpt creation and update threshold
-    save_folder = self_play_params.get('save_checkpoint_folder', 'checkpoints')
-    save_filename = self_play_params.get('save_checkpoint_filename', 'best')
+    save_folder = logging_params.get('save_checkpoint_folder', 'checkpoints')
+    save_filename = logging_params.get('save_checkpoint_filename', 'best')
     update_threshold = self_play_params.get("update_threshold", 0.55)
 
     # Create Minds, current and best
@@ -88,12 +91,17 @@ def self_play(ctx):
 
     # Load best nn if available
     try:
-        best_net.load_checkpoint(save_folder, utils.get_newest_ckpt_fname(save_folder))
+        ckpt_path = utils.get_newest_ckpt_fname(save_folder)
+        best_net.load_checkpoint(save_folder, ckpt_path)
         log.info("Best mind has loaded latest checkpoint: {}".format(
             utils.get_newest_ckpt_fname(save_folder)))
+        global_epoch = int(ckpt_path.replace('_', '.').split('.')[-2])
     except:
-        best_net.save_checkpoint(save_folder, utils.make_ckpt_fname(game_name, save_filename))
-        log.info("Created initial checkpoint.")
+        log.info("No initial checkpoint, starting tabula rasa.")
+        global_epoch = 0
+
+    # Copy best nn weights to current nn that will be trained
+    current_net.model.set_weights(best_net.model.get_weights())
 
     # Create players
     best_player = Planner(game, best_net, planner_params)
@@ -110,11 +118,11 @@ def self_play(ctx):
     ]
 
     # Create callbacks, storage and tournament
-    storage = Storage(storage_params)
+    storage = Storage(game, storage_params)
     train_stats = CSVSaverWrapper(
-        BasicStats(), self_play_params.get('save_self_play_log_path', './logs/self-play.log'))
+        BasicStats(), logging_params.get('save_self_play_log_path', './logs/self-play.log'))
     tournament_stats = CSVSaverWrapper(
-        Tournament(), self_play_params.get('save_tournament_log_path', './logs/tournament.log'), True)
+        Tournament(), logging_params.get('save_tournament_log_path', './logs/tournament.log'), True)
 
     # Load storage date from disk (path in config)
     storage.load()
@@ -128,10 +136,12 @@ def self_play(ctx):
 
         # SELF-PLAY - gather data using best nn
         hrl.loop(env, self_play_players,
-                 policy='deterministic', warmup=self_play_params.get('policy_warmup', 12),
-                 n_episodes=self_play_params.get('n_self_plays', 100),
+                 policy='proportional', warmup=self_play_params.get('policy_warmup', 12),
+                 debug_mode=debug_mode, n_episodes=self_play_params.get('n_self_plays', 100),
                  name="Self-play  " + iter_counter_str, verbose=2,
-                 callbacks=[train_stats, storage])
+                 callbacks=[best_player, train_stats, storage])
+
+        # Store gathered data
         storage.store()
 
         # Proceed to training only if threshold is fulfilled
@@ -143,40 +153,29 @@ def self_play(ctx):
         trained_data = storage.big_bag
         boards_input, target_pis, target_values = list(zip(*trained_data))
 
-        current_net.model.set_weights(best_net.model.get_weights())
+        global_epoch = current_net.train(data=np.array(boards_input),
+                                         targets=[np.array(target_pis), np.array(target_values)],
+                                         initial_epoch=global_epoch)
 
-        temp_fpath = os.path.join(
-            save_folder, utils.make_ckpt_fname(game_name, save_filename + "_temp"))
-        current_net.train(data=np.array(boards_input), targets=[
-                          np.array(target_pis), np.array(target_values)],
-                          callbacks=[ModelCheckpoint(temp_fpath, save_best_only=True, verbose=1)])
-        try:
-            current_net.load_checkpoint(temp_fpath)
-            log.debug("Loaded best model from training: %s", temp_fpath)
-            os.remove(temp_fpath)
-        except:
-            log.debug("Trained model didn't improve or no val split.")
+        # ARENA - only the best will generate data!
+        # Clear players tree
+        current_player.clear_tree()
+        best_player.clear_tree()
 
-        # ARENA - only the best will remain!
         hrl.loop(env, tournament_players,
-                 policy='deterministic', warmup=self_play_params.get('policy_warmup', 12), temperature=0.2,
-                 alternate_players=True, train_mode=False,
-                 n_episodes=self_play_params.get('n_tournaments', 20),
+                 policy='deterministic', alternate_players=True, train_mode=False,
+                 debug_mode=debug_mode, n_episodes=self_play_params.get('n_tournaments', 20),
                  name="Tournament " + iter_counter_str, verbose=2,
                  callbacks=[tournament_stats])
 
-        wins, losses, draws = tournament_stats.callback.results
-        if wins + losses > 0 and float(wins) / (wins + losses) > update_threshold:
-            # CLASH - validate new best in deterministic setup
-            hrl.loop(env, tournament_players, policy='deterministic', alternate_players=True,
-                     train_mode=False, n_episodes=2, name="Clash " + iter_counter_str,
-                     verbose=2, callbacks=[tournament_stats])
-
-            # Save best
-            best_fname = utils.make_ckpt_fname(game_name, save_filename)
+        wins, losses, _ = tournament_stats.callback.results
+        if wins > 0 and float(wins) / (wins + losses) > update_threshold:
+            best_fname = "_".join([save_filename, game_name, str(global_epoch)]) + ".ckpt"
             log.info("New best player: {}".format(best_fname))
+
+            # Save best and exchange weights
             current_net.save_checkpoint(save_folder, best_fname)
-            best_net.load_checkpoint(save_folder, best_fname)
+            best_net.model.set_weights(current_net.model.get_weights())
 
         # Increment iterator
         iter += 1
@@ -189,7 +188,7 @@ def self_play(ctx):
 def train(ctx, checkpoint, best_save):
     """Train NN from passed configuration."""
 
-    nn_params, training_params, _, storage_params, _, _, _, game = ctx.obj
+    nn_params, training_params, _, _, storage_params, _, _, _, game, _ = ctx.obj
 
     # Create Keras NN
     net = KerasNet(build_keras_nn(game, nn_params), training_params)
@@ -202,10 +201,10 @@ def train(ctx, checkpoint, best_save):
     # Create model checkpoint callback if path passed
     callbacks = []
     if best_save:
-        callbacks.append(ModelCheckpoint(best_save, save_best_only=True, verbose=1))
+        callbacks.append(ModelCheckpoint(best_save, save_best_only=False, verbose=0))
 
     # Create storage and load data
-    storage = Storage(storage_params)
+    storage = Storage(game, storage_params)
     storage.load()
 
     # Prepare training data
@@ -220,6 +219,80 @@ def train(ctx, checkpoint, best_save):
 
 @cli.command()
 @click.pass_context
+@click.option('-n', '--n-steps', help="Number of optimization steps (Default: 100)", default=100)
+def hopt(ctx, n_steps):
+    """Hyper-parameter optimization of NN from passed configuration."""
+
+    from skopt import gp_minimize
+    from skopt.plots import plot_convergence
+    from skopt.space import Real, Integer, Categorical
+    from skopt.utils import use_named_args
+    import matplotlib.pyplot as plt
+
+    nn_params, training_params, _, storage_params, _, _, _, game, _ = ctx.obj
+
+    # Get training params
+    batch_size = training_params.get('batch_size', 32)
+    epochs = training_params.get('epochs', 50)
+
+    # Create storage and load data
+    storage = Storage(game, storage_params)
+    storage.load()
+
+    # Prepare training data
+    trained_data = storage.big_bag
+    boards_input, target_pis, target_values = list(zip(*trained_data))
+
+    data = np.array(boards_input)
+    targets = [np.array(target_pis), np.array(target_values)]
+
+    # Prepare search space
+    space = []
+    for k, v in nn_params.items():
+        # Ignore loss in hyper-param tuning
+        if isinstance(v, list) and k != "loss":
+            if isinstance(v[0], float):
+                space.append(Real(v[0], v[1], name=k))
+            elif isinstance(v[0], int):
+                space.append(Integer(v[0], v[1], name=k))
+            else:
+                space.append(Categorical(v, name=k))
+
+    @use_named_args(space)
+    def objective(**params):
+        # Prepare neural net parameters
+        for k, v in params.items():
+            nn_params[k] = v
+
+        # Build Keras neural net model
+        model = build_keras_nn(game, nn_params)
+
+        # Fit model
+        history = model.fit(data, targets,
+                            batch_size=batch_size,
+                            epochs=epochs,
+                            validation_split=0.2,
+                            callbacks=[EarlyStopping(patience=7)],
+                            verbose=0)
+
+        return history.history['val_loss'][-1]
+
+    # Perform hyper-parameter bayesian optimization
+    model_gp = gp_minimize(objective, space, n_calls=n_steps, verbose=True)
+
+    # Print results
+    print("Best score: {}".format(model_gp.fun))
+    print("Best parameters:")
+    for i, dim in enumerate(space):
+        print("\t{} = {}".format(dim.name, model_gp.x[i]))
+
+    # Plot convergence
+    _ = plot_convergence(model_gp)
+    plt.savefig("hopt_convergence.png")
+
+
+@cli.command()
+@click.pass_context
 @click.argument('first_model_path', nargs=1, type=click.Path(exists=True))
 @click.argument('second_model_path', nargs=1, type=click.Path(exists=True))
 @click.option('--render/--no-render', help="Enable rendering game (Default: True)", default=True)
@@ -228,10 +301,10 @@ def clash(ctx, first_model_path, second_model_path, render, n_games):
     """Test two models. Play `n_games` between themselves.
 
         Args:
-            first_model_path: (string): Path to first player model.
-            second_model_path (string): Path to second player model.
+            first_model_path: (string): Path to player one model.
+            second_model_path (string): Path to player two model.
     """
-    nn_params, training_params, planner_params, _, _, env, game_name, game = ctx.obj
+    nn_params, training_params, planner_params, _, _, _, env, game_name, game, debug_mode = ctx.obj
 
     # Create Minds, current and best
     first_player_net = KerasNet(build_keras_nn(game, nn_params), training_params)
@@ -245,7 +318,7 @@ def clash(ctx, first_model_path, second_model_path, render, n_games):
     first_player = Planner(game, first_player_net, planner_params)
     second_player = Planner(game, second_player_net, planner_params)
     hrl.loop(env, [first_player, second_player], alternate_players=True, policy='deterministic',
-             n_episodes=n_games, train_mode=False,
+             n_episodes=n_games, train_mode=False, debug_mode=debug_mode,
              name="Test  models: {} vs {}".format(first_model_path.split(
                  "/")[-1], second_model_path.split("/")[-1]),
              callbacks=[render_callback, tournament])
@@ -264,7 +337,7 @@ def cross_play(ctx, checkpoints_dir, gap):
         Args:
             checkpoints_dir: (string): Path to checkpoints with models.
     """
-    nn_params, training_params, planner_params, _, _, env, game_name, game = ctx.obj
+    nn_params, training_params, planner_params, logging_params, _, _, env, game_name, game, _ = ctx.obj
 
     # Create players and their minds
     first_player_net = KerasNet(build_keras_nn(game, nn_params), training_params)
@@ -293,30 +366,62 @@ def cross_play(ctx, checkpoints_dir, gap):
     # Create table for results, extra column for player id
     results = np.zeros((len(checkpoints_paths), len(checkpoints_paths)), dtype=int)
 
+    # Create ELO scoreboard
+    elo = ELOScoreboard(players_ids)
+
     for i, (first_player_id, first_checkpoint_path) in enumerate(zip(players_ids, checkpoints_paths)):
         first_player_net.load_checkpoint(first_checkpoint_path)
 
+        tournament_wins = tournament_draws = 0
+        opponents_ids = []
+        opponents_elo = []
         for j in range(i + 1, len(players_ids)):
             second_player_id, second_checkpoint_path = players_ids[j], checkpoints_paths[j]
             second_player_net.load_checkpoint(second_checkpoint_path)
+
+            # Clear players tree
+            first_player.clear_tree()
+            second_player.clear_tree()
 
             hrl.loop(env, [first_player, second_player], alternate_players=True, policy='deterministic',
                      n_episodes=2, train_mode=False,
                      name="{} vs {}".format(first_player_id, second_player_id),
                      callbacks=[tournament])
 
-            wins, losses, _ = tournament.results
+            wins, losses, draws = tournament.results
+
+            # Book keeping
+            tournament_wins += wins
+            tournament_draws += draws
+
+            opponents_ids.append(second_player_id)
+            opponents_elo.append(elo.scores.loc[second_player_id, 'elo'])
+
             results[i][j] = wins - losses
             results[j][i] = losses - wins
 
+            # Update ELO rating of second player
+            elo.update_rating(second_player_id, [first_player_id], losses, draws)
+
+        # Update ELO rating of first player
+        elo.update_rating(first_player_id, opponents_ids, tournament_wins,
+                          tournament_draws, opponents_elo=opponents_elo)
+
+    # Save elo to csv
+    elo.save_csv(logging_params.get('save_elo_scoreboard_path', './logs/scoreboard.csv'))
+
     scoreboard = np.concatenate(
-        (np.array(players_ids).reshape(-1, 1), results, np.sum(results, axis=1).reshape(-1, 1)),
+        (np.array(players_ids).reshape(-1, 1),
+         results,
+         np.sum(results, axis=1).reshape(-1, 1),
+         elo.scores.elo.values.reshape(-1, 1).astype(np.int)),
         axis=1
     )
-    tab = tabulate(scoreboard, headers=players_ids + ["sum", ], tablefmt="fancy_grid")
+    tab = tabulate(scoreboard, headers=players_ids + ["sum", "elo"], tablefmt="fancy_grid")
     log.info("Results:\n{}".format(tab))
-    for player_id, checkpoint_path in zip(players_ids, checkpoints_paths):
-        log.info("{}: {}".format(player_id, checkpoint_path))
+    for player_id, player_elo, checkpoint_path in zip(players_ids, elo.scores['elo'], checkpoints_paths):
+        log.info("ITER: {:3}, ELO: {:4}, PATH: {}".format(
+            player_id, int(player_elo), checkpoint_path))
 
 
 if __name__ == "__main__":

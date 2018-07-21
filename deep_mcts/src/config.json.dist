@@ -1,26 +1,22 @@
 {
     "neural_net": {
-        "architecture": {
-            "conv_filters"         : 256,
-            "conv_kernel"          : 5,
-            "conv_stride"          : 2,
-            "residual_bottleneck"  : 128,
-            "residual_filters"     : 256,
-            "residual_kernel"      : 3,
-            "residual_num"         : 3,
-            "use_avgpool"          : true,
-            "dense_size"           : 512
-        },
+        "conv_filters"             : 256,
+        "conv_kernel"              : 3,
+        "conv_stride"              : 1,
+        "residual_bottleneck"      : 128,
+        "residual_filters"         : 256,
+        "residual_kernel"          : 3,
+        "residual_num"             : 3,
+        "feature_extractor"        : "agz",
+        "dense_size"               : 512,
         "loss"                     : ["categorical_crossentropy", "mean_squared_error"],
-        "l2_regularizer" 	   : 0.0001,
-        "lr"             	   : 0.02,
-        "momentum"       	   : 0.9
+        "l2_regularizer"           : 0.0001,
+        "lr"                       : 0.02,
+        "momentum"                 : 0.9
     },
     "training": {
         "batch_size"     	   : 256,
-        "epochs"        	   : 500,
-        "patience"       	   : 10,
-        "val_split"   		   : 0.2,
+        "epochs"        	   : 25,
         "save_training_log_path"   : "./logs/training.log"
     },
     "planner": {
@@ -28,7 +24,14 @@
         "dirichlet_noise" 	   : 0.3,
         "noise_ratio"     	   : 0.25,
         "gamma"           	   : 1.0,
-        "n_simulations"  	   : 100
+        "n_simulations"  	   : 50
+    },
+    "logging": {
+        "save_checkpoint_folder"   : "./checkpoints",
+        "save_checkpoint_filename" : "best",
+        "save_self_play_log_path"  : "./logs/self-play.log",
+        "save_tournament_log_path" : "./logs/tournament.log",
+	"save_elo_scoreboard_path" : "./logs/scoreboard.csv"
     },
     "storage": {
         "exp_replay_size"	   : 200000,
@@ -37,14 +40,10 @@
     "self_play": {
         "game"                     : "othello",
         "max_iter"                 : -1,
-        "min_examples"             : 10000,
+        "min_examples"             : 2000,
         "policy_warmup"            : 12,
         "n_self_plays"             : 100,
         "n_tournaments"            : 10,
-        "save_checkpoint_folder"   : "./checkpoints",
-        "save_checkpoint_filename" : "best",
-        "save_self_play_log_path"  : "./logs/self-play.log",
-        "save_tournament_log_path" : "./logs/tournament.log",
         "update_threshold"         : 0.55
      }
 }

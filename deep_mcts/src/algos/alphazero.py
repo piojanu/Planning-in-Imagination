@@ -1,11 +1,11 @@
 import logging as log
 import numpy as np
 
-from .value_function import Planner as VFPlanner
-from tree.basic import Edge
+from mcts import MCTS
+from tree.basic import Edge, Node
 
 
-class Planner(VFPlanner):
+class Planner(MCTS):
     """AlphaZero search operations and planning logic."""
 
     def __init__(self, model, nn, params={}):
@@ -23,61 +23,52 @@ class Planner(VFPlanner):
                                         (Default: 25)
         """
 
-        VFPlanner.__init__(self, model, nn, params)
+        MCTS.__init__(self, model, nn, params)
 
+        self.c = params.get('c', 1.)
+        self.gamma = params.get('gamma', 1.)
         self.dirichlet_noise = params.get('dirichlet_noise', 0.03)
         self.noise_ratio = params.get('noise_ratio', 0.25)
 
-    def _log_debug(self):
-        # Evaluate root state
-        relative_state = self.model.get_canonical_form(self._root.state, self._root.player)
-        pi, value = self.nn.predict(np.expand_dims(relative_state, axis=0))
+    def simulate(self, start_node):
+        """Search through tree from start node to leaf.
 
-        # Log root state
-        log.debug("Current player (%d) state:\n%s\n", self._root.player, self._root.state)
+        Args:
+            start_node (Node): Where to start the search.
 
-        # Action size must be multiplication of board width
-        BOARD_WIDTH = self._root.state.shape[1]
-        action_size = self.model.get_action_size()
-        if action_size % BOARD_WIDTH == 1:
-            # There is extra 'null' action, ignore it
-            # NOTE: For this WA to work 'null' action has to have last idx in the environment!
-            action_size -= 1
+        Returns:
+            (Node): Leaf node.
+            (list): List of edges that make path from start node to leaf node.
+        """
 
-        # Log MCTS actions scores and qvalues and NN prior probs
-        visits = np.zeros(action_size)
-        qvalues = np.zeros_like(visits)
-        scores = np.zeros_like(visits)
-        for action, edge in self._root.edges.items():
-            visits[action] = edge.num_visits
-            qvalues[action] = edge.qvalue
-            scores[action] = edge.qvalue
+        current_node = start_node
+        path = []
 
-        ucts = np.zeros_like(visits)
-        for action, edge in self._root.edges.items():
-            ucts[action] = self.c * edge.prior * \
-                np.sqrt(1 + np.sum(visits)) / (1 + edge.num_visits)
-            scores[action] += ucts[action]
+        while True:
+            action_edge = current_node.select_edge(self.c)
+            if action_edge is None:
+                # This is leaf node, return now
+                return current_node, path
+            action, edge = action_edge
 
-        log.debug("Actions visits:\n%s\n", visits.reshape([-1, BOARD_WIDTH]))
-        log.debug("Prior probabilities:\n%s\n", np.array2string(
-            pi[0][:action_size].reshape([-1, BOARD_WIDTH]), formatter={'float_kind': lambda x: "%.5f" % x}))
-        log.debug("Exploration bonuses:\n%s\n", np.array2string(
-            ucts.reshape([-1, BOARD_WIDTH]), formatter={'float_kind': lambda x: "%.5f" % x}))
-        log.debug("Actions qvalues:\n%s\n", np.array2string(
-            qvalues.reshape([-1, BOARD_WIDTH]), formatter={'float_kind': lambda x: "%.5f" % x}))
-        log.debug("Actions scores:\n%s\n", np.array2string(
-            scores.reshape([-1, BOARD_WIDTH]), formatter={'float_kind': lambda x: "%.5f" % x}))
+            path.append(edge)
+            next_node = edge.next_node
 
-        # Log MCTS root value and NN predicted value
-        state_visits = 0
-        state_value = 0
-        for action, edge in self._root.edges.items():
-            state_visits += edge.num_visits
-            state_value += edge.qvalue * edge.num_visits
+            if next_node is None:
+                # This edge wasn't explored yet, create leaf node and return
+                # NOTE: We are taking move as fist player (id 0) because whole tree keeps only
+                #       canonical representations, it means that "we are" always player one (id 0).
+                next_state, player = self.model.get_next_state(
+                    board=current_node.state, player=0, action=action)
+                # NOTE: Because we are always playing with player one, the next player is always two.
+                #       And because next player is always two, we always reverse board to next
+                #       (the other one, no matter which one he was originally) player perspective.
+                leaf_node = self.expand(next_state, player)
+                edge.next_node = leaf_node
 
-        log.debug("MCTS root value: %.5f", state_value / state_visits)
-        log.debug("NN root value: %.5f\n", value[0])
+                return leaf_node, path
+
+            current_node = next_node
 
     def evaluate(self, leaf_node, train_mode, is_root=False):
         """Expand and evaluate leaf node.
@@ -91,43 +82,63 @@ class Planner(VFPlanner):
             (float): Node (state) value.
         """
 
-        # Get relative state
-        relative_state = self.model.get_canonical_form(leaf_node.state, leaf_node.player)
         # Evaluate state
-        pi, value = self.nn.predict(np.expand_dims(relative_state, axis=0))
+        pi, value = self.nn.predict(np.expand_dims(leaf_node.state, axis=0))
 
         # Take first element in batch
         pi = pi[0]
-        value = value[0]
-
-        # Add Dirichlet noise to root node prior
-        if is_root and train_mode:
-            pi = (1 - self.noise_ratio) * pi + self.noise_ratio * \
-                np.random.dirichlet([self.dirichlet_noise, ] * len(pi))
-
-        # Get valid actions probabilities
-        valid_moves = self.model.get_valid_moves(leaf_node.state, leaf_node.player)
+        value = value[0][0]
 
         # Create edges of this node
         edges = {}
 
-        # Renormalize valid actions probabilities, but only if there are any valid actions
-        if len(valid_moves) != 0:
-            probs = np.zeros_like(pi)
-            probs[valid_moves] = pi[valid_moves]
-            sum_probs = np.sum(probs)
-            if sum_probs <= 0:
-                # If all valid moves were masked make all valid moves equally probable
-                log.warn("All valid moves were masked, do workaround!")
-                probs[valid_moves] = 1
-            probs = probs / sum_probs
+        # Change value to game result if this is terminal state and don't expand possible moves
+        # NOTE: Remember that tree keeps states from perspective of player one (id 0)!
+        end_result = self.model.get_game_ended(leaf_node.state, 0)
+        if end_result != 0:
+            # Draw has some small value, truncate it and leave only:
+            # -1 (lose), 0 (draw), 1 (win)
+            value = float(int(end_result))
+        else:
+            # Add Dirichlet noise to root node prior
+            if is_root and train_mode:
+                pi = (1 - self.noise_ratio) * pi + self.noise_ratio * \
+                    np.random.dirichlet([self.dirichlet_noise, ] * len(pi))
 
-            # Fill this node edges with priors
-            for m in valid_moves:
-                edges[m] = Edge(prior=probs[m])
+            # Get valid actions probabilities
+            # NOTE: Remember that tree keeps states from perspective of player one (id 0)!
+            valid_moves = self.model.get_valid_moves(leaf_node.state, 0)
+
+            # Renormalize valid actions probabilities, but only if there are any valid actions
+            if len(valid_moves) != 0:
+                probs = np.zeros_like(pi)
+                probs[valid_moves] = pi[valid_moves]
+                sum_probs = np.sum(probs)
+                if sum_probs <= 0:
+                    # If all valid moves were masked make all valid moves equally probable
+                    log.warn("All valid moves were masked, do workaround!")
+                    probs[valid_moves] = 1
+                probs = probs / sum_probs
+
+                # Fill this node edges with priors
+                for m in valid_moves:
+                    edges[m] = Edge(prior=probs[m])
 
         # Expand node with edges
         leaf_node.expand(edges)
 
-        # Get value from result array
-        return value[0]
+        return value
+
+    def backup(self, path, value):
+        """Backup value to ancestry nodes.
+
+        Args:
+            path (list): List of edges that make path from start node to leaf node.
+            value (float): Value to backup to all the edges on path.
+        """
+
+        return_t = value
+        for edge in reversed(path):
+            edge.update(return_t)
+            # NOTE: Node higher in tree is opponent node, negate value
+            return_t *= -self.gamma

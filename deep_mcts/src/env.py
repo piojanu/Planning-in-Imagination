@@ -54,8 +54,7 @@ class GameEnv(Environment):
     """Environment for board games from https://github.com/suragnair/alpha-zero-general
 
     Note:
-        Available games:
-          * connect4
+        step(...) returns reward from perspective of player one!
     """
 
     def __init__(self, name):
@@ -76,17 +75,26 @@ class GameEnv(Environment):
     def step(self, action):
         next_state, next_player = self.game.get_next_state(
             action=action, board=self.current_state, player=self.player)
+
         end = self.game.get_game_ended(next_state, self.player)
-        reward = float(int(end * (-1) ** self.player))
-        self._curr_state = next_state
+        # Current player took action, get reward from perspective of player one
+        cannonical_reward = end * (1 if self.player == 0 else -1)
+        # Draw has some small value, truncate it and leave only:
+        # -1 (lose), 0 (draw/not finished yet), 1 (win)
+        reward = float(int(cannonical_reward))
+
         self._last_action = action
         self._last_player = self.player
+
+        self._curr_state = next_state
         self.player = next_player
         return next_state, next_player, reward, end != 0
 
     def reset(self, train_mode=True, first_player=0):
         self.train_mode = train_mode
         self.player = first_player
+        # We need to represent init state from perspective of starting player.
+        # Otherwise different first players could have different starting conditions e.g in Othello.
         self._curr_state = self.game.get_canonical_form(self.game.get_init_board(), self.player)
         return self._curr_state, self.player
 

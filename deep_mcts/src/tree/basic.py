@@ -10,30 +10,23 @@ class Node(object):
         Node object is immutable.
     """
 
-    def __init__(self, state, player):
+    def __init__(self, state):
         """Initialize Node object with state.
 
         Args:
             state (object): The environment state corresponding to this node in the search tree.
-            player (int): Current player index.
 
         Note:
             Node is left without exit edges (empty dict) when it's terminal.
         """
 
         self._state = state
-        self._player = player
         self._edges = None
 
     @property
     def state(self):
         """object: The environment state corresponding to this node in the search tree."""
         return self._state
-
-    @property
-    def player(self):
-        """int: This node player index."""
-        return self._player
 
     @property
     def edges(self):
@@ -81,7 +74,7 @@ class Node(object):
         # Add exploration term to every edge's score
         for action, edge in self.edges.items():
             scores[(action, edge)] += c * edge.prior * \
-                np.sqrt(1 + state_visits) / (1 + edge.num_visits)
+                np.sqrt(state_visits) / (1 + edge.num_visits)
 
         # Choose next action and edge with highest score
         action_edge = max(scores, key=scores.get)
