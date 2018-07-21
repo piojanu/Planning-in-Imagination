@@ -28,10 +28,9 @@
     },
     "logging": {
         "save_checkpoint_folder"   : "./checkpoints",
-        "save_checkpoint_filename" : "best",
+        "tensorboard_log_folder"   : "./logs/tensorboard"
         "save_self_play_log_path"  : "./logs/self-play.log",
         "save_tournament_log_path" : "./logs/tournament.log",
-        "tensorboard_log_folder"   : "./logs/tensorboard"
     },
     "storage": {
         "exp_replay_size"	   : 200000,

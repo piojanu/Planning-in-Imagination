@@ -3,10 +3,16 @@ import glob
 import os
 
 
+def get_checkpoints_epoch(filename):
+    """Get checkpoint epoch from its filename"""
+
+    return int(filename.replace('_', '.').split('.')[-2])
+
+
 def get_newest_ckpt_fname(dirname):
     """Looks for newest file with '.ckpt' extension in dirname."""
     list_of_files = glob.glob(os.path.join(dirname, '*.ckpt'))
-    latest_file = max(list_of_files, key=os.path.getctime)
+    latest_file = max(list_of_files, key=get_checkpoints_epoch)
 
     return os.path.basename(latest_file)
 

@@ -83,7 +83,6 @@ def self_play(ctx):
 
     # Get params for best model ckpt creation and update threshold
     save_folder = logging_params.get('save_checkpoint_folder', 'checkpoints')
-    save_filename = logging_params.get('save_checkpoint_filename', 'best')
     tensorboard_folder = logging_params.get('tensorboard_log_folder', './logs/tensorboard')
     update_threshold = self_play_params.get("update_threshold", 0.55)
 
@@ -97,7 +96,7 @@ def self_play(ctx):
         best_net.load_checkpoint(save_folder, ckpt_path)
         log.info("Best mind has loaded latest checkpoint: {}".format(
             utils.get_newest_ckpt_fname(save_folder)))
-        global_epoch = int(ckpt_path.replace('_', '.').split('.')[-2])
+        global_epoch = utils.get_checkpoints_epoch(ckpt_path)
     except:
         log.info("No initial checkpoint, starting tabula rasa.")
         global_epoch = 0
@@ -173,7 +172,7 @@ def self_play(ctx):
 
         wins, losses, _ = tournament_stats.callback.results
         if wins > 0 and float(wins) / (wins + losses) > update_threshold:
-            best_fname = "_".join([save_filename, game_name, str(global_epoch)]) + ".ckpt"
+            best_fname = "_".join(['self_play', game_name, str(global_epoch)]) + ".ckpt"
             log.info("New best player: {}".format(best_fname))
 
             # Save best and exchange weights
@@ -204,7 +203,7 @@ def train(ctx, checkpoint, save_dir, tensorboard):
     global_epoch = 0
     if checkpoint:
         net.load_checkpoint(checkpoint)
-        global_epoch = int(checkpoint.replace('_', '.').split('.')[-2])
+        global_epoch = utils.get_checkpoints_epoch(checkpoint)
         log.info("Loaded checkpoint: {}".format(checkpoint))
 
     # Create TensorBoard logging callback if enabled
