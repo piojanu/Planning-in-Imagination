@@ -83,7 +83,8 @@ def self_play(ctx):
 
     # Get params for best model ckpt creation and update threshold
     save_folder = logging_params.get('save_checkpoint_folder', 'checkpoints')
-    tensorboard_folder = logging_params.get('tensorboard_log_folder', './logs/tensorboard')
+    tensorboard_folder = utils.create_tensorboard_log_dir(
+        logging_params.get('tensorboard_log_folder', './logs/tensorboard'), 'self_play')
     update_threshold = self_play_params.get("update_threshold", 0.55)
 
     # Create Minds, current and best
@@ -194,7 +195,8 @@ def train(ctx, checkpoint, save_dir, tensorboard):
     nn_params, training_params, _, logging_params, storage_params, _, _, game_name, game, _ = ctx.obj
 
     # Get TensorBoard log dir
-    tensorboard_folder = logging_params.get('tensorboard_log_folder', './logs/tensorboard')
+    tensorboard_folder = utils.create_tensorboard_log_dir(
+        logging_params.get('tensorboard_log_folder', './logs/tensorboard'), 'train')
 
     # Create Keras NN
     net = KerasNet(build_keras_nn(game, nn_params), training_params)
