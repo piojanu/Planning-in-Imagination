@@ -267,7 +267,7 @@ def hopt(ctx, n_steps):
 
         return history.history['val_loss'][-1]
 
-    # 100 iterations of minimization
+    # Perform hyper-parameter bayesian optimization
     model_gp = gp_minimize(objective, space, n_calls=n_steps, verbose=True)
 
     # Print results
