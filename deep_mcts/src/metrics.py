@@ -60,9 +60,10 @@ class ELOScoreboard(object):
         for idx, opponent in enumerate(opponents):
             opponent_elo = \
                 self.scores.loc[opponent, 'elo'] if opponents_elo is None else opponents_elo[idx]
-            expected_score += self._expected(player_elo, opponent_elo) * n_games
+            expected_score += self._get_expected_score(player_elo, opponent_elo) * n_games
 
-        self.scores.loc[player, 'elo'] = self._elo(player_elo, expected_score, player_score)
+        self.scores.loc[player, 'elo'] = self._get_updated_elo(
+            player_elo, expected_score, player_score)
 
     def plot(self, ax=None):
         """Plot cross-play results.
@@ -77,7 +78,7 @@ class ELOScoreboard(object):
         self.scores.plot(ax=ax)
         plt.show()
 
-    def _expected(self, A, B):
+    def _get_expected_score(self, A, B):
         """Calculate expected score of A in a match against B.
 
         Args:
@@ -87,7 +88,7 @@ class ELOScoreboard(object):
 
         return 1 / (1 + 10 ** ((B - A) / 400))
 
-    def _elo(self, old, exp, score, k=32):
+    def _get_updated_elo(self, old, exp, score, k=32):
         """Calculate the new Elo rating for a player.
 
         Args:
