@@ -7,7 +7,7 @@ import os
 import utils
 import click
 
-from keras.callbacks import ModelCheckpoint, EarlyStopping
+from keras.callbacks import EarlyStopping, TensorBoard
 from tabulate import tabulate
 
 from algos.alphazero import Planner
@@ -84,6 +84,7 @@ def self_play(ctx):
     # Get params for best model ckpt creation and update threshold
     save_folder = logging_params.get('save_checkpoint_folder', 'checkpoints')
     save_filename = logging_params.get('save_checkpoint_filename', 'best')
+    tensorboard_folder = logging_params.get('tensorboard_log_folder', './logs/tensorboard')
     update_threshold = self_play_params.get("update_threshold", 0.55)
 
     # Create Minds, current and best
@@ -156,7 +157,8 @@ def self_play(ctx):
 
         global_epoch = current_net.train(data=np.array(boards_input),
                                          targets=[np.array(target_pis), np.array(target_values)],
-                                         initial_epoch=global_epoch)
+                                         initial_epoch=global_epoch,
+                                         callbacks=[TensorBoard(log_dir=tensorboard_folder)])
 
         # ARENA - only the best will generate data!
         # Clear players tree
@@ -185,24 +187,30 @@ def self_play(ctx):
 @cli.command()
 @click.pass_context
 @click.option('-ckpt', '--checkpoint', help="Path to NN checkpoint, if None then start fresh (Default: None)", type=click.Path(), default=None)
-@click.option('-best', '--best_save', help="Path where to save current best NN checkpoint, if None then don't save (Default: None)", type=click.Path(), default=None)
-def train(ctx, checkpoint, best_save):
+@click.option('-save', '--save_dir', help="Dir where to save NN checkpoint, if None then don't save (Default: None)", type=click.Path(), default=None)
+@click.option('--tensorboard/--no-tensorboard', help="Enable tensorboard logging (Default: False)", default=False)
+def train(ctx, checkpoint, save_dir, tensorboard):
     """Train NN from passed configuration."""
 
-    nn_params, training_params, _, _, storage_params, _, _, _, game, _ = ctx.obj
+    nn_params, training_params, _, logging_params, storage_params, _, _, game_name, game, _ = ctx.obj
+
+    # Get TensorBoard log dir
+    tensorboard_folder = logging_params.get('tensorboard_log_folder', './logs/tensorboard')
 
     # Create Keras NN
     net = KerasNet(build_keras_nn(game, nn_params), training_params)
 
     # Load checkpoint nn if available
+    global_epoch = 0
     if checkpoint:
         net.load_checkpoint(checkpoint)
+        global_epoch = int(checkpoint.replace('_', '.').split('.')[-2])
         log.info("Loaded checkpoint: {}".format(checkpoint))
 
-    # Create model checkpoint callback if path passed
+    # Create TensorBoard logging callback if enabled
     callbacks = []
-    if best_save:
-        callbacks.append(ModelCheckpoint(best_save, save_best_only=False, verbose=0))
+    if tensorboard:
+        callbacks.append(TensorBoard(log_dir=tensorboard_folder))
 
     # Create storage and load data
     storage = Storage(game, storage_params)
@@ -213,9 +221,15 @@ def train(ctx, checkpoint, best_save):
     boards_input, target_pis, target_values = list(zip(*trained_data))
 
     # Run training
-    net.train(data=np.array(boards_input),
-              targets=[np.array(target_pis), np.array(target_values)],
-              callbacks=callbacks)
+    global_epoch = net.train(data=np.array(boards_input),
+                             targets=[np.array(target_pis), np.array(target_values)],
+                             initial_epoch=global_epoch,
+                             callbacks=callbacks)
+
+    # Save model checkpoint if path passed
+    if save_dir:
+        save_fname = "_".join(["train", game_name, str(global_epoch)]) + ".ckpt"
+        net.save_checkpoint(save_dir, save_fname)
 
 
 @cli.command()
