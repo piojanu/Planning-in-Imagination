@@ -14,7 +14,7 @@ class HumanPlayer(hrl.Mind):
         """
         self.env = env
 
-    def plan(self, state, player, train_mode=True):
+    def plan(self, state, player, train_mode=True, debug_mode=False):
         valid_actions = self.env.valid_actions
         action_range = range(1, len(valid_actions) + 1)
 
@@ -43,5 +43,4 @@ class HumanPlayer(hrl.Mind):
         # Create "logits" with all elements equal to 0, and taken action equal to 1.
         logits = np.zeros_like(state, dtype=np.float32)
         logits[np.where(available_actions_board == action)] = 1.0
-        return logits
-
+        return logits, {}

@@ -338,7 +338,7 @@ def human_play(ctx, model_path, n_games):
         Args:
             model_path: (string): Path to trained model.
     """
-    nn_params, training_params, planner_params, _, _, env, game_name, game = ctx.obj
+    nn_params, training_params, planner_params, _, _, _, env, game_name, game, _ = ctx.obj
 
     # Create Mind for NN oponnent
     first_player_net = KerasNet(build_keras_nn(game, nn_params), training_params)
