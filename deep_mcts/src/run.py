@@ -345,7 +345,7 @@ def human_play(ctx, model_path, n_games):
     first_player_net.load_checkpoint(model_path)
     first_player = Planner(game, first_player_net, planner_params)
 
-    human_player = HumanPlayer(env)
+    human_player = HumanPlayer(game)
 
     render_callback = RenderCallback(env, render=True)
 

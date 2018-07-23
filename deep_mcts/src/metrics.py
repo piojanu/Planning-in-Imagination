@@ -66,7 +66,7 @@ class ELOScoreboard(object):
             player_elo, expected_score, player_score)
 
     def plot(self, ax=None):
-        """Plot cross-play results.
+        """Plot players ELO ratings.
 
         Args:
             ax (matplotlib.axes.Axes): Axis to plot in. If None, then plot on global axis.
