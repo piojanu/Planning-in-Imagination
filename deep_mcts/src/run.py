@@ -81,11 +81,16 @@ def self_play(ctx):
 
     nn_params, training_params, planner_params, logging_params, storage_params, self_play_params, env, game_name, game, debug_mode = ctx.obj
 
-    # Get params for best model ckpt creation and update threshold
+    # Get params for best model ckpt creation and TensorBoard log dir
     save_folder = logging_params.get('save_checkpoint_folder', 'checkpoints')
-    tensorboard_folder = utils.create_tensorboard_log_dir(
-        logging_params.get('tensorboard_log_folder', './logs/tensorboard'), 'self_play')
+
+    # Get params of tournament
     update_threshold = self_play_params.get("update_threshold", 0.55)
+    n_tournaments = self_play_params.get('n_tournaments', 20)
+
+    # Create TensorBoard logger
+    tb_logger = utils.TensorBoardLogger(utils.create_tensorboard_log_dir(
+        logging_params.get('tensorboard_log_folder', './logs/tensorboard'), 'elo'))
 
     # Create Minds, current and best
     current_net = KerasNet(build_keras_nn(game, nn_params), training_params)
@@ -98,9 +103,14 @@ def self_play(ctx):
         log.info("Best mind has loaded latest checkpoint: {}".format(
             utils.get_newest_ckpt_fname(save_folder)))
         global_epoch = utils.get_checkpoints_epoch(ckpt_path)
+        current_elo = best_elo = utils.get_checkpoints_elo(ckpt_path)
     except:
         log.info("No initial checkpoint, starting tabula rasa.")
         global_epoch = 0
+        current_elo = best_elo = 1000
+
+    # Create ELO scoreboard
+    elo = ELOScoreboard(["best", "current"], init_elo=current_elo)
 
     # Copy best nn weights to current nn that will be trained
     current_net.model.set_weights(best_net.model.get_weights())
@@ -125,11 +135,13 @@ def self_play(ctx):
         BasicStats(), logging_params.get('save_self_play_log_path', './logs/self-play.log'))
     tournament_stats = CSVSaverWrapper(
         Tournament(), logging_params.get('save_tournament_log_path', './logs/tournament.log'), True)
+    train_callbacks = [TensorBoard(log_dir=utils.create_tensorboard_log_dir(
+        logging_params.get('tensorboard_log_folder', './logs/tensorboard'), 'self_play'))]
 
     # Load storage date from disk (path in config)
     storage.load()
 
-    iter = 0
+    iter = global_epoch // current_net.epochs
     max_iter = self_play_params.get("max_iter", -1)
     min_examples = self_play_params.get("min_examples", -1)
     while max_iter == -1 or iter < max_iter:
@@ -158,7 +170,7 @@ def self_play(ctx):
         global_epoch = current_net.train(data=np.array(boards_input),
                                          targets=[np.array(target_pis), np.array(target_values)],
                                          initial_epoch=global_epoch,
-                                         callbacks=[TensorBoard(log_dir=tensorboard_folder)])
+                                         callbacks=train_callbacks)
 
         # ARENA - only the best will generate data!
         # Clear players tree
@@ -167,18 +179,31 @@ def self_play(ctx):
 
         hrl.loop(env, tournament_players,
                  policy='deterministic', alternate_players=True, train_mode=False,
-                 debug_mode=debug_mode, n_episodes=self_play_params.get('n_tournaments', 20),
+                 debug_mode=debug_mode, n_episodes=n_tournaments,
                  name="Tournament " + iter_counter_str, verbose=2,
                  callbacks=[tournament_stats])
 
-        wins, losses, _ = tournament_stats.callback.results
+        wins, losses, draws = tournament_stats.callback.results
+
+        # Update ELO rating
+        elo.update_players("current", "best", wins, losses, draws)
+        current_elo = int(elo.scores.loc["current", "elo"])
+
+        # Log current player ELO
+        tb_logger.log_scalar("ELO", current_elo, iter)
+
         if wins > 0 and float(wins) / (wins + losses) > update_threshold:
-            best_fname = "_".join(['self_play', game_name, str(global_epoch)]) + ".ckpt"
+            best_fname = "_".join(
+                ['self_play', game_name, str(global_epoch), str(current_elo)]) + ".ckpt"
             log.info("New best player: {}".format(best_fname))
 
             # Save best and exchange weights
             current_net.save_checkpoint(save_folder, best_fname)
             best_net.model.set_weights(current_net.model.get_weights())
+
+            # Set best player ELO to current player
+            elo.scores.loc["best", "elo"] = max(best_elo, current_elo)
+            best_elo = int(elo.scores.loc["best", "elo"])
 
         # Increment iterator
         iter += 1
@@ -375,15 +400,16 @@ def human_play(ctx, model_path, n_games):
 
 @cli.command()
 @click.pass_context
-@click.argument('checkpoints_dir', nargs=1, type=click.Path(exists=True))
+@click.option('-d', '--checkpoints_dir', type=click.Path(exists=True), default=None,
+              help="Path to checkpoints. If None then take from config (Default: None)")
 @click.option('-g', '--gap', help="Gap between versions of best model (Default: 2)", default=2)
 def cross_play(ctx, checkpoints_dir, gap):
-    """Validate trained models. Best networks play with each other.
-
-        Args:
-            checkpoints_dir: (string): Path to checkpoints with models.
-    """
+    """Validate trained models. Best networks play with each other."""
     nn_params, training_params, planner_params, logging_params, _, _, env, game_name, game, _ = ctx.obj
+
+    # Set checkpoints_dir if not passed
+    if checkpoints_dir is None:
+        checkpoints_dir = logging_params.get('save_checkpoint_folder', 'checkpoints')
 
     # Create players and their minds
     first_player_net = KerasNet(build_keras_nn(game, nn_params), training_params)
@@ -419,7 +445,6 @@ def cross_play(ctx, checkpoints_dir, gap):
         first_player_net.load_checkpoint(first_checkpoint_path)
 
         tournament_wins = tournament_draws = 0
-        opponents_ids = []
         opponents_elo = []
         for j in range(i + 1, len(players_ids)):
             second_player_id, second_checkpoint_path = players_ids[j], checkpoints_paths[j]
@@ -440,18 +465,17 @@ def cross_play(ctx, checkpoints_dir, gap):
             tournament_wins += wins
             tournament_draws += draws
 
-            opponents_ids.append(second_player_id)
-            opponents_elo.append(elo.scores.loc[second_player_id, 'elo'])
-
             results[i][j] = wins - losses
             results[j][i] = losses - wins
 
+            opponents_elo.append(elo.scores.loc[second_player_id, 'elo'])
+
             # Update ELO rating of second player
-            elo.update_rating(second_player_id, [first_player_id], losses, draws)
+            elo.update_player(second_player_id, elo.scores.loc[first_player_id, 'elo'],
+                              losses, draws)
 
         # Update ELO rating of first player
-        elo.update_rating(first_player_id, opponents_ids, tournament_wins,
-                          tournament_draws, opponents_elo=opponents_elo)
+        elo.update_player(first_player_id, opponents_elo, tournament_wins, tournament_draws)
 
     # Save elo to csv
     elo.save_csv(logging_params.get('save_elo_scoreboard_path', './logs/scoreboard.csv'))

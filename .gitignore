@@ -107,3 +107,5 @@ ENV/
 *.json
 checkpoints/
 logs/
+*.bck
+.DS_Store

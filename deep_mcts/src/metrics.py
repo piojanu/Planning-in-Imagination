@@ -41,29 +41,56 @@ class ELOScoreboard(object):
 
         self.scores.to_csv(path, header=False)
 
-    def update_rating(self, player, opponents, wins, draws, n_games=2, opponents_elo=None):
+    def update_player(self, player_id, opponents_elo, wins, draws, n_games=2):
         """Update ELO rating of player after matches with opponents.
 
         Args:
-            player (str): Player identifier.
-            opponents (list of str): Opponents identifiers.
-            wins (int), draws (int): Results of player in tournaments with opponents.
+            player_id (str): Player identifier.
+            opponents_elo (list of int): ELO ratings of opponent(s).
+            wins (int): Number of player wins.
+            draws (int): Number of draws between players.
             n_games (int): Number of games played between each pair. (Default: 2)
-            opponents_elo (list): ELO ratings of opponents. Ratings will be taken from scoreboard
-        if None. (Default: None)
         """
 
+        if not hasattr(opponents_elo, "__iter__"):
+            opponents_elo = [opponents_elo, ]
+
         player_score = wins + .5 * draws
-        player_elo = self.scores.loc[player, 'elo']
+        player_elo = self.scores.loc[player_id, 'elo']
 
         expected_score = 0
-        for idx, opponent in enumerate(opponents):
-            opponent_elo = \
-                self.scores.loc[opponent, 'elo'] if opponents_elo is None else opponents_elo[idx]
+        for opponent_elo in opponents_elo:
             expected_score += self._get_expected_score(player_elo, opponent_elo) * n_games
 
-        self.scores.loc[player, 'elo'] = self._get_updated_elo(
+        self.scores.loc[player_id, 'elo'] = self._get_updated_elo(
             player_elo, expected_score, player_score)
+
+    def update_players(self, p1_id, p2_id, p1_wins, p2_wins, draws):
+        """Update ELO rating of two players after their matches.
+
+        Args:
+            p1_id (str): Player one identifier.
+            p2_id (str): Player two identifier.
+            p1_wins (int): Number of player one wins.
+            p2_wins (int): Number of player two wins.
+            draws (int): Number of draws between players.
+        """
+
+        n_games = p1_wins + p2_wins + draws
+
+        p1_elo = self.scores.loc[p1_id, 'elo']
+        p2_elo = self.scores.loc[p2_id, 'elo']
+
+        p1_score = p1_wins + .5 * draws
+        p1_expected = self._get_expected_score(p1_elo, p2_elo) * n_games
+
+        p2_score = p2_wins + .5 * draws
+        p2_expected = self._get_expected_score(p2_elo, p1_elo) * n_games
+
+        self.scores.loc[p1_id, 'elo'] = self._get_updated_elo(
+            p1_elo, p1_expected, p1_score)
+        self.scores.loc[p2_id, 'elo'] = self._get_updated_elo(
+            p2_elo, p2_expected, p2_score)
 
     def plot(self, ax=None):
         """Plot players ELO ratings.
