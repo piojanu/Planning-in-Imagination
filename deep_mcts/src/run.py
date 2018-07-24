@@ -347,7 +347,7 @@ def human_play(ctx, model_path, n_games):
 
     human_player = HumanPlayer(game)
 
-    render_callback = RenderCallback(env, render=True)
+    render_callback = RenderCallback(env, render=True, fancy=True)
 
     tournament = Tournament()
     hrl.loop(env, [first_player, human_player], alternate_players=True,
