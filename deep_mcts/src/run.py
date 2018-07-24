@@ -103,14 +103,11 @@ def self_play(ctx):
         log.info("Best mind has loaded latest checkpoint: {}".format(
             utils.get_newest_ckpt_fname(save_folder)))
         global_epoch = utils.get_checkpoints_epoch(ckpt_path)
-        current_elo = best_elo = utils.get_checkpoints_elo(ckpt_path)
+        best_elo = utils.get_checkpoints_elo(ckpt_path)
     except:
         log.info("No initial checkpoint, starting tabula rasa.")
         global_epoch = 0
-        current_elo = best_elo = 1000
-
-    # Create ELO scoreboard
-    elo = ELOScoreboard(["best", "current"], init_elo=current_elo)
+        best_elo = 1000
 
     # Copy best nn weights to current nn that will be trained
     current_net.model.set_weights(best_net.model.get_weights())
@@ -185,25 +182,26 @@ def self_play(ctx):
 
         wins, losses, draws = tournament_stats.callback.results
 
-        # Update ELO rating
-        elo.update_players("current", "best", wins, losses, draws)
-        current_elo = int(elo.scores.loc["current", "elo"])
-
-        # Log current player ELO
-        tb_logger.log_scalar("ELO", current_elo, iter)
-
         if wins > 0 and float(wins) / (wins + losses) > update_threshold:
+            # Update ELO rating, use best player ELO as current player ELO
+            # NOTE: We update it this way as we don't need exact ELO values, we just need to see
+            #       how much if at all has current player improved.
+            #       Decision based on: https://github.com/gcp/leela-zero/issues/354
+            best_elo, _ = \
+                ELOScoreboard.calculate_update(best_elo, best_elo, wins, losses, draws)
+            best_elo = int(best_elo)
+
+            # Create checkpoint file name and log it
             best_fname = "_".join(
-                ['self_play', game_name, str(global_epoch), str(current_elo)]) + ".ckpt"
+                ['self_play', game_name, str(global_epoch), str(best_elo)]) + ".ckpt"
             log.info("New best player: {}".format(best_fname))
 
             # Save best and exchange weights
             current_net.save_checkpoint(save_folder, best_fname)
             best_net.model.set_weights(current_net.model.get_weights())
 
-            # Set best player ELO to current player
-            elo.scores.loc["best", "elo"] = max(best_elo, current_elo)
-            best_elo = int(elo.scores.loc["best", "elo"])
+        # Log current player ELO
+        tb_logger.log_scalar("Best ELO", best_elo, iter)
 
         # Increment iterator
         iter += 1

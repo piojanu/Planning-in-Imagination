@@ -19,6 +19,59 @@ class ELOScoreboard(object):
         self.scores.loc[:] = init_elo
 
     @staticmethod
+    def _get_expected_score(A, B):
+        """Calculate expected score of A in a match against B.
+
+        Args:
+            A (int): Elo rating for player A.
+            B (int): Elo rating for player B.
+        """
+
+        return 1 / (1 + 10 ** ((B - A) / 400))
+
+    @staticmethod
+    def _get_updated_elo(old, exp, score, k=32):
+        """Calculate the new Elo rating for a player.
+
+        Args:
+            old (int): The previous Elo rating.
+            exp (float): The expected score for this match.
+            score (float): The actual score for this match.
+            k (int): The k-factor for Elo (default: 32).
+        """
+
+        return old + k * (score - exp)
+
+    @staticmethod
+    def calculate_update(p1_elo, p2_elo, p1_wins, p2_wins, draws):
+        """Update ELO rating of two players after their matches.
+
+        Args:
+            p1_elo (float): Player one ELO.
+            p2_elo (float): Player two ELO.
+            p1_wins (int): Number of player one wins.
+            p2_wins (int): Number of player two wins.
+            draws (int): Number of draws between players.
+
+        Return:
+            float: Player one updated ELO rating.
+            float: Player two updated ELO rating.
+        """
+
+        n_games = p1_wins + p2_wins + draws
+
+        p1_score = p1_wins + .5 * draws
+        p1_expected = ELOScoreboard._get_expected_score(p1_elo, p2_elo) * n_games
+
+        p2_score = p2_wins + .5 * draws
+        p2_expected = ELOScoreboard._get_expected_score(p2_elo, p1_elo) * n_games
+
+        p1_updated = ELOScoreboard._get_updated_elo(p1_elo, p1_expected, p1_score)
+        p2_updated = ELOScoreboard._get_updated_elo(p2_elo, p2_expected, p2_score)
+
+        return p1_updated, p2_updated
+
+    @staticmethod
     def load_csv(path):
         """Loads ELO scoreboard from .csv file.
 
@@ -62,8 +115,8 @@ class ELOScoreboard(object):
         for opponent_elo in opponents_elo:
             expected_score += self._get_expected_score(player_elo, opponent_elo) * n_games
 
-        self.scores.loc[player_id, 'elo'] = self._get_updated_elo(
-            player_elo, expected_score, player_score)
+        updated_elo = self._get_updated_elo(player_elo, expected_score, player_score)
+        self.scores.loc[player_id, 'elo'] = updated_elo
 
     def update_players(self, p1_id, p2_id, p1_wins, p2_wins, draws):
         """Update ELO rating of two players after their matches.
@@ -76,21 +129,14 @@ class ELOScoreboard(object):
             draws (int): Number of draws between players.
         """
 
-        n_games = p1_wins + p2_wins + draws
-
         p1_elo = self.scores.loc[p1_id, 'elo']
         p2_elo = self.scores.loc[p2_id, 'elo']
 
-        p1_score = p1_wins + .5 * draws
-        p1_expected = self._get_expected_score(p1_elo, p2_elo) * n_games
+        p1_updated, p2_updated = \
+            self.calculate_update(p1_elo, p2_elo, p1_wins, p2_wins, draws)
 
-        p2_score = p2_wins + .5 * draws
-        p2_expected = self._get_expected_score(p2_elo, p1_elo) * n_games
-
-        self.scores.loc[p1_id, 'elo'] = self._get_updated_elo(
-            p1_elo, p1_expected, p1_score)
-        self.scores.loc[p2_id, 'elo'] = self._get_updated_elo(
-            p2_elo, p2_expected, p2_score)
+        self.scores.loc[p1_id, 'elo'] = p1_updated
+        self.scores.loc[p2_id, 'elo'] = p2_updated
 
     def plot(self, ax=None):
         """Plot players ELO ratings.
@@ -104,25 +150,3 @@ class ELOScoreboard(object):
 
         self.scores.plot(ax=ax)
         plt.show()
-
-    def _get_expected_score(self, A, B):
-        """Calculate expected score of A in a match against B.
-
-        Args:
-            A (int): Elo rating for player A.
-            B (int): Elo rating for player B.
-        """
-
-        return 1 / (1 + 10 ** ((B - A) / 400))
-
-    def _get_updated_elo(self, old, exp, score, k=32):
-        """Calculate the new Elo rating for a player.
-
-        Args:
-            old (int): The previous Elo rating.
-            exp (float): The expected score for this match.
-            score (float): The actual score for this match.
-            k (int): The k-factor for Elo (default: 32).
-        """
-
-        return old + k * (score - exp)
