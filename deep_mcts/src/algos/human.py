@@ -26,20 +26,21 @@ class HumanPlayer(hrl.Mind):
             # Invalid actions are representede with NaN, which is rendered as "-".
             available_actions_board = np.full(state.shape, np.nan)
             np.set_printoptions(nanstr="-")
-            np.put(available_actions_board, valid_actions, valid_actions)
+            valid_actions_board = np.add(valid_actions, 1)
+            np.put(available_actions_board, valid_actions, valid_actions_board)
 
             print("\nAvailable actions:")
             print("------------------")
             print(available_actions_board)
 
             action = -1
-            while action not in valid_actions:
+            while action not in valid_actions_board:
                 action_str = input("Action: ")
                 try:
                     action = int(action_str)
-                    if action not in valid_actions:
+                    if action not in valid_actions_board:
                         print("Given action is not available! Please input a valid action! Available: {}"
-                              .format(valid_actions))
+                              .format(valid_actions_board))
                 except ValueError:
                     print("Please input a valid integer!")
 
