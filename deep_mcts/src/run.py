@@ -11,6 +11,7 @@ from keras.callbacks import ModelCheckpoint, EarlyStopping
 from tabulate import tabulate
 
 from algos.alphazero import Planner
+from algos.human import HumanPlayer
 from env import GameEnv
 from nn import build_keras_nn, KerasNet
 from callbacks import BasicStats, CSVSaverWrapper, Storage, Tournament, RenderCallback
@@ -325,6 +326,36 @@ def clash(ctx, first_model_path, second_model_path, render, n_games):
 
     log.info("{} vs {} results: {}".format(first_model_path.split("/")
                                            [-1], second_model_path.split("/")[-1], tournament.results))
+
+
+@cli.command()
+@click.pass_context
+@click.argument('model_path', nargs=1, type=click.Path(exists=True))
+@click.option('-n', '--n-games', help="Number of games (Default: 2)", default=2)
+def human_play(ctx, model_path, n_games):
+    """Play `n_games` with trained model.
+
+        Args:
+            model_path: (string): Path to trained model.
+    """
+    nn_params, training_params, planner_params, _, _, _, env, game_name, game, _ = ctx.obj
+
+    # Create Mind for NN oponnent
+    first_player_net = KerasNet(build_keras_nn(game, nn_params), training_params)
+    first_player_net.load_checkpoint(model_path)
+    first_player = Planner(game, first_player_net, planner_params)
+
+    human_player = HumanPlayer(game)
+
+    render_callback = RenderCallback(env, render=True, fancy=True)
+
+    tournament = Tournament()
+    hrl.loop(env, [first_player, human_player], alternate_players=True,
+             policy='deterministic', n_episodes=n_games, train_mode=False,
+             name="Test models: {} vs HUMAN".format(model_path.split("/")[-1]),
+             callbacks=[tournament, render_callback])
+
+    log.info("{} vs HUMAN results: {}".format(model_path.split("/")[-1], tournament.results))
 
 
 @cli.command()

@@ -98,10 +98,37 @@ class GameEnv(Environment):
         self._curr_state = self.game.get_canonical_form(self.game.get_init_board(), self.player)
         return self._curr_state, self.player
 
-    def render(self):
+    def render(self, fancy=False):
         """Display board when environment is in test mode.
+
+        Args:
+            fancy (bool): Display a fancy 2D board.
         """
 
         print("Player {}, Action {}".format(self._last_player, self._last_action))
-        print(self.current_state)
-        print("<---")
+        if fancy and self.current_state.ndim == 2:
+            self.render_fancy_board()
+        else:
+            print(self.current_state)
+
+    def render_fancy_board(self):
+        def line_sep(length):
+            print(" ", end="")
+            for _ in range(length):
+                print("=", end="")
+            print("")
+
+        state = self.current_state.astype(int)
+        m, n = state.shape
+        line_sep(3*n + 1)
+        legend = {1: "X", -1: "O"}
+        for i in range(m):
+            print("|", end=" ")
+            for j in range(n):
+                s = legend.get(state[i][j], "-")
+                if (i*m + j) == self._last_action:
+                    print("\033[1m{:2}\033[0m".format(s), end=" ")
+                else:
+                    print("{:2}".format(s), end=" ")
+            print("|")
+        line_sep(3*n + 1)

@@ -196,9 +196,10 @@ class Tournament(Callback):
 
 
 class RenderCallback(Callback):
-    def __init__(self, env, render):
+    def __init__(self, env, render, fancy=False):
         self.env = env
         self.render = render
+        self.fancy = fancy
 
     def on_step_taken(self, _):
         self.do_render()
@@ -208,4 +209,4 @@ class RenderCallback(Callback):
 
     def do_render(self):
         if self.render:
-            self.env.render()
+            self.env.render(self.fancy)
