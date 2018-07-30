@@ -5,6 +5,8 @@ from abc import ABCMeta, abstractmethod
 from humblerl import Callback, Mind
 from tree.basic import Node
 
+import time
+
 
 class MCTS(Callback, Mind, metaclass=ABCMeta):
     """MCTS search operations and planning logic."""
@@ -26,16 +28,19 @@ class MCTS(Callback, Mind, metaclass=ABCMeta):
         self.model = model
         self.nn = nn
         self.n_simulations = params.get('n_simulations', 25)
+        self.timeout = params.get('timeout', 5)
 
         self._tree = {}
 
-    def _debug_log(self, root, player, max_depth):
+    def _debug_log(self, root, player, metrics):
         # Evaluate root state
         pi, value = self.nn.predict(np.expand_dims(root.state, axis=0))
 
         # Log root state
         log.debug("Current player: %d", player)
-        log.debug("Max search depth: %d", max_depth)
+        log.debug("Max search depth: %d", metrics['max_depth'])
+        log.debug("Performed simulations: %d", metrics['simulations'])
+        log.debug("Time: %d", metrics['simulation_time'])
 
         # Log MCTS root value and NN predicted value
         state_visits = 0
@@ -192,8 +197,14 @@ class MCTS(Callback, Mind, metaclass=ABCMeta):
 
         # Perform simulations
         max_depth = 0
-        for idx in range(self.n_simulations):
+        max_simulations = self.n_simulations
+        timeout = self.timeout - 0.005
+        # minus small amout of time between checking timeout and performing simulation
+        simulations = 0
+        start_time = time.time()
+        while time.time() < start_time + timeout and simulations < max_simulations:
             # Simulate
+            simulations += 1
             leaf, path = self.simulate(root)
 
             # Keep max search depth
@@ -206,15 +217,17 @@ class MCTS(Callback, Mind, metaclass=ABCMeta):
             # NOTE: Node higher in the tree is opponent node, invert value
             self.backup(path, -value)
 
+        metrics = {"max_depth": max_depth, "simulations": simulations,
+                   "simulation_time": time.time()-start_time}
         if debug_mode:
-            self._debug_log(root, player, max_depth)
+            self._debug_log(root, player, metrics)
 
         # Get actions' visit counts
         actions = np.zeros(self.model.get_action_size())
         for action, edge in root.edges.items():
             actions[action] = edge.num_visits
 
-        return actions, {"max_depth": max_depth}
+        return actions, metrics
 
     def on_episode_start(self, train_mode):
         """Empty search tree between episodes if in train mode."""

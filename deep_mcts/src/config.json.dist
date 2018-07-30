@@ -24,7 +24,8 @@
         "dirichlet_noise"          : 0.3,
         "noise_ratio"              : 0.25,
         "gamma"                    : 1.0,
-        "n_simulations"            : 50
+        "n_simulations"            : 50,
+        "timeout"                  : 0.1
     },
     "logging": {
         "save_checkpoint_folder"   : "./checkpoints",
