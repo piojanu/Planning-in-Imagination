@@ -5,3 +5,4 @@ keras==2.2.0
 tabulate==0.8.2
 h5py==2.8.0
 pandas==0.23.3
+scikit-optimize==0.5.2
