@@ -268,7 +268,7 @@ def hopt(ctx, n_steps):
     from skopt.utils import use_named_args
     import matplotlib.pyplot as plt
 
-    nn_params, training_params, _, storage_params, _, _, _, game, _ = ctx.obj
+    nn_params, training_params, _, _, storage_params, _, _, _, game, _ = ctx.obj
 
     # Get training params
     batch_size = training_params.get('batch_size', 32)
