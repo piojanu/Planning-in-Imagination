@@ -15,27 +15,27 @@
         "momentum"                 : 0.9
     },
     "training": {
-        "batch_size"     	   : 256,
-        "epochs"        	   : 25,
+        "batch_size"               : 256,
+        "epochs"                   : 25,
         "save_training_log_path"   : "./logs/training.log"
     },
     "planner": {
         "c"                        : 1.0,
-        "dirichlet_noise" 	   : 0.3,
-        "noise_ratio"     	   : 0.25,
-        "gamma"           	   : 1.0,
-        "n_simulations"  	   : 50
+        "dirichlet_noise"          : 0.3,
+        "noise_ratio"              : 0.25,
+        "gamma"                    : 1.0,
+        "n_simulations"            : 50
     },
     "logging": {
         "save_checkpoint_folder"   : "./checkpoints",
-        "save_checkpoint_filename" : "best",
+        "tensorboard_log_folder"   : "./logs/tensorboard"
         "save_self_play_log_path"  : "./logs/self-play.log",
         "save_tournament_log_path" : "./logs/tournament.log",
-	"save_elo_scoreboard_path" : "./logs/scoreboard.csv"
+        "save_elo_scoreboard_path" : "./logs/scoreboard.csv"
     },
     "storage": {
-        "exp_replay_size"	   : 200000,
-        "save_data_path"  	   : "./checkpoints/data.examples"
+        "exp_replay_size"          : 200000,
+        "save_data_path"           : "./checkpoints/data.examples"
     },
     "self_play": {
         "game"                     : "othello",
