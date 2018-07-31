@@ -28,7 +28,7 @@ class MCTS(Callback, Mind, metaclass=ABCMeta):
         self.model = model
         self.nn = nn
         self.n_simulations = params.get('n_simulations', 25)
-        self.timeout = params.get('timeout', 5)
+        self.timeout = params.get('timeout', 0.1)
 
         self._tree = {}
 
@@ -198,11 +198,9 @@ class MCTS(Callback, Mind, metaclass=ABCMeta):
         # Perform simulations
         max_depth = 0
         max_simulations = self.n_simulations
-        timeout = self.timeout - 0.005
-        # minus small amout of time between checking timeout and performing simulation
         simulations = 0
         start_time = time.time()
-        while time.time() < start_time + timeout and simulations < max_simulations:
+        while time.time() < start_time + self.timeout and simulations < max_simulations:
             # Simulate
             simulations += 1
             leaf, path = self.simulate(root)
