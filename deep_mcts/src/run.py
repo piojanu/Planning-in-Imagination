@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import humblerl as hrl
+import third_party.humblerl as hrl
 import json
 import logging as log
 import numpy as np

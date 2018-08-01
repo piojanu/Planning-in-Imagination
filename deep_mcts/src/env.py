@@ -1,6 +1,6 @@
 import numpy as np
 
-from humblerl import Environment
+from third_party.humblerl import Environment
 from games import *  # This allows to create every game from board_games
 
 
@@ -120,15 +120,15 @@ class GameEnv(Environment):
 
         state = self.current_state.astype(int)
         m, n = state.shape
-        line_sep(3*n + 1)
+        line_sep(3 * n + 1)
         legend = {1: "X", -1: "O"}
         for i in range(m):
             print("|", end=" ")
             for j in range(n):
                 s = legend.get(state[i][j], "-")
-                if (i*m + j) == self._last_action:
+                if (i * m + j) == self._last_action:
                     print("\033[1m{:2}\033[0m".format(s), end=" ")
                 else:
                     print("{:2}".format(s), end=" ")
             print("|")
-        line_sep(3*n + 1)
+        line_sep(3 * n + 1)

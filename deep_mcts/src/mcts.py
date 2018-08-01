@@ -2,7 +2,7 @@ import logging as log
 import numpy as np
 
 from abc import ABCMeta, abstractmethod
-from humblerl import Callback, Mind
+from third_party.humblerl import Callback, Mind
 from tree.basic import Node
 
 
