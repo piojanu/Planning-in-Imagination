@@ -376,7 +376,7 @@ def human_play(ctx, model_path, n_games):
         Args:
             model_path: (string): Path to trained model.
     """
-    nn_params, training_params, planner_params, _, _, _, env, game_name, game, _ = ctx.obj
+    nn_params, training_params, planner_params, _, _, _, env, game_name, game, debug_mode = ctx.obj
 
     # Create Mind for NN oponnent
     first_player_net = KerasNet(build_keras_nn(game, nn_params), training_params)
@@ -389,7 +389,7 @@ def human_play(ctx, model_path, n_games):
 
     tournament = Tournament()
     hrl.loop(env, [first_player, human_player], alternate_players=True,
-             policy='deterministic', n_episodes=n_games, train_mode=False,
+             policy='deterministic', n_episodes=n_games, train_mode=False, debug_mode=debug_mode,
              name="Test models: {} vs HUMAN".format(model_path.split("/")[-1]),
              callbacks=[tournament, render_callback])
 
