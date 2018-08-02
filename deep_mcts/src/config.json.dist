@@ -28,7 +28,7 @@
     },
     "logging": {
         "save_checkpoint_folder"   : "./checkpoints",
-        "tensorboard_log_folder"   : "./logs/tensorboard"
+        "tensorboard_log_folder"   : "./logs/tensorboard",
         "save_self_play_log_path"  : "./logs/self-play.log",
         "save_tournament_log_path" : "./logs/tournament.log",
         "save_elo_scoreboard_path" : "./logs/scoreboard.csv"

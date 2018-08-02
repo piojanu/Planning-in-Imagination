@@ -2,6 +2,8 @@ import datetime as dt
 import glob
 import os
 import tensorflow as tf
+import json
+from env import GameEnv
 
 
 class TensorBoardLogger(object):
@@ -30,6 +32,29 @@ class TensorBoardLogger(object):
         summary = tf.Summary(value=[tf.Summary.Value(tag=tag, simple_value=value)])
         self.writer.add_summary(summary, step)
         self.writer.flush()
+
+
+class Config(object):
+    def __init__(self, config, debug=False):
+        """
+        Loads custom configuration, unspecified parameters are taken from default configuration.
+        :param config: file containing configuration json
+        :param debug: specify to enable debugging features
+        """
+
+        default_cfg = json.loads(open("config.json.dist").read())
+        custom_config = json.loads(config.read())
+
+        # Merging default and custom configs, for repeating keys, key-value pairs from second dict are taken
+        self.nn = {**default_cfg["neural_net"], **custom_config.get("neural_net", {})}
+        self.training = {**default_cfg["training"], **custom_config.get("training", {})}
+        self.self_play = {**default_cfg["self_play"], **custom_config.get("self_play", {})}
+        self.logging = {**default_cfg["logging"], **custom_config.get("logging", {})}
+        self.storage = {**default_cfg["storage"], **custom_config.get("storage", {})}
+        self.planner = {**default_cfg["planner"], **custom_config.get("planner", {})}
+
+        self.env = GameEnv(name=self.self_play["game"])
+        self.debug = debug
 
 
 def create_tensorboard_log_dir(logdir, prefix):
