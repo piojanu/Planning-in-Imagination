@@ -28,10 +28,11 @@ class MCTS(Callback, Mind, metaclass=ABCMeta):
         self.model = model
         self.nn = nn
         self.n_simulations = float(params.get('n_simulations', 25))
-        self.timeout = float(params.get('timeout', 0.1))
+        self.timeout = float(params.get('timeout', "inf"))
 
         if self.n_simulations == self.timeout == float("inf"):
-             raise Exception("n_simulations and timeout cannot be set to inf simultaneously")
+            raise Exception(
+                "n_simulations and timeout cannot be set to inf simultaneously")
 
         self._tree = {}
 
