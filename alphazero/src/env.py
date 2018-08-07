@@ -88,14 +88,15 @@ class GameEnv(Environment):
 
         self._current_state = next_state
         self.player = next_player
-        return next_state, next_player, reward, end != 0
+        return next_state, next_player, reward, end != 0, None
 
     def reset(self, train_mode=True, first_player=0):
         self.train_mode = train_mode
         self.player = first_player
         # We need to represent init state from perspective of starting player.
         # Otherwise different first players could have different starting conditions e.g in Othello.
-        self._current_state = self.game.get_canonical_form(self.game.get_init_board(), self.player)
+        self._current_state = self.game.get_canonical_form(
+            self.game.get_init_board(), self.player)
         return self._current_state, self.player
 
     def render(self, fancy=False):
@@ -105,7 +106,8 @@ class GameEnv(Environment):
             fancy (bool): Display a fancy 2D board.
         """
 
-        print("Player {}, Action {}".format(self._last_player, self._last_action))
+        print("Player {}, Action {}".format(
+            self._last_player, self._last_action))
         if fancy and self.current_state.ndim == 2:
             self.render_fancy_board()
         else:
