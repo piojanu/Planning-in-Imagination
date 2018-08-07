@@ -1,3 +1,3 @@
 #/bin/bash
-
-for file in `git diff-tree --no-commit-id --name-only -r HEAD | grep ".py"` ; do autopep8 -i $file ; done && exit `git diff | wc -l`
+git fetch --depth=1 origin master
+for file in `git show --name-only --oneline FETCH_HEAD..HEAD | cut -d " " -f 1 | sort | uniq | grep ".py"` ; do [ -f $file ] && autopep8 -i $file ; done && exit `git diff | wc -l` || exit 1
