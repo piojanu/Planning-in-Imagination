@@ -1,6 +1,6 @@
 import numpy as np
 
-import humblerl as hrl
+import third_party.humblerl as hrl
 
 
 class HumanPlayer(hrl.Mind):
