@@ -5,7 +5,7 @@ import os
 import sys
 
 from collections import deque
-from humblerl import Callback
+from third_party.humblerl import Callback
 from pickle import Pickler, Unpickler
 
 

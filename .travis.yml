@@ -3,6 +3,7 @@ python:
   - "3.5"
   - "3.6"
 install:
-  - pip install -r deep_mcts/src/requirements.txt
+  - pip install -r alphazero/src/requirements.txt
+  - pip install -r alphazero/src/third_party/humblerl/requirements.txt
 script:
-  - ./deep_mcts/scripts/check_pep8.sh && cd deep_mcts/scripts && ./run_cmds.sh
+  - ./alphazero/scripts/check_pep8.sh && cd alphazero/scripts && ./run_cmds.sh
