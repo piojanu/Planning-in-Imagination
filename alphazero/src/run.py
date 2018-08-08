@@ -185,7 +185,7 @@ def self_play(ctx):
                  name="Tournament " + iter_counter_str, verbose=2,
                  callbacks=[tournament_stats])
 
-        wins, losses, draws = tournament_stats.callback.results
+        wins, losses, draws = tournament_stats.callbacks[0].results
 
         if wins > 0 and float(wins) / (wins + losses) > update_threshold:
             # Update ELO rating, use best player ELO as current player ELO
