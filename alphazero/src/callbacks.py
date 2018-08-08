@@ -31,8 +31,8 @@ class CSVSaverWrapper(Callback):
     def on_action_planned(self, logits, metrics):
         return self.callback.on_action_planned(logits, metrics)
 
-    def on_step_taken(self, transition):
-        return self.callback.on_step_taken(transition)
+    def on_step_taken(self, transition, info):
+        return self.callback.on_step_taken(transition, info)
 
     def on_episode_end(self):
         logs = self.callback.on_episode_end()
@@ -71,7 +71,7 @@ class BasicStats(Callback):
     def __init__(self, save_path=None):
         self._reset()
 
-    def on_step_taken(self, transition):
+    def on_step_taken(self, transition, info):
         self.steps += 1
         self.rewards.append(transition.reward)
 
@@ -117,7 +117,7 @@ class Storage(Callback):
         # Proportional without temperature
         self._recent_action_probs = logits / np.sum(logits)
 
-    def on_step_taken(self, transition):
+    def on_step_taken(self, transition, info):
         # NOTE: We never pass terminal state (it would be next_state), so NN can't learn directly
         # what is the value of terminal/end state.
         small_package = transition.player, transition.state, self._recent_action_probs
@@ -144,7 +144,8 @@ class Storage(Callback):
         path = self.params.get("save_data_path", "./checkpoints/data.examples")
         folder = os.path.dirname(path)
         if not os.path.exists(folder):
-            log.warn("Examples store directory does not exist! Creating directory {}".format(folder))
+            log.warn(
+                "Examples store directory does not exist! Creating directory {}".format(folder))
             os.makedirs(folder)
 
         with open(path, "wb+") as f:
@@ -153,7 +154,8 @@ class Storage(Callback):
     def load(self):
         path = self.params.get("save_data_path", "./checkpoints/data.examples")
         if not os.path.isfile(path):
-            r = input("File with train examples was not found. Continue? [y|n]: ")
+            r = input(
+                "File with train examples was not found. Continue? [y|n]: ")
             if r != "y":
                 sys.exit()
         else:
@@ -177,7 +179,7 @@ class Tournament(Callback):
     def on_loop_start(self):
         self.reset()
 
-    def on_step_taken(self, transition):
+    def on_step_taken(self, transition, info):
         if transition.is_terminal:
             # NOTE: Because players have fixed player id, and reward is returned from
             # perspective of player one, we are indifferent to who is starting the game.
@@ -201,7 +203,7 @@ class RenderCallback(Callback):
         self.render = render
         self.fancy = fancy
 
-    def on_step_taken(self, _):
+    def on_step_taken(self, _, info):
         self.do_render()
 
     def on_episode_end(self):
