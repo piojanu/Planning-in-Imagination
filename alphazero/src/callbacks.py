@@ -1,4 +1,3 @@
-import csv
 import logging as log
 import numpy as np
 import os
@@ -7,90 +6,6 @@ import sys
 from collections import deque
 from third_party.humblerl import Callback
 from pickle import Pickler, Unpickler
-
-
-class CSVSaverWrapper(Callback):
-    """Saves to .csv file whatever source callback logs.
-
-    Args:
-        callback (Callback): Source callback to save logs from.
-        path (string): Where to save logs.
-        only_last (bool): If only save last log in the loop. Useful when source
-    callback aggregates logs. (Default: False)
-    """
-
-    def __init__(self, callback, path, only_last=False):
-        self.callback = callback
-        self.path = path
-        self.only_last = only_last
-        self.history = []
-
-    def on_loop_start(self):
-        return self.callback.on_loop_start()
-
-    def on_action_planned(self, logits, metrics):
-        return self.callback.on_action_planned(logits, metrics)
-
-    def on_step_taken(self, transition, info):
-        return self.callback.on_step_taken(transition, info)
-
-    def on_episode_end(self):
-        logs = self.callback.on_episode_end()
-        self.history.append(logs)
-        return logs
-
-    def on_loop_finish(self, is_aborted):
-        self._store()
-        return self.callback.on_loop_finish(is_aborted)
-
-    def _store(self):
-        if not os.path.isfile(self.path):
-            os.makedirs(os.path.dirname(self.path), exist_ok=True)
-
-            with open(self.path, "w") as f:
-                logs_file = csv.DictWriter(f, self.history[0].keys())
-                logs_file.writeheader()
-
-        with open(self.path, "a") as f:
-            logs_file = csv.DictWriter(f, self.history[0].keys())
-            if self.only_last:
-                logs_file.writerow(self.history[-1])
-            else:
-                logs_file.writerows(self.history)
-            self.history = []
-
-
-class BasicStats(Callback):
-    """Gather basic episode statistics like:
-      * number of steps,
-      * return,
-      * max reward,
-      * min reward.
-    """
-
-    def __init__(self, save_path=None):
-        self._reset()
-
-    def on_step_taken(self, transition, info):
-        self.steps += 1
-        self.rewards.append(transition.reward)
-
-    def on_episode_end(self):
-        logs = {}
-        logs["# steps"] = self.steps
-        logs["return"] = np.sum(self.rewards)
-        logs["max reward"] = np.max(self.rewards)
-        logs["min reward"] = np.min(self.rewards)
-
-        self._reset()
-        return logs
-
-    def on_loop_finish(self, is_aborted):
-        self._reset()
-
-    def _reset(self):
-        self.steps = 0
-        self.rewards = []
 
 
 class Storage(Callback):
@@ -118,7 +33,7 @@ class Storage(Callback):
         self._recent_action_probs = logits / np.sum(logits)
 
     def on_step_taken(self, transition, info):
-        # NOTE: We never pass terminal state (it would be next_state), so NN can't learn directly
+        # NOTE: We never pass terminal stateit would be next_state), so NN can't learn directly
         # what is the value of terminal/end state.
         small_package = transition.player, transition.state, self._recent_action_probs
         self.small_bag.append(small_package)
