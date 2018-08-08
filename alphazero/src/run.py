@@ -25,7 +25,8 @@ from metrics import ELOScoreboard
 @click.option('--debug/--no-debug', help="Enable debug logging (Default: False)", default=False)
 def cli(ctx, config_path, debug):
     # Get and set up logger level and formatter
-    log.basicConfig(level=log.DEBUG if debug else log.INFO, format="[%(levelname)s]: %(message)s")
+    log.basicConfig(level=log.DEBUG if debug else log.INFO,
+                    format="[%(levelname)s]: %(message)s")
 
     # Parse .json file with arguments
     params = json.loads(config_path.read())
@@ -148,7 +149,8 @@ def self_play(ctx):
         # SELF-PLAY - gather data using best nn
         hrl.loop(env, self_play_players,
                  policy='proportional', warmup=self_play_params.get('policy_warmup', 12),
-                 debug_mode=debug_mode, n_episodes=self_play_params.get('n_self_plays', 100),
+                 debug_mode=debug_mode, n_episodes=self_play_params.get(
+                     'n_self_plays', 100),
                  name="Self-play  " + iter_counter_str, verbose=2,
                  callbacks=[best_player, train_stats, storage])
 
@@ -157,7 +159,8 @@ def self_play(ctx):
 
         # Proceed to training only if threshold is fulfilled
         if len(storage.big_bag) <= min_examples:
-            log.warn("Skip training, gather minimum {} training examples!".format(min_examples))
+            log.warn(
+                "Skip training, gather minimum {} training examples!".format(min_examples))
             continue
 
         # TRAINING - improve neural net
@@ -165,7 +168,8 @@ def self_play(ctx):
         boards_input, target_pis, target_values = list(zip(*trained_data))
 
         global_epoch = current_net.train(data=np.array(boards_input),
-                                         targets=[np.array(target_pis), np.array(target_values)],
+                                         targets=[np.array(target_pis), np.array(
+                                             target_values)],
                                          initial_epoch=global_epoch,
                                          callbacks=train_callbacks)
 
@@ -188,7 +192,8 @@ def self_play(ctx):
             #       how much if at all has current player improved.
             #       Decision based on: https://github.com/gcp/leela-zero/issues/354
             best_elo, _ = \
-                ELOScoreboard.calculate_update(best_elo, best_elo, wins, losses, draws)
+                ELOScoreboard.calculate_update(
+                    best_elo, best_elo, wins, losses, draws)
             best_elo = int(best_elo)
 
             # Create checkpoint file name and log it
@@ -246,13 +251,15 @@ def train(ctx, checkpoint, save_dir, tensorboard):
 
     # Run training
     global_epoch = net.train(data=np.array(boards_input),
-                             targets=[np.array(target_pis), np.array(target_values)],
+                             targets=[np.array(target_pis),
+                                      np.array(target_values)],
                              initial_epoch=global_epoch,
                              callbacks=callbacks)
 
     # Save model checkpoint if path passed
     if save_dir:
-        save_fname = "_".join(["train", game_name, str(global_epoch)]) + ".ckpt"
+        save_fname = "_".join(
+            ["train", game_name, str(global_epoch)]) + ".ckpt"
         net.save_checkpoint(save_dir, save_fname)
 
 
@@ -346,8 +353,10 @@ def clash(ctx, first_model_path, second_model_path, render, n_games):
     nn_params, training_params, planner_params, _, _, _, env, game_name, game, debug_mode = ctx.obj
 
     # Create Minds, current and best
-    first_player_net = KerasNet(build_keras_nn(game, nn_params), training_params)
-    second_player_net = KerasNet(build_keras_nn(game, nn_params), training_params)
+    first_player_net = KerasNet(
+        build_keras_nn(game, nn_params), training_params)
+    second_player_net = KerasNet(
+        build_keras_nn(game, nn_params), training_params)
 
     first_player_net.load_checkpoint(first_model_path)
     second_player_net.load_checkpoint(second_model_path)
@@ -379,7 +388,8 @@ def human_play(ctx, model_path, n_games):
     nn_params, training_params, planner_params, _, _, _, env, game_name, game, debug_mode = ctx.obj
 
     # Create Mind for NN oponnent
-    first_player_net = KerasNet(build_keras_nn(game, nn_params), training_params)
+    first_player_net = KerasNet(
+        build_keras_nn(game, nn_params), training_params)
     first_player_net.load_checkpoint(model_path)
     first_player = Planner(game, first_player_net, planner_params)
 
@@ -393,7 +403,8 @@ def human_play(ctx, model_path, n_games):
              name="Test models: {} vs HUMAN".format(model_path.split("/")[-1]),
              callbacks=[tournament, render_callback])
 
-    log.info("{} vs HUMAN results: {}".format(model_path.split("/")[-1], tournament.results))
+    log.info("{} vs HUMAN results: {}".format(
+        model_path.split("/")[-1], tournament.results))
 
 
 @cli.command()
@@ -407,11 +418,14 @@ def cross_play(ctx, checkpoints_dir, gap):
 
     # Set checkpoints_dir if not passed
     if checkpoints_dir is None:
-        checkpoints_dir = logging_params.get('save_checkpoint_folder', 'checkpoints')
+        checkpoints_dir = logging_params.get(
+            'save_checkpoint_folder', 'checkpoints')
 
     # Create players and their minds
-    first_player_net = KerasNet(build_keras_nn(game, nn_params), training_params)
-    second_player_net = KerasNet(build_keras_nn(game, nn_params), training_params)
+    first_player_net = KerasNet(
+        build_keras_nn(game, nn_params), training_params)
+    second_player_net = KerasNet(
+        build_keras_nn(game, nn_params), training_params)
     first_player = Planner(game, first_player_net, planner_params)
     second_player = Planner(game, second_player_net, planner_params)
 
@@ -419,7 +433,8 @@ def cross_play(ctx, checkpoints_dir, gap):
     tournament = Tournament()
 
     # Get checkpoints paths
-    all_checkpoints_paths = utils.get_checkpoints_for_game(checkpoints_dir, game_name)
+    all_checkpoints_paths = utils.get_checkpoints_for_game(
+        checkpoints_dir, game_name)
 
     # Reduce gap to play at least one game when there is more than one checkpoint
     if gap >= len(all_checkpoints_paths):
@@ -434,7 +449,8 @@ def cross_play(ctx, checkpoints_dir, gap):
         checkpoints_paths.append(all_checkpoints_paths[idx])
 
     # Create table for results, extra column for player id
-    results = np.zeros((len(checkpoints_paths), len(checkpoints_paths)), dtype=int)
+    results = np.zeros(
+        (len(checkpoints_paths), len(checkpoints_paths)), dtype=int)
 
     # Create ELO scoreboard
     elo = ELOScoreboard(players_ids)
@@ -473,10 +489,12 @@ def cross_play(ctx, checkpoints_dir, gap):
                               losses, draws)
 
         # Update ELO rating of first player
-        elo.update_player(first_player_id, opponents_elo, tournament_wins, tournament_draws)
+        elo.update_player(first_player_id, opponents_elo,
+                          tournament_wins, tournament_draws)
 
     # Save elo to csv
-    elo.save_csv(logging_params.get('save_elo_scoreboard_path', './logs/scoreboard.csv'))
+    elo.save_csv(logging_params.get(
+        'save_elo_scoreboard_path', './logs/scoreboard.csv'))
 
     scoreboard = np.concatenate(
         (np.array(players_ids).reshape(-1, 1),
@@ -485,7 +503,8 @@ def cross_play(ctx, checkpoints_dir, gap):
          elo.scores.elo.values.reshape(-1, 1).astype(np.int)),
         axis=1
     )
-    tab = tabulate(scoreboard, headers=players_ids + ["sum", "elo"], tablefmt="fancy_grid")
+    tab = tabulate(scoreboard, headers=players_ids +
+                   ["sum", "elo"], tablefmt="fancy_grid")
     log.info("Results:\n{}".format(tab))
     for player_id, player_elo, checkpoint_path in zip(players_ids, elo.scores['elo'], checkpoints_paths):
         log.info("ITER: {:3}, ELO: {:4}, PATH: {}".format(

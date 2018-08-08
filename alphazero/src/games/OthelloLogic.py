@@ -15,7 +15,8 @@ x is the column, y is the row.
 class Board():
 
     # list of all 8 directions on the board, as (x,y) offsets
-    __directions = [(1, 1), (1, 0), (1, -1), (0, -1), (-1, -1), (-1, 0), (-1, 1), (0, 1)]
+    __directions = [(1, 1), (1, 0), (1, -1), (0, -1),
+                    (-1, -1), (-1, 0), (-1, 1), (0, 1)]
 
     def __init__(self, n):
         "Set up initial board configuration."
@@ -109,7 +110,7 @@ class Board():
         # Add the piece to the empty square.
         # print(move)
         flips = [flip for direction in self.__directions
-                      for flip in self._get_flips(move, direction, color)]
+                 for flip in self._get_flips(move, direction, color)]
         assert len(list(flips)) > 0
         for x, y in flips:
             # print(self[x][y],color)

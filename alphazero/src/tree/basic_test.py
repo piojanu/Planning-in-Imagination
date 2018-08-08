@@ -62,4 +62,5 @@ class TestEdge(object):
 
         # NOTE: Current Q-value have to be weighted by visits number because
         # it's average over Q-value after this number of visits
-        assert edge.qvalue == (current_qvalue * init_visits + return_t) / (init_visits + 1)
+        assert edge.qvalue == (
+            current_qvalue * init_visits + return_t) / (init_visits + 1)

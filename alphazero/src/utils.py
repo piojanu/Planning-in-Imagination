@@ -27,7 +27,8 @@ class TensorBoardLogger(object):
             step (int): Training iteration.
         """
 
-        summary = tf.Summary(value=[tf.Summary.Value(tag=tag, simple_value=value)])
+        summary = tf.Summary(
+            value=[tf.Summary.Value(tag=tag, simple_value=value)])
         self.writer.add_summary(summary, step)
         self.writer.flush()
 
