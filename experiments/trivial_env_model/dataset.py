@@ -52,7 +52,8 @@ class NpzData(Data):
     """
 
     def __init__(self, data_path, train_fraction=0.9, valid_fraction=0.05, context=1):
-        super(NpzData, self).__init__(data_path, train_fraction, valid_fraction, context)
+        super(NpzData, self).__init__(
+            data_path, train_fraction, valid_fraction, context)
         print("Loading data...")
         data = np.load(data_path)
         print("Loaded data.")
@@ -60,10 +61,13 @@ class NpzData(Data):
         states = data["states"].reshape((-1, 1, 80, 80)).astype(np.float16)
         states = (states - 127.5) / 127.5
 
-        states_concat = np.zeros((states.shape[0], context, 80, 80), dtype=np.float32)
-        states = np.vstack([np.broadcast_to(states[0], (context-1, 1, 80, 80)), states])
+        states_concat = np.zeros(
+            (states.shape[0], context, 80, 80), dtype=np.float32)
+        states = np.vstack(
+            [np.broadcast_to(states[0], (context-1, 1, 80, 80)), states])
         for i in range(states_concat.shape[0]):
-            states_concat[i] = states[i:i + context].reshape((1, context, 80, 80))
+            states_concat[i] = states[i:i +
+                                      context].reshape((1, context, 80, 80))
 
         next_states = np.vstack([states[context:], states[-1:]])
         states = states_concat
@@ -84,9 +88,12 @@ class NpzData(Data):
         train_idx = int(train_fraction * states.shape[0])
         valid_idx = train_idx + int(valid_fraction * states.shape[0])
         test_idx = states.shape[0]
-        self.train_set = BasicDataset(data=data_tuple, beg_idx=0, end_idx=train_idx)
-        self.valid_set = BasicDataset(data=data_tuple, beg_idx=train_idx, end_idx=valid_idx)
-        self.test_set = BasicDataset(data=data_tuple, beg_idx=valid_idx, end_idx=test_idx)
+        self.train_set = BasicDataset(
+            data=data_tuple, beg_idx=0, end_idx=train_idx)
+        self.valid_set = BasicDataset(
+            data=data_tuple, beg_idx=train_idx, end_idx=valid_idx)
+        self.test_set = BasicDataset(
+            data=data_tuple, beg_idx=valid_idx, end_idx=test_idx)
 
 
 class Hdf5Data(Data):
@@ -96,7 +103,8 @@ class Hdf5Data(Data):
     """
 
     def __init__(self, data_path, train_fraction=0.9, valid_fraction=0.05, context=1, num_traj=20):
-        super(Hdf5Data, self).__init__(data_path, train_fraction, valid_fraction, context)
+        super(Hdf5Data, self).__init__(
+            data_path, train_fraction, valid_fraction, context)
         self.data = h5py.File(data_path, "r")
         traj_len = self.data.attrs["TRAJECTORY_LEN"]
         if num_traj is None:
@@ -111,7 +119,8 @@ class Hdf5Data(Data):
         test_size = data_size - train_size - valid_size
         test_window_size = 2*traj_len if test_size > 2*traj_len else test_size
 
-        fn = Hdf5Data.get_fetch_and_preprocess_fn(self.context, self.action_space)
+        fn = Hdf5Data.get_fetch_and_preprocess_fn(
+            self.context, self.action_space)
 
         print("Initializing training set...")
         self.train_set = PrefetchDataset(data=self.data, beg_idx=0, end_idx=train_size,
@@ -160,10 +169,13 @@ class Hdf5Data(Data):
                 s = (s - 127.5) / 127.5
                 states[i][0] = s
 
-            states_concat = np.zeros((states.shape[0], context, 80, 80), dtype=np.float32)
-            states = np.vstack([np.broadcast_to(states[0], (context-1, 1, 80, 80)), states])
+            states_concat = np.zeros(
+                (states.shape[0], context, 80, 80), dtype=np.float32)
+            states = np.vstack(
+                [np.broadcast_to(states[0], (context-1, 1, 80, 80)), states])
             for i in range(states_concat.shape[0]):
-                states_concat[i] = states[i:i + context].reshape((1, context, 80, 80))
+                states_concat[i] = states[i:i +
+                                          context].reshape((1, context, 80, 80))
 
             next_states = np.vstack([states[context:], states[-1:]])
             states = states_concat
@@ -229,6 +241,7 @@ class BasicDataset(Dataset):
 
 class PrefetchDataset(Dataset):
     """Dataset for HDF5 file, which fetches and preprocesses data dynamically, as needed."""
+
     def __init__(self, data, beg_idx, end_idx, fetch_and_preprocess_fn=None, window_size=10000, n_threads=4):
         """Initialize dataset.
 
@@ -286,7 +299,8 @@ class PrefetchDataset(Dataset):
         if not self.window_data:
             # Allocate `n_threads` times the size for every data tensor
             for i, nd in enumerate(t.new_data):
-                self.window_data.append(np.zeros((self.n_threads * nd.shape[0], *nd.shape[1:])))
+                self.window_data.append(
+                    np.zeros((self.n_threads * nd.shape[0], *nd.shape[1:])))
         beg = thread_id * self.prefetch_size
         for i, wd in enumerate(self.window_data):
             wd[beg:beg+self.prefetch_size] = t.new_data[i]

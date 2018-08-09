@@ -1,6 +1,6 @@
 import numpy as np
 
-from humblerl import Environment
+from third_party.humblerl import Environment
 from games import *  # This allows to create every game from board_games
 
 
@@ -86,17 +86,18 @@ class GameEnv(Environment):
         self._last_action = action
         self._last_player = self.player
 
-        self._curr_state = next_state
+        self._current_state = next_state
         self.player = next_player
-        return next_state, next_player, reward, end != 0
+        return next_state, next_player, reward, end != 0, None
 
     def reset(self, train_mode=True, first_player=0):
         self.train_mode = train_mode
         self.player = first_player
         # We need to represent init state from perspective of starting player.
         # Otherwise different first players could have different starting conditions e.g in Othello.
-        self._curr_state = self.game.get_canonical_form(self.game.get_init_board(), self.player)
-        return self._curr_state, self.player
+        self._current_state = self.game.get_canonical_form(
+            self.game.get_init_board(), self.player)
+        return self._current_state, self.player
 
     def render(self, fancy=False):
         """Display board when environment is in test mode.
@@ -105,7 +106,8 @@ class GameEnv(Environment):
             fancy (bool): Display a fancy 2D board.
         """
 
-        print("Player {}, Action {}".format(self._last_player, self._last_action))
+        print("Player {}, Action {}".format(
+            self._last_player, self._last_action))
         if fancy and self.current_state.ndim == 2:
             self.render_fancy_board()
         else:
@@ -120,15 +122,15 @@ class GameEnv(Environment):
 
         state = self.current_state.astype(int)
         m, n = state.shape
-        line_sep(3*n + 1)
+        line_sep(3 * n + 1)
         legend = {1: "X", -1: "O"}
         for i in range(m):
             print("|", end=" ")
             for j in range(n):
                 s = legend.get(state[i][j], "-")
-                if (i*m + j) == self._last_action:
+                if (i * m + j) == self._last_action:
                     print("\033[1m{:2}\033[0m".format(s), end=" ")
                 else:
                     print("{:2}".format(s), end=" ")
             print("|")
-        line_sep(3*n + 1)
+        line_sep(3 * n + 1)

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import humblerl as hrl
+import third_party.humblerl as hrl
 import logging as log
 import numpy as np
 import utils
@@ -12,7 +12,8 @@ from tabulate import tabulate
 from algos.alphazero import Planner
 from algos.human import HumanPlayer
 from nn import build_keras_nn, KerasNet
-from callbacks import BasicStats, CSVSaverWrapper, Storage, Tournament, RenderCallback
+from third_party.humblerl.callbacks import BasicStats, CSVSaverWrapper
+from callbacks import Storage, Tournament, RenderCallback
 from metrics import ELOScoreboard
 
 
@@ -23,7 +24,8 @@ from metrics import ELOScoreboard
 @click.option('--debug/--no-debug', help="Enable debug logging (Default: False)", default=False)
 def cli(ctx, config, debug):
     # Get and set up logger level and formatter
-    log.basicConfig(level=log.DEBUG if debug else log.INFO, format="[%(levelname)s]: %(message)s")
+    log.basicConfig(level=log.DEBUG if debug else log.INFO,
+                    format="[%(levelname)s]: %(message)s")
 
     # Create context
     ctx.obj = Config(config)
@@ -125,7 +127,8 @@ def self_play(ctx):
         boards_input, target_pis, target_values = list(zip(*trained_data))
 
         global_epoch = current_net.train(data=np.array(boards_input),
-                                         targets=[np.array(target_pis), np.array(target_values)],
+                                         targets=[np.array(target_pis), np.array(
+                                             target_values)],
                                          initial_epoch=global_epoch,
                                          callbacks=train_callbacks)
 
@@ -140,7 +143,7 @@ def self_play(ctx):
                  name="Tournament " + iter_counter_str, verbose=2,
                  callbacks=[tournament_stats])
 
-        wins, losses, draws = tournament_stats.callback.results
+        wins, losses, draws = tournament_stats.callbacks[0].results
 
         if wins > 0 and float(wins) / (wins + losses) > cfg.self_play["update_threshold"]:
             # Update ELO rating, use best player ELO as current player ELO
@@ -148,7 +151,8 @@ def self_play(ctx):
             #       how much if at all has current player improved.
             #       Decision based on: https://github.com/gcp/leela-zero/issues/354
             best_elo, _ = \
-                ELOScoreboard.calculate_update(best_elo, best_elo, wins, losses, draws)
+                ELOScoreboard.calculate_update(
+                    best_elo, best_elo, wins, losses, draws)
             best_elo = int(best_elo)
 
             # Create checkpoint file name and log it
@@ -204,7 +208,8 @@ def train(ctx, checkpoint, save_dir, tensorboard):
 
     # Run training
     global_epoch = net.train(data=np.array(boards_input),
-                             targets=[np.array(target_pis), np.array(target_values)],
+                             targets=[np.array(target_pis),
+                                      np.array(target_values)],
                              initial_epoch=global_epoch,
                              callbacks=callbacks)
 
@@ -345,9 +350,10 @@ def human_play(ctx, model_path, n_games):
     hrl.loop(cfg.env, [first_player, human_player], alternate_players=True,
              policy='deterministic', n_episodes=n_games, train_mode=False,
              name="Test models: {} vs HUMAN".format(model_path.split("/")[-1]),
-             callbacks=[tournament, render_callback])
+             debug_mode=cfg.debug, callbacks=[tournament, render_callback])
 
-    log.info("{} vs HUMAN results: {}".format(model_path.split("/")[-1], tournament.results))
+    log.info("{} vs HUMAN results: {}".format(
+        model_path.split("/")[-1], tournament.results))
 
 
 @cli.command()
@@ -391,7 +397,8 @@ def cross_play(ctx, checkpoints_dir, gap, second_config):
         checkpoints_paths.append(all_checkpoints_paths[idx])
 
     # Create table for results, extra column for player id
-    results = np.zeros((len(checkpoints_paths), len(checkpoints_paths)), dtype=int)
+    results = np.zeros(
+        (len(checkpoints_paths), len(checkpoints_paths)), dtype=int)
 
     # Create ELO scoreboard
     elo = ELOScoreboard(players_ids)
@@ -430,7 +437,8 @@ def cross_play(ctx, checkpoints_dir, gap, second_config):
                               losses, draws)
 
         # Update ELO rating of first player
-        elo.update_player(first_player_id, opponents_elo, tournament_wins, tournament_draws)
+        elo.update_player(first_player_id, opponents_elo,
+                          tournament_wins, tournament_draws)
 
     # Save elo to csv
     elo.save_csv(cfg.logging['save_elo_scoreboard_path'])
@@ -442,7 +450,8 @@ def cross_play(ctx, checkpoints_dir, gap, second_config):
          elo.scores.elo.values.reshape(-1, 1).astype(np.int)),
         axis=1
     )
-    tab = tabulate(scoreboard, headers=players_ids + ["sum", "elo"], tablefmt="fancy_grid")
+    tab = tabulate(scoreboard, headers=players_ids +
+                   ["sum", "elo"], tablefmt="fancy_grid")
     log.info("Results:\n{}".format(tab))
     for player_id, player_elo, checkpoint_path in zip(players_ids, elo.scores['elo'], checkpoints_paths):
         log.info("ITER: {:3}, ELO: {:4}, PATH: {}".format(

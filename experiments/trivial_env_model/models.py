@@ -27,10 +27,14 @@ class GenerativeModel(nn.Module):
         self.fc4 = nn.Linear(2048, 128 * 5 * 5)
 
         # Deconv layers
-        self.deconv1 = nn.ConvTranspose2d(in_channels=128, out_channels=128, kernel_size=4, stride=2, padding=1)
-        self.deconv2 = nn.ConvTranspose2d(in_channels=128, out_channels=128, kernel_size=6, stride=2, padding=2)
-        self.deconv3 = nn.ConvTranspose2d(in_channels=128, out_channels=64, kernel_size=6, stride=2, padding=2)
-        self.deconv4 = nn.ConvTranspose2d(in_channels=64, out_channels=1, kernel_size=8, stride=2, padding=3)
+        self.deconv1 = nn.ConvTranspose2d(
+            in_channels=128, out_channels=128, kernel_size=4, stride=2, padding=1)
+        self.deconv2 = nn.ConvTranspose2d(
+            in_channels=128, out_channels=128, kernel_size=6, stride=2, padding=2)
+        self.deconv3 = nn.ConvTranspose2d(
+            in_channels=128, out_channels=64, kernel_size=6, stride=2, padding=2)
+        self.deconv4 = nn.ConvTranspose2d(
+            in_channels=64, out_channels=1, kernel_size=8, stride=2, padding=3)
 
     def forward(self, state, action=None):
         conv1_relu = F.relu(self.conv1(state))
@@ -72,8 +76,10 @@ class GenerativeModelMini(nn.Module):
         self.rewards_fc2 = nn.Linear(100, 1)
 
         # Deconv layers
-        self.deconv1 = nn.ConvTranspose2d(in_channels=32, out_channels=32, kernel_size=3, stride=3, padding=0)
-        self.deconv2 = nn.ConvTranspose2d(in_channels=32, out_channels=1, kernel_size=5, stride=4, padding=3, output_padding=1)
+        self.deconv1 = nn.ConvTranspose2d(
+            in_channels=32, out_channels=32, kernel_size=3, stride=3, padding=0)
+        self.deconv2 = nn.ConvTranspose2d(
+            in_channels=32, out_channels=1, kernel_size=5, stride=4, padding=3, output_padding=1)
 
     def forward(self, state, action=None):
 
@@ -93,7 +99,8 @@ class GenerativeModelMini(nn.Module):
         reward = self.rewards_fc2(reward1_relu)
 
         # Output dense
-        action_state_dense = self.action_state_dense(state_action_tranformation)
+        action_state_dense = self.action_state_dense(
+            state_action_tranformation)
 
         deflat = action_state_dense.view(-1, 32, 7, 7)
 
@@ -146,4 +153,3 @@ class autoencoder(nn.Module):
     @property
     def name(self):
         return "AE"
-

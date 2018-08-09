@@ -1,4 +1,6 @@
-import torch, torch.optim as optim, torch.nn.functional as F
+import torch
+import torch.optim as optim
+import torch.nn.functional as F
 import argparse
 import time
 import numpy as np
@@ -56,7 +58,8 @@ def run_training(data, model, batch_size=100, num_epochs=1000, init_lr=0.0015, p
         losses = []
         for step in range(num_steps):
             # Training
-            states_batch, next_states_batch, actions_batch, rewards_batch = data.train_set.get_next_batch(batch_size)
+            states_batch, next_states_batch, actions_batch, rewards_batch = data.train_set.get_next_batch(
+                batch_size)
             states_train_tensor = torch.Tensor(states_batch)
             next_states_train_tensor = torch.Tensor(next_states_batch)
             actions_train_tensor = torch.Tensor(actions_batch)
@@ -65,9 +68,11 @@ def run_training(data, model, batch_size=100, num_epochs=1000, init_lr=0.0015, p
             assert states_train_tensor.shape[0] == next_states_train_tensor.shape[0], \
                 "states and next states shape does not match!"
 
-            next_states_pred, rewards_pred = model(states_train_tensor, actions_train_tensor)
+            next_states_pred, rewards_pred = model(
+                states_train_tensor, actions_train_tensor)
             state_loss = F.mse_loss(next_states_pred, next_states_train_tensor)
-            reward_loss = reward_loss_factor * F.mse_loss(rewards_pred, rewards_train_tensor)
+            reward_loss = reward_loss_factor * \
+                F.mse_loss(rewards_pred, rewards_train_tensor)
             loss = state_loss + reward_loss
 
             state_losses.append(state_loss.item())
@@ -94,7 +99,8 @@ def run_training(data, model, batch_size=100, num_epochs=1000, init_lr=0.0015, p
         val_loss_hist.append(val_loss)
 
         if val_loss == min(val_loss_hist):
-            print("val loss improved to {:.5f}. Saving model to {}".format(val_loss, "{}.model".format(model.name)))
+            print("val loss improved to {:.5f}. Saving model to {}".format(
+                val_loss, "{}.model".format(model.name)))
             torch.save(model, "{}.model".format(model.name))
             intervals_without_improvement = 0
         else:
@@ -124,7 +130,8 @@ if __name__ == "__main__":
         context = 4
 
     data = get_data(args.dataset, context=context)
-    model = GenerativeModelMini(input_channels=context, action_space=data.action_space)
+    model = GenerativeModelMini(
+        input_channels=context, action_space=data.action_space)
     print("Action space: {}".format(data.action_space))
 
     print("Using {}".format(args.model))
@@ -146,5 +153,3 @@ if __name__ == "__main__":
     else:
         raise Exception("Please specify either train or eval param")
     data.close()
-
-
