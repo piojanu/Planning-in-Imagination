@@ -36,10 +36,11 @@ class TensorBoardLogger(object):
 
 class Config(object):
     def __init__(self, config, debug=False):
-        """
-        Loads custom configuration, unspecified parameters are taken from default configuration.
-        :param config: file containing configuration json
-        :param debug: specify to enable debugging features
+        """Loads custom configuration, unspecified parameters are taken from default configuration.
+
+        Args:
+            config (file): file containing configuration json
+            debug (boolean): specify to enable debugging features
         """
 
         with open("config.json.dist") as config_file:
