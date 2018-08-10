@@ -44,7 +44,7 @@ class Config(object):
             debug (boolean): specify to enable debugging features
         """
 
-        with open("config.json.dist") as config_file:
+        with open(os.path.join(os.path.dirname(__file__), "config.json.dist")) as config_file:
             default_config = json.loads(config_file.read())
 
         custom_config = json.loads(config.read())
