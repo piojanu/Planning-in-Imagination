@@ -142,7 +142,8 @@ class KerasNet(NeuralNet):
 
         filepath = os.path.join(folder, filename)
         if not os.path.exists(folder):
-            log.warn("Checkpoint directory does not exist! Creating directory {}".format(folder))
+            log.warn(
+                "Checkpoint directory does not exist! Creating directory {}".format(folder))
             os.mkdir(folder)
         self.model.save_weights(filepath)
 
@@ -199,7 +200,8 @@ def build_keras_nn(game, params):
     feature_extractor = params.get("feature_extractor", "agz")
     dense_size = params.get("dense_size", 512)
 
-    loss = params.get('loss', ["categorical_crossentropy", "mean_squared_error"])
+    loss = params.get(
+        'loss', ["categorical_crossentropy", "mean_squared_error"])
     l2_reg = params.get("l2_regularizer", 0.0001)
     lr = params.get('lr', 0.1)
     momentum = params.get('momentum', 0.9)
@@ -244,25 +246,32 @@ def build_keras_nn(game, params):
     # Tower of residual blocks
     if residual_filters > 0:
         for _ in range(residual_num):
-            x = residual_block(x, residual_filters, residual_bottleneck, residual_kernel)
+            x = residual_block(x, residual_filters,
+                               residual_bottleneck, residual_kernel)
 
     # Final feature extractors
     if feature_extractor == "agz":
         pi = Flatten()(conv2d_n_batchnorm(x, filters=2, kernel_size=1, strides=1))
         value = Flatten()(conv2d_n_batchnorm(x, filters=1, kernel_size=1, strides=1))
-        value = Dense(256, activation='relu', kernel_regularizer=l2(l2_reg))(value)
+        value = Dense(256, activation='relu',
+                      kernel_regularizer=l2(l2_reg))(value)
     elif feature_extractor == "avgpool":
         x = GlobalAveragePooling2D(data_format=DATA_FORMAT)(x)
-        pi = value = Dense(dense_size, activation='relu', kernel_regularizer=l2(l2_reg))(x)
+        pi = value = Dense(dense_size, activation='relu',
+                           kernel_regularizer=l2(l2_reg))(x)
     elif feature_extractor == "flatten":
         x = Flatten()(x)
-        pi = value = Dense(dense_size, activation='relu', kernel_regularizer=l2(l2_reg))(x)
+        pi = value = Dense(dense_size, activation='relu',
+                           kernel_regularizer=l2(l2_reg))(x)
     else:
-        raise ValueError("Unknown feature extractor! Possible values: 'agz', 'avgpool', 'flatten'")
+        raise ValueError(
+            "Unknown feature extractor! Possible values: 'agz', 'avgpool', 'flatten'")
 
     # Heads
-    pi = Dense(ACTION_SIZE, activation='softmax', kernel_regularizer=l2(l2_reg), name='pi')(pi)
-    value = Dense(1, activation='tanh', kernel_regularizer=l2(l2_reg), name='value')(value)
+    pi = Dense(ACTION_SIZE, activation='softmax',
+               kernel_regularizer=l2(l2_reg), name='pi')(pi)
+    value = Dense(1, activation='tanh', kernel_regularizer=l2(
+        l2_reg), name='value')(value)
 
     # Create model
     model = Model(inputs=boards_input, outputs=[pi, value])

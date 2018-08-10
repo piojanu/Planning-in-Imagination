@@ -61,13 +61,17 @@ class ELOScoreboard(object):
         n_games = p1_wins + p2_wins + draws
 
         p1_score = p1_wins + .5 * draws
-        p1_expected = ELOScoreboard._get_expected_score(p1_elo, p2_elo) * n_games
+        p1_expected = ELOScoreboard._get_expected_score(
+            p1_elo, p2_elo) * n_games
 
         p2_score = p2_wins + .5 * draws
-        p2_expected = ELOScoreboard._get_expected_score(p2_elo, p1_elo) * n_games
+        p2_expected = ELOScoreboard._get_expected_score(
+            p2_elo, p1_elo) * n_games
 
-        p1_updated = ELOScoreboard._get_updated_elo(p1_elo, p1_expected, p1_score)
-        p2_updated = ELOScoreboard._get_updated_elo(p2_elo, p2_expected, p2_score)
+        p1_updated = ELOScoreboard._get_updated_elo(
+            p1_elo, p1_expected, p1_score)
+        p2_updated = ELOScoreboard._get_updated_elo(
+            p2_elo, p2_expected, p2_score)
 
         return p1_updated, p2_updated
 
@@ -113,9 +117,11 @@ class ELOScoreboard(object):
 
         expected_score = 0
         for opponent_elo in opponents_elo:
-            expected_score += self._get_expected_score(player_elo, opponent_elo) * n_games
+            expected_score += self._get_expected_score(
+                player_elo, opponent_elo) * n_games
 
-        updated_elo = self._get_updated_elo(player_elo, expected_score, player_score)
+        updated_elo = self._get_updated_elo(
+            player_elo, expected_score, player_score)
         self.scores.loc[player_id, 'elo'] = updated_elo
 
     def update_players(self, p1_id, p2_id, p1_wins, p2_wins, draws):

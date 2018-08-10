@@ -43,7 +43,8 @@ Based on the board for the game of Othello by Eric P. Nichols.
 class Board():
 
     # list of all 8 directions on the board, as (x,y) offsets
-    __directions = [(1, 1), (1, 0), (1, -1), (0, -1), (-1, -1), (-1, 0), (-1, 1), (0, 1)]
+    __directions = [(1, 1), (1, 0), (1, -1), (0, -1),
+                    (-1, -1), (-1, 0), (-1, 1), (0, 1)]
 
     def __init__(self, n=3):
         "Set up initial board configuration."
