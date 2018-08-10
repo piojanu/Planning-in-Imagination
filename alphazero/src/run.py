@@ -63,16 +63,19 @@ def self_play(ctx):
     cfg = ctx.obj
 
     # Create TensorBoard logger
-    tb_logger = TensorBoardLogger(utils.create_tensorboard_log_dir(cfg.logging['tensorboard_log_folder'], 'elo'))
+    tb_logger = TensorBoardLogger(utils.create_tensorboard_log_dir(
+        cfg.logging['tensorboard_log_folder'], 'elo'))
 
     # Create Minds, current and best
     current_net = KerasNet(build_keras_nn(cfg.env.game, cfg.nn), cfg.training)
-    best_net = KerasNet(build_keras_nn(cfg.env.game,cfg.nn), cfg.training)
+    best_net = KerasNet(build_keras_nn(cfg.env.game, cfg.nn), cfg.training)
 
     # Load best nn if available
     try:
-        ckpt_path = utils.get_newest_ckpt_fname(cfg.logging['save_checkpoint_folder'])
-        best_net.load_checkpoint(cfg.logging['save_checkpoint_folder'], ckpt_path)
+        ckpt_path = utils.get_newest_ckpt_fname(
+            cfg.logging['save_checkpoint_folder'])
+        best_net.load_checkpoint(
+            cfg.logging['save_checkpoint_folder'], ckpt_path)
         log.info("Best mind has loaded latest checkpoint: {}".format(
             utils.get_newest_ckpt_fname(cfg.logging['save_checkpoint_folder'])))
         global_epoch = utils.get_checkpoints_epoch(ckpt_path)
@@ -94,8 +97,10 @@ def self_play(ctx):
 
     # Create callbacks, storage and tournament
     storage = Storage(cfg.env.game, cfg.storage)
-    train_stats = CSVSaverWrapper(BasicStats(), cfg.logging['save_self_play_log_path'])
-    tournament_stats = CSVSaverWrapper(Tournament(), cfg.logging['save_tournament_log_path'], True)
+    train_stats = CSVSaverWrapper(
+        BasicStats(), cfg.logging['save_self_play_log_path'])
+    tournament_stats = CSVSaverWrapper(
+        Tournament(), cfg.logging['save_tournament_log_path'], True)
     train_callbacks = [TensorBoard(log_dir=utils.create_tensorboard_log_dir(
         cfg.logging['tensorboard_log_folder'], 'self_play'))]
 
@@ -119,7 +124,8 @@ def self_play(ctx):
 
         # Proceed to training only if threshold is fulfilled
         if len(storage.big_bag) <= cfg.self_play["min_examples"]:
-            log.warn("Skip training, gather minimum {} training examples!".format(cfg.self_play["min_examples"]))
+            log.warn("Skip training, gather minimum {} training examples!".format(
+                cfg.self_play["min_examples"]))
             continue
 
         # TRAINING - improve neural net
@@ -156,11 +162,13 @@ def self_play(ctx):
             best_elo = int(best_elo)
 
             # Create checkpoint file name and log it
-            best_fname = "_".join(['self_play', cfg.self_play["game"], str(global_epoch), str(best_elo)]) + ".ckpt"
+            best_fname = "_".join(['self_play', cfg.self_play["game"], str(
+                global_epoch), str(best_elo)]) + ".ckpt"
             log.info("New best player: {}".format(best_fname))
 
             # Save best and exchange weights
-            current_net.save_checkpoint(cfg.logging['save_checkpoint_folder'], best_fname)
+            current_net.save_checkpoint(
+                cfg.logging['save_checkpoint_folder'], best_fname)
             best_net.model.set_weights(current_net.model.get_weights())
 
         # Log current player ELO
@@ -181,7 +189,8 @@ def train(ctx, checkpoint, save_dir, tensorboard):
     cfg = ctx.obj
 
     # Get TensorBoard log dir
-    tensorboard_folder = utils.create_tensorboard_log_dir(cfg.logging['tensorboard_log_folder'], 'train')
+    tensorboard_folder = utils.create_tensorboard_log_dir(
+        cfg.logging['tensorboard_log_folder'], 'train')
 
     # Create Keras NN
     net = KerasNet(build_keras_nn(cfg.env.game, cfg.nn), cfg.training)
@@ -215,7 +224,8 @@ def train(ctx, checkpoint, save_dir, tensorboard):
 
     # Save model checkpoint if path passed
     if save_dir:
-        save_fname = "_".join(["train", cfg.self_play["game"], str(global_epoch)]) + ".ckpt"
+        save_fname = "_".join(
+            ["train", cfg.self_play["game"], str(global_epoch)]) + ".ckpt"
         net.save_checkpoint(save_dir, save_fname)
 
 
@@ -305,8 +315,10 @@ def clash(ctx, first_model_path, second_model_path, render, n_games):
     cfg = ctx.obj
 
     # Create Minds, current and best
-    first_player_net = KerasNet(build_keras_nn(cfg.env.game, cfg.nn), cfg.training)
-    second_player_net = KerasNet(build_keras_nn(cfg.env.game, cfg.nn), cfg.training)
+    first_player_net = KerasNet(build_keras_nn(
+        cfg.env.game, cfg.nn), cfg.training)
+    second_player_net = KerasNet(build_keras_nn(
+        cfg.env.game, cfg.nn), cfg.training)
 
     first_player_net.load_checkpoint(first_model_path)
     second_player_net.load_checkpoint(second_model_path)
@@ -338,7 +350,8 @@ def human_play(ctx, model_path, n_games):
     cfg = ctx.obj
 
     # Create Mind for NN oponnent
-    first_player_net = KerasNet(build_keras_nn(cfg.env.game, cfg.nn), cfg.training)
+    first_player_net = KerasNet(build_keras_nn(
+        cfg.env.game, cfg.nn), cfg.training)
     first_player_net.load_checkpoint(model_path)
     first_player = Planner(cfg.env.game, first_player_net, cfg.planner)
 
@@ -373,16 +386,20 @@ def cross_play(ctx, checkpoints_dir, gap, second_config):
         checkpoints_dir = cfg.logging['save_checkpoint_folder']
 
     # Create players and their minds
-    first_player_net = KerasNet(build_keras_nn(cfg.env.game, cfg.nn), cfg.training)
-    second_player_net = KerasNet(build_keras_nn(second_cfg.env.game, second_cfg.nn), second_cfg.training)
+    first_player_net = KerasNet(build_keras_nn(
+        cfg.env.game, cfg.nn), cfg.training)
+    second_player_net = KerasNet(build_keras_nn(
+        second_cfg.env.game, second_cfg.nn), second_cfg.training)
     first_player = Planner(cfg.env.game, first_player_net, cfg.planner)
-    second_player = Planner(second_cfg.env.game, second_player_net, second_cfg.planner)
+    second_player = Planner(second_cfg.env.game,
+                            second_player_net, second_cfg.planner)
 
     # Create callbacks
     tournament = Tournament()
 
     # Get checkpoints paths
-    all_checkpoints_paths = utils.get_checkpoints_for_game(checkpoints_dir, cfg.self_play["game"])
+    all_checkpoints_paths = utils.get_checkpoints_for_game(
+        checkpoints_dir, cfg.self_play["game"])
 
     # Reduce gap to play at least one game when there is more than one checkpoint
     if gap >= len(all_checkpoints_paths):

@@ -50,12 +50,18 @@ class Config(object):
         custom_config = json.loads(config.read())
 
         # Merging default and custom configs, for repeating keys, key-value pairs from second dict are taken
-        self.nn = {**default_config["neural_net"], **custom_config.get("neural_net", {})}
-        self.training = {**default_config["training"], **custom_config.get("training", {})}
-        self.self_play = {**default_config["self_play"], **custom_config.get("self_play", {})}
-        self.logging = {**default_config["logging"], **custom_config.get("logging", {})}
-        self.storage = {**default_config["storage"], **custom_config.get("storage", {})}
-        self.planner = {**default_config["planner"], **custom_config.get("planner", {})}
+        self.nn = {**default_config["neural_net"],
+                   **custom_config.get("neural_net", {})}
+        self.training = {
+            **default_config["training"], **custom_config.get("training", {})}
+        self.self_play = {
+            **default_config["self_play"], **custom_config.get("self_play", {})}
+        self.logging = {**default_config["logging"],
+                        **custom_config.get("logging", {})}
+        self.storage = {**default_config["storage"],
+                        **custom_config.get("storage", {})}
+        self.planner = {**default_config["planner"],
+                        **custom_config.get("planner", {})}
 
         self.env = GameEnv(name=self.self_play["game"])
         self.debug = debug
