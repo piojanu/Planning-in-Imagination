@@ -375,11 +375,11 @@ def human_play(ctx, model_path, n_games):
               help="Path to checkpoints. If None then take from config (Default: None)")
 @click.option('-g', '--gap', help="Gap between versions of best model (Default: 2)", default=2)
 @click.option('-sc', '--second_config', type=click.File('r'),
-              help="Path to configuration file (Default: config.json)", default="config.json")
+              help="Path to second configuration file", default=None)
 def cross_play(ctx, checkpoints_dir, gap, second_config):
     """Validate trained models. Best networks play with each other."""
     cfg = ctx.obj
-    second_cfg = Config(second_config)
+    second_cfg = Config(second_config) if second_config is not None else cfg
 
     # Set checkpoints_dir if not passed
     if checkpoints_dir is None:
