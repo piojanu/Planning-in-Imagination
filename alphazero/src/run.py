@@ -132,11 +132,8 @@ def self_play(ctx):
         trained_data = storage.big_bag
         boards_input, target_pis, target_values = list(zip(*trained_data))
 
-        global_epoch = current_net.train(data=np.array(boards_input),
-                                         targets=[np.array(target_pis), np.array(
-                                             target_values)],
-                                         initial_epoch=global_epoch,
-                                         callbacks=train_callbacks)
+        global_epoch = current_net.train(data=np.array(boards_input), targets=[np.array(
+            target_pis), np.array(target_values)], initial_epoch=global_epoch, callbacks=train_callbacks)
 
         # ARENA - only the best will generate data!
         # Clear players tree
