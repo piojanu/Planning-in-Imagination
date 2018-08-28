@@ -28,11 +28,11 @@ class Storage(Callback):
 
         self._recent_action_probs = None
 
-    def on_action_planned(self, logits, metrics):
+    def on_action_planned(self, step, logits, info):
         # Proportional without temperature
         self._recent_action_probs = logits / np.sum(logits)
 
-    def on_step_taken(self, transition, info):
+    def on_step_taken(self, step, transition, info):
         # NOTE: We never pass terminal stateit would be next_state), so NN can't learn directly
         # what is the value of terminal/end state.
         small_package = transition.player, transition.state, self._recent_action_probs
@@ -50,10 +50,6 @@ class Storage(Callback):
                 if len(self.big_bag) > self.params.get("exp_replay_size", 100000):
                     self.big_bag.popleft()
             self.small_bag.clear()
-
-    def on_episode_end(self):
-        logs = {"# samples": len(self.big_bag)}
-        return logs
 
     def store(self):
         path = self.params.get("save_data_path", "./checkpoints/data.examples")
@@ -82,19 +78,20 @@ class Storage(Callback):
             while len(self.big_bag) > self.params.get("exp_replay_size", 100000):
                 self.big_bag.popleft()
 
+    @property
+    def metrics(self):
+        logs = {"# samples": len(self.big_bag)}
+        return logs
+
 
 class Tournament(Callback):
     def __init__(self):
         self.reset()
 
-    @property
-    def results(self):
-        return self.wins, self.losses, self.draws
-
     def on_loop_start(self):
         self.reset()
 
-    def on_step_taken(self, transition, info):
+    def on_step_taken(self, step, transition, info):
         if transition.is_terminal:
             # NOTE: Because players have fixed player id, and reward is returned from
             # perspective of player one, we are indifferent to who is starting the game.
@@ -105,11 +102,16 @@ class Tournament(Callback):
             else:
                 self.losses += 1
 
-    def on_episode_end(self):
-        return {"wannabe": self.wins, "best": self.losses, "draws": self.draws}
-
     def reset(self):
         self.wins, self.losses, self.draws = 0, 0, 0
+
+    @property
+    def metrics(self):
+        return {"wannabe": self.wins, "best": self.losses, "draws": self.draws}
+
+    @property
+    def results(self):
+        return self.wins, self.losses, self.draws
 
 
 class RenderCallback(Callback):
@@ -118,11 +120,8 @@ class RenderCallback(Callback):
         self.render = render
         self.fancy = fancy
 
-    def on_step_taken(self, _, info):
+    def on_step_taken(self, step, transition, info):
         self.do_render()
-
-    def on_episode_end(self):
-        return {}
 
     def do_render(self):
         if self.render:
