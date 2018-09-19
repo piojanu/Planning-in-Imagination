@@ -104,8 +104,9 @@ ENV/
 */.idea/
 
 # Own
-*.json
+checkpoints_n_logs/
 checkpoints/
 logs/
+*.json
 *.bck
 .DS_Store
