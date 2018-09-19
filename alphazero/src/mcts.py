@@ -220,7 +220,7 @@ class MCTS(Callback, Mind, metaclass=ABCMeta):
             self.backup(path, -value)
 
         metrics = {"max_depth": max_depth, "simulations": simulations,
-                   "simulation_time": time.time()-start_time}
+                   "simulation_time": time.time() - start_time}
         if debug_mode:
             self._debug_log(root, player, metrics)
 
@@ -231,7 +231,7 @@ class MCTS(Callback, Mind, metaclass=ABCMeta):
 
         return actions, metrics
 
-    def on_episode_start(self, train_mode):
+    def on_episode_start(self, episode, train_mode):
         """Empty search tree between episodes if in train mode."""
         if train_mode:
             self.clear_tree()
