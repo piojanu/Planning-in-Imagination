@@ -17,10 +17,10 @@ class TestNode(object):
         assert node.edges == edges
 
     @pytest.mark.parametrize("edges,c,popular_key,result_key", [
-        ({0: Edge(3), 1: Edge(1)}, 1., 0, 0),
-        ({0: Edge(3), 1: Edge(1)}, 2., 0, 1),
-        ({0: Edge(3), 1: Edge(1), 2: Edge(2)}, 1., 0, 2),
-        ({0: Edge(3), 1: Edge(1), 2: Edge(2)}, 1., 1, 0),
+        ({0: Edge(qvalue=4), 1: Edge(qvalue=1)}, 1., 0, 0),
+        ({0: Edge(qvalue=3), 1: Edge(qvalue=1)}, 2., 0, 1),
+        ({0: Edge(qvalue=3), 1: Edge(qvalue=1), 2: Edge(qvalue=2)}, 1., 0, 2),
+        ({0: Edge(qvalue=3), 1: Edge(qvalue=1), 2: Edge(qvalue=2)}, 1., 1, 0),
         ({}, 0, 0, 0)
     ])
     def test_select_edge(self, edges, c, popular_key, result_key):
@@ -42,7 +42,7 @@ class TestEdge(object):
     ])
     def test_gettes(self, next_node, edges, qvalue):
         next_node.expand(edges)
-        edge = Edge(qvalue, next_node)
+        edge = Edge(qvalue=qvalue, next_node=next_node)
 
         assert edge.next_node == next_node
         assert edge.qvalue == qvalue
@@ -56,7 +56,7 @@ class TestEdge(object):
         (2, 2, 2)
     ])
     def test_update(self, current_qvalue, init_visits, return_t):
-        edge = Edge(current_qvalue)
+        edge = Edge(qvalue=current_qvalue)
         edge._num_visits = init_visits
         edge.update(return_t)
 
