@@ -3,7 +3,7 @@ CKPT_DIR=checkpoints/test/
 MAIN_SCRIPT_PATH=../src/run.py
 
 echo "Testing self_play"
-echo y | python $MAIN_SCRIPT_PATH -c test_config.json self_play || { echo "self_play Failed" ; exit 1; }
+python $MAIN_SCRIPT_PATH -c test_config.json self_play || { echo "self_play Failed" ; exit 1; }
 
 echo "Testing cross_play"
 python $MAIN_SCRIPT_PATH -c test_config.json cross_play -d $CKPT_DIR || { echo "cross_play Failed" ; exit 1; }
