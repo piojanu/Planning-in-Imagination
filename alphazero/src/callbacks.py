@@ -65,10 +65,7 @@ class Storage(Callback):
     def load(self):
         path = self.params.get("save_data_path", "./checkpoints/data.examples")
         if not os.path.isfile(path):
-            r = input(
-                "File with train examples was not found. Continue? [y|n]: ")
-            if r != "y":
-                sys.exit()
+            log.warning("File with train examples was not found.")
         else:
             log.info("File with train examples found. Reading it.")
             with open(path, "rb") as f:

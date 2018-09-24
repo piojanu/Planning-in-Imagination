@@ -159,8 +159,8 @@ def self_play(ctx):
             best_elo = int(best_elo)
 
             # Create checkpoint file name and log it
-            best_fname = "_".join(['self_play', cfg.self_play["game"], str(
-                global_epoch), str(best_elo)]) + ".ckpt"
+            best_fname = "_".join(['self_play', cfg.self_play["game"],
+                                   '{0:05d}'.format(global_epoch), str(best_elo)]) + ".ckpt"
             log.info("New best player: {}".format(best_fname))
 
             # Save best and exchange weights
