@@ -3,7 +3,7 @@ import third_party.humblerl as hrl
 import logging as log
 import numpy as np
 import utils
-from utils import TensorBoardLogger, Config
+from utils import Config, BoardGameMind, TensorBoardLogger
 import click
 
 from keras.callbacks import EarlyStopping, TensorBoard
@@ -28,13 +28,13 @@ def cli(ctx, config, debug):
                     format="[%(levelname)s]: %(message)s")
 
     # Create context
-    ctx.obj = Config(config)
+    ctx.obj = Config(config, debug)
 
 
 @cli.command()
 @click.pass_context
 def self_play(ctx):
-    """Train player by self-play, retraining from self-played frames and changing best player when
+    """Train by self-play, retraining from self-played frames and changing best player when
     new trained player beats currently best player.
 
     Args:
@@ -67,8 +67,8 @@ def self_play(ctx):
         cfg.logging['tensorboard_log_folder'], 'elo'))
 
     # Create Minds, current and best
-    current_net = KerasNet(build_keras_nn(cfg.env.game, cfg.nn), cfg.training)
-    best_net = KerasNet(build_keras_nn(cfg.env.game, cfg.nn), cfg.training)
+    current_net = KerasNet(build_keras_nn(cfg.game, cfg.nn), cfg.training)
+    best_net = KerasNet(build_keras_nn(cfg.game, cfg.nn), cfg.training)
 
     # Load best nn if available
     try:
@@ -89,14 +89,14 @@ def self_play(ctx):
     current_net.model.set_weights(best_net.model.get_weights())
 
     # Create players
-    best_player = Planner(cfg.env.game, best_net, cfg.planner)
-    current_player = Planner(cfg.env.game, current_net, cfg.planner)
+    best_player = Planner(cfg.mdp, best_net, cfg.planner)
+    current_player = Planner(cfg.mdp, current_net, cfg.planner)
 
-    self_play_players = [best_player, best_player]
-    tournament_players = [current_player, best_player]
+    self_play_players = BoardGameMind(best_player, best_player, cfg.game)
+    tournament_players = BoardGameMind(current_player, best_player, cfg.game)
 
     # Create callbacks, storage and tournament
-    storage = Storage(cfg.env.game, cfg.storage)
+    storage = Storage(cfg.game, cfg.storage)
     train_stats = CSVSaverWrapper(
         BasicStats(), cfg.logging['save_self_play_log_path'])
     tournament_stats = CSVSaverWrapper(
@@ -140,11 +140,10 @@ def self_play(ctx):
         current_player.clear_tree()
         best_player.clear_tree()
 
-        hrl.loop(cfg.env, tournament_players,
-                 policy='deterministic', alternate_players=True, train_mode=False,
+        hrl.loop(cfg.env, tournament_players, policy='deterministic', train_mode=False,
                  debug_mode=cfg.debug, n_episodes=cfg.self_play['n_tournaments'],
                  name="Tournament " + iter_counter_str, verbose=2,
-                 callbacks=[tournament_stats])
+                 callbacks=[tournament_stats, cfg.env])  # env added to alternate starting player
 
         wins, losses, draws = tournament_stats.callbacks[0].results
 
@@ -190,7 +189,7 @@ def train(ctx, checkpoint, save_dir, tensorboard):
         cfg.logging['tensorboard_log_folder'], 'train')
 
     # Create Keras NN
-    net = KerasNet(build_keras_nn(cfg.env.game, cfg.nn), cfg.training)
+    net = KerasNet(build_keras_nn(cfg.game, cfg.nn), cfg.training)
 
     # Load checkpoint nn if available
     global_epoch = 0
@@ -205,7 +204,7 @@ def train(ctx, checkpoint, save_dir, tensorboard):
         callbacks.append(TensorBoard(log_dir=tensorboard_folder))
 
     # Create storage and load data
-    storage = Storage(cfg.env.game, cfg.storage)
+    storage = Storage(cfg.game, cfg.storage)
     storage.load()
 
     # Prepare training data
@@ -241,7 +240,7 @@ def hopt(ctx, n_steps):
     cfg = ctx.obj
 
     # Create storage and load data
-    storage = Storage(cfg.env.game, cfg.storage)
+    storage = Storage(cfg.game, cfg.storage)
     storage.load()
 
     # Prepare training data
@@ -270,7 +269,7 @@ def hopt(ctx, n_steps):
             cfg.nn[k] = v
 
         # Build Keras neural net model
-        model = build_keras_nn(cfg.env.game, cfg.nn)
+        model = build_keras_nn(cfg.game, cfg.nn)
 
         # Fit model
         history = model.fit(data, targets,
@@ -312,23 +311,22 @@ def clash(ctx, first_model_path, second_model_path, render, n_games):
     cfg = ctx.obj
 
     # Create Minds, current and best
-    first_player_net = KerasNet(build_keras_nn(
-        cfg.env.game, cfg.nn), cfg.training)
-    second_player_net = KerasNet(build_keras_nn(
-        cfg.env.game, cfg.nn), cfg.training)
+    first_player_net = KerasNet(build_keras_nn(cfg.game, cfg.nn), cfg.training)
+    second_player_net = KerasNet(build_keras_nn(cfg.game, cfg.nn), cfg.training)
 
     first_player_net.load_checkpoint(first_model_path)
     second_player_net.load_checkpoint(second_model_path)
 
     tournament = Tournament()
     render_callback = RenderCallback(cfg.env, render)
-    first_player = Planner(cfg.env.game, first_player_net, cfg.planner)
-    second_player = Planner(cfg.env.game, second_player_net, cfg.planner)
-    hrl.loop(cfg.env, [first_player, second_player], alternate_players=True, policy='deterministic',
-             n_episodes=n_games, train_mode=False, debug_mode=cfg.debug,
+    first_player = Planner(cfg.mdp, first_player_net, cfg.planner)
+    second_player = Planner(cfg.mdp, second_player_net, cfg.planner)
+    players = BoardGameMind(first_player, second_player, cfg.game)
+    hrl.loop(cfg.env, players, policy='deterministic', n_episodes=n_games,
+             train_mode=False, debug_mode=cfg.debug,
              name="Test  models: {} vs {}".format(first_model_path.split(
                  "/")[-1], second_model_path.split("/")[-1]),
-             callbacks=[render_callback, tournament])
+             callbacks=[render_callback, tournament, cfg.env])
 
     log.info("{} vs {} results: {}".format(first_model_path.split("/")
                                            [-1], second_model_path.split("/")[-1], tournament.results))
@@ -347,20 +345,18 @@ def human_play(ctx, model_path, n_games):
     cfg = ctx.obj
 
     # Create Mind for NN oponnent
-    first_player_net = KerasNet(build_keras_nn(
-        cfg.env.game, cfg.nn), cfg.training)
+    first_player_net = KerasNet(build_keras_nn(cfg.game, cfg.nn), cfg.training)
     first_player_net.load_checkpoint(model_path)
-    first_player = Planner(cfg.env.game, first_player_net, cfg.planner)
-
-    human_player = HumanPlayer(cfg.env.game)
+    first_player = Planner(cfg.mdp, first_player_net, cfg.planner)
+    human_player = HumanPlayer(cfg.mdp)
+    players = BoardGameMind(first_player, human_player, cfg.game)
 
     render_callback = RenderCallback(cfg.env, render=True, fancy=True)
 
     tournament = Tournament()
-    hrl.loop(cfg.env, [first_player, human_player], alternate_players=True,
-             policy='deterministic', n_episodes=n_games, train_mode=False,
+    hrl.loop(cfg.env, players, policy='deterministic', n_episodes=n_games, train_mode=False,
              name="Test models: {} vs HUMAN".format(model_path.split("/")[-1]),
-             debug_mode=cfg.debug, callbacks=[tournament, render_callback])
+             debug_mode=cfg.debug, callbacks=[tournament, render_callback, cfg.env])
 
     log.info("{} vs HUMAN results: {}".format(
         model_path.split("/")[-1], tournament.results))
@@ -383,13 +379,12 @@ def cross_play(ctx, checkpoints_dir, gap, second_config):
         checkpoints_dir = cfg.logging['save_checkpoint_folder']
 
     # Create players and their minds
-    first_player_net = KerasNet(build_keras_nn(
-        cfg.env.game, cfg.nn), cfg.training)
+    first_player_net = KerasNet(build_keras_nn(cfg.game, cfg.nn), cfg.training)
     second_player_net = KerasNet(build_keras_nn(
-        second_cfg.env.game, second_cfg.nn), second_cfg.training)
-    first_player = Planner(cfg.env.game, first_player_net, cfg.planner)
-    second_player = Planner(second_cfg.env.game,
-                            second_player_net, second_cfg.planner)
+        second_cfg.game, second_cfg.nn), second_cfg.training)
+    first_player = Planner(cfg.mdp, first_player_net, cfg.planner)
+    second_player = Planner(second_cfg.mdp, second_player_net, second_cfg.planner)
+    players = BoardGameMind(first_player, second_player, cfg.game)
 
     # Create callbacks
     tournament = Tournament()
@@ -430,10 +425,9 @@ def cross_play(ctx, checkpoints_dir, gap, second_config):
             first_player.clear_tree()
             second_player.clear_tree()
 
-            hrl.loop(cfg.env, [first_player, second_player], alternate_players=True, policy='deterministic',
-                     n_episodes=2, train_mode=False,
-                     name="{} vs {}".format(first_player_id, second_player_id),
-                     callbacks=[tournament])
+            hrl.loop(cfg.env, players, policy='deterministic', n_episodes=2,
+                     train_mode=False, name="{} vs {}".format(first_player_id, second_player_id),
+                     callbacks=[tournament, cfg.env])
 
             wins, losses, draws = tournament.results
 

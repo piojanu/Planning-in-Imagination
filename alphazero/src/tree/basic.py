@@ -95,19 +95,14 @@ class Edge(object):
         """
 
         self.next_node = next_node
+        self.qvalue = qvalue
         self._prior = prior
-        self._qvalue = qvalue
         self._num_visits = 0
 
     @property
     def prior(self):
         """float: Action probability from prior policy."""
         return self._prior
-
-    @property
-    def qvalue(self):
-        """float: Current Q-value estimate of this state-action pair."""
-        return self._qvalue
 
     @property
     def num_visits(self):
@@ -123,5 +118,5 @@ class Edge(object):
 
         # This is formula for iteratively calculating average
         # NOTE: You can check that first arbitrary value will be forgotten after fist update
-        self._qvalue += (return_t - self.qvalue) / (self.num_visits + 1)
+        self.qvalue += (return_t - self.qvalue) / (self.num_visits + 1)
         self._num_visits += 1

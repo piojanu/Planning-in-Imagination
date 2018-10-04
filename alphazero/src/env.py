@@ -1,103 +1,163 @@
 import numpy as np
 
-from third_party.humblerl import Environment
-from games import *  # This allows to create every game from board_games
+from third_party.humblerl import Callback, Environment, MDP
 
 
-class GameModel(object):
-    """Wraps Game interface so you can use 0 for player one and 1 for player two.
-
-    TODO (pj): When you will unify it to work with Atari games, move it to HumbleRL as an interface
-               and this should be implementation of that interface.
-    """
+class GameMDP(MDP):
+    """Define board game MDP."""
 
     def __init__(self, game):
-        self.game = game
+        """Initialize board game MDP.
 
-    def get_init_board(self):
-        return self.game.getInitBoard()
+        Args:
+            game (Game): Board game object.
+        """
 
-    def get_board_size(self):
-        board_shape = self.game.getBoardSize()
-        if not isinstance(board_shape, (tuple, list)):
-            board_shape = (board_shape,)
-        return board_shape
+        self._game = game
+        self._first_player = 1
 
-    def get_action_size(self):
+    def transition(self, state, action):
+        """Perform `action` in `state`. Return outcome.
+
+        Args:
+            state (np.ndarray): Canonical board game (from perspective of current player).
+            action (int): Board game action.
+
+        Returns:
+            np.ndarray: Next canonical board game state (from perspective of next player).
+            float: 1 if current player won, -1 if current player lost, 0 for draw (it it's
+                   terminal state).
+        """
+
+        # In whole MDP we operate only on canonical board representations.
+        # Canonical means, that it's from perspective of current player.
+        # From perspective of some player means that he is 1 on the board.
+        next_state = self.game.getNextState(state, 1, action)
+        # Draw has some small value, truncate it and leave only:
+        # -1 (lose), 0 (draw), 1 (win)
+        reward = float(int(self.game.getGameEnded(next_state[0], 1)))
+        return self.game.getCanonicalForm(*next_state), reward
+
+    def get_init_state(self):
+        """Prepare and return initial state.
+
+        Returns:
+            np.ndarray: Initial state.
+        """
+
+        # We need to represent init state from perspective of starting player.
+        # Otherwise different first players could have different starting conditions e.g in Othello.
+        return self.game.getCanonicalForm(self.game.getInitBoard(), self.first_player)
+
+    def get_valid_actions(self, state):
+        """Get available actions in `state`.
+
+        Args:
+            state (np.ndarray): Canonical board game (from perspective of current player).
+
+        Returns:
+            np.ndarray: A binary vector of length self.action_space(), 1 for moves that are
+                valid from the current state, 0 for invalid moves.
+        """
+
+        valid_moves_map = self.game.getValidMoves(state, 1).astype(bool)
+        return np.arange(valid_moves_map.shape[0])[valid_moves_map]
+
+    def is_terminal_state(self, state):
+        """Check if `state` is terminal.
+
+        Args:
+            state (tuple(np.ndarray, int)): MDP's state.
+
+        Returns:
+            bool: Whether state is terminal or not.
+        """
+
+        return self.game.getGameEnded(state, 1) != 0
+
+    @property
+    def action_space(self):
+        """Get action space definition.
+
+        Returns:
+            int: Number of actions.
+        """
+
         return self.game.getActionSize()
 
-    def get_next_state(self, board, player, action):
-        gplayer = 1 if player == 0 else -1
-        nboard, nplayer = self.game.getNextState(board, gplayer, action)
+    @property
+    def state_space(self):
+        """Get state space definition.
 
-        return nboard, 0 if nplayer == 1 else 1
+        Returns:
+            tuple: A tuple of board dimensions.
+        """
 
-    def get_valid_moves(self, board, player):
-        gplayer = 1 if player == 0 else -1
-        valid_moves_map = self.game.getValidMoves(board, gplayer).astype(bool)
-        valid_moves = np.arange(valid_moves_map.shape[0])[valid_moves_map]
-        return valid_moves
+        return self.game.getBoardSize()
 
-    def get_game_ended(self, board, player):
-        gplayer = 1 if player == 0 else -1
-        return self.game.getGameEnded(board, gplayer)
+    @property
+    def game(self):
+        """Get board game object."""
 
-    def string_representation(self, board):
-        return self.game.stringRepresentation(board)
+        return self._game
 
-    def get_canonical_form(self, board, player):
-        gplayer = 1 if player == 0 else -1
-        return self.game.getCanonicalForm(board, gplayer)
+    @property
+    def first_player(self):
+        """Access first player in initial state."""
+
+        return self._first_player
+
+    @first_player.setter
+    def first_player(self, value):
+        """Set first player in initial state."""
+
+        assert value == 1 or value == -1, "First player can be only 1 or -1!"
+        self._first_player = value
 
 
-class GameEnv(Environment):
+class GameEnv(Callback, Environment):
     """Environment for board games from https://github.com/suragnair/alpha-zero-general
 
     Note:
         step(...) returns reward from perspective of player one!
+        Also to alternate starting player between episodes add this object to loop as callback too.
     """
 
-    def __init__(self, name):
+    def __init__(self, game):
         """Initialize Environment.
 
         Args:
-            name (string): The name of game, in lower case. E.g. "connect4".
+            game (Game): Board game object.
         """
 
-        self.game = GameModel(eval(name)())
+        self._game = game
+        self._first_player = 1
         self._last_action = -1
         self._last_player = -1
 
-    @property
-    def valid_actions(self):
-        return self.game.get_valid_moves(self.current_state, self.current_player)
-
     def step(self, action):
-        next_state, next_player = self.game.get_next_state(
-            action=action, board=self.current_state, player=self.current_player)
+        next_state = self.game.getNextState(*self.current_state, action)
 
-        end = self.game.get_game_ended(next_state, self.current_player)
         # Current player took action, get reward from perspective of player one
-        cannonical_reward = end * (1 if self.current_player == 0 else -1)
+        end = self.game.getGameEnded(next_state[0], 1)
         # Draw has some small value, truncate it and leave only:
-        # -1 (lose), 0 (draw/not finished yet), 1 (win)
-        reward = float(int(cannonical_reward))
+        # -1 (lose), 0 (draw), 1 (win)
+        reward = float(int(end))
 
         self._last_action = action
-        self._last_player = self.current_player
+        self._last_player = self.current_state[1]
 
         self._current_state = next_state
-        self._current_player = next_player
-        return next_state, next_player, reward, end != 0, None
+        return next_state, reward, end != 0, None
 
-    def reset(self, train_mode=True, first_player=0):
+    def reset(self, train_mode=True):
         self.train_mode = train_mode
-        self._current_player = first_player
         # We need to represent init state from perspective of starting player.
         # Otherwise different first players could have different starting conditions e.g in Othello.
-        self._current_state = self.game.get_canonical_form(
-            self.game.get_init_board(), self.current_player)
-        return self._current_state, self.current_player
+        self._current_state = (self.game.getCanonicalForm(self.game.getInitBoard(), self._first_player),
+                               self._first_player)
+
+        return self.current_state
 
     def render(self, fancy=False):
         """Display board when environment is in test mode.
@@ -108,10 +168,10 @@ class GameEnv(Environment):
 
         print("Player {}, Action {}".format(
             self._last_player, self._last_action))
-        if fancy and self.current_state.ndim == 2:
+        if fancy and self.current_state[0].ndim == 2:
             self.render_fancy_board()
         else:
-            print(self.current_state)
+            print(self.current_state[0])
 
     def render_fancy_board(self):
         def line_sep(length):
@@ -120,7 +180,7 @@ class GameEnv(Environment):
                 print("=", end="")
             print("")
 
-        state = self.current_state.astype(int)
+        state = self.current_state[0].astype(int)
         m, n = state.shape
         line_sep(3 * n + 1)
         legend = {1: "X", -1: "O"}
@@ -134,3 +194,65 @@ class GameEnv(Environment):
                     print("{:2}".format(s), end=" ")
             print("|")
         line_sep(3 * n + 1)
+
+    def on_episode_end(self, episode, train_mode):
+        """Event after environment was reset.
+
+        Args:
+            episode (int): Episode number.
+            train_mode (bool): Informs whether episode is in training or evaluation mode.
+
+        Note:
+            You can assume, that this event occurs after step to terminal state.
+        """
+
+        # Alternate starting player between episodes
+        self._first_player *= -1
+
+    @property
+    def action_space(self):
+        """Get action space definition.
+
+        Returns:
+            int: Number of actions.
+        """
+
+        return self.game.getActionSize()
+
+    @property
+    def state_space(self):
+        """Get state space definition.
+
+        Returns:
+            tuple: A tuple of board dimensions.
+        """
+
+        return self.game.getBoardSize()
+
+    @property
+    def current_state(self):
+        """Get current environment's observable state.
+
+        Returns:
+            object: Current state.
+        """
+
+        return self._current_state
+
+    @property
+    def valid_actions(self):
+        """Get available actions in `state`.
+
+        Returns:
+            np.ndarray: A binary vector of length self.action_space(), 1 for moves that are
+                valid from the current state, 0 for invalid moves.
+        """
+
+        valid_moves_map = self.game.getValidMoves(*self.current_state).astype(bool)
+        return np.arange(valid_moves_map.shape[0])[valid_moves_map]
+
+    @property
+    def game(self):
+        """Get board game object."""
+
+        return self._game

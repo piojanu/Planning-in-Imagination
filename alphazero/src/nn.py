@@ -30,10 +30,10 @@ class NeuralNet(metaclass=ABCMeta):
         """Do forward pass through nn, inference on state.
 
         Args:
-            state (numpy.Array): State of game to inference on.
+            state (np.ndarray): State of game to inference on.
 
         Returns:
-            numpy.Array: Inference result, depends on specific model.
+            np.ndarray: Inference result, depends on specific model.
         """
 
         pass
@@ -43,8 +43,8 @@ class NeuralNet(metaclass=ABCMeta):
         """Perform training according to passed parameters in :method:`build` call.
 
         Args:
-            data (numpy.Array): States to train on.
-            targets (numpy.Array): Ground truth targets, depend on specific model.
+            data (np.ndarray): States to train on.
+            targets (np.ndarray): Ground truth targets, depend on specific model.
             callbacks (list): Extra callbacks to pass to keras model fit method. (Default: [])
          """
 
@@ -101,10 +101,10 @@ class KerasNet(NeuralNet):
         """Do forward pass through nn, inference on state.
 
         Args:
-            state (numpy.Array): State of game to inference on.
+            state (np.ndarray): State of game to inference on.
 
         Returns:
-            numpy.Array: Inference result, depends on specific model.
+            np.ndarray: Inference result, depends on specific model.
         """
 
         return self.model.predict(state)
@@ -113,8 +113,8 @@ class KerasNet(NeuralNet):
         """Perform training according to passed parameters in `build` call.
 
         Args:
-            data (numpy.Array): States to train on.
-            targets (numpy.Array): Ground truth targets, depend on specific model.
+            data (np.ndarray): States to train on.
+            targets (np.ndarray): Ground truth targets, depend on specific model.
             initial_epoch (int): Epoch at which to start training. (Default: 0)
             callbacks (list): Extra callbacks to pass to keras model fit method. (Default: [])
 
@@ -207,8 +207,8 @@ def build_keras_nn(game, params):
     momentum = params.get('momentum', 0.9)
 
     DATA_FORMAT = image_data_format()
-    BOARD_HEIGHT, BOARD_WIDTH = game.get_board_size()
-    ACTION_SIZE = game.get_action_size()
+    BOARD_HEIGHT, BOARD_WIDTH = game.getBoardSize()
+    ACTION_SIZE = game.getActionSize()
 
     def conv2d_n_batchnorm(x, filters, kernel_size, strides=1, shortcut=None):
         conv = Conv2D(filters, kernel_size=kernel_size, strides=strides,

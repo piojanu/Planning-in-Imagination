@@ -3,36 +3,10 @@ import glob
 import os
 import tensorflow as tf
 import json
-from env import GameEnv
 
-
-class TensorBoardLogger(object):
-    """Logging in TensorBoard without TensorFlow ops.
-
-    https://gist.github.com/1f8dfb1b5c82627ae3efcfbbadb9f514.git
-    Simple example on how to log scalars and images to tensorboard without tensor ops.
-
-    License: Copyleft
-    Author: Michael Gygli
-    """
-
-    def __init__(self, log_dir):
-        """Creates a summary writer logging to log_dir."""
-        self.writer = tf.summary.FileWriter(log_dir)
-
-    def log_scalar(self, tag, value, step):
-        """Log a scalar variable.
-
-        Args:
-            tag (basestring): Name of the scalar.
-            value (number): Value to log.
-            step (int): Training iteration.
-        """
-
-        summary = tf.Summary(
-            value=[tf.Summary.Value(tag=tag, simple_value=value)])
-        self.writer.add_summary(summary, step)
-        self.writer.flush()
+from env import GameEnv, GameMDP
+from games import *  # This allows to create every game from board_games
+from third_party.humblerl import Mind
 
 
 class Config(object):
@@ -63,8 +37,75 @@ class Config(object):
         self.planner = {**default_config["planner"],
                         **custom_config.get("planner", {})}
 
-        self.env = GameEnv(name=self.self_play["game"])
+        self.game = eval(self.self_play["game"])()
+        self.env = GameEnv(self.game)
+        self.mdp = GameMDP(self.game)
         self.debug = debug
+
+
+class BoardGameMind(Mind):
+    """Wraps two minds and dispatch work to appropriate one based on player id in state."""
+
+    def __init__(self, one, two, game):
+        """Initialize board game mind.
+
+        Args:
+            one (Mind): Mind which will plan for player "1".
+            two (Mind): Mind which will plan for player "-1".
+            game (Game): Board game object.
+        """
+
+        # Index '1' for player one, index '-1' for player two
+        self.players = [None, one, two]
+        self.game = game
+
+    def plan(self, state, train_mode, debug_mode):
+        """Conduct planning on state.
+
+        Args:
+            state tuple(numpy.ndarray, int): State of game to plan on and current player id.
+            train_mode (bool): Informs planner whether it's in training mode and should enable
+                additional exploration.
+            debug_mode (bool): Informs planner whether it's in debug mode or not.
+
+        Returns:
+            np.ndarray: Planning result, unnormalized action probabilities.
+            dict: Planning metrics.
+        """
+
+        board = self.game.getCanonicalForm(*state)
+        player = state[1]
+
+        return self.players[player].plan(board, train_mode, debug_mode)
+
+
+class TensorBoardLogger(object):
+    """Logging in TensorBoard without TensorFlow ops.
+
+    https://gist.github.com/1f8dfb1b5c82627ae3efcfbbadb9f514.git
+    Simple example on how to log scalars and images to tensorboard without tensor ops.
+
+    License: Copyleft
+    Author: Michael Gygli
+    """
+
+    def __init__(self, log_dir):
+        """Creates a summary writer logging to log_dir."""
+        self.writer = tf.summary.FileWriter(log_dir)
+
+    def log_scalar(self, tag, value, step):
+        """Log a scalar variable.
+
+        Args:
+            tag (basestring): Name of the scalar.
+            value (number): Value to log.
+            step (int): Training iteration.
+        """
+
+        summary = tf.Summary(
+            value=[tf.Summary.Value(tag=tag, simple_value=value)])
+        self.writer.add_summary(summary, step)
+        self.writer.flush()
 
 
 def create_tensorboard_log_dir(logdir, prefix):
