@@ -72,13 +72,9 @@ class Planner(Callback, Mind):
                 # This edge wasn't explored yet, create leaf node and return
                 next_state, reward = self.model.transition(current_node.state, action)
                 leaf_node = self.expand(next_state)
-                # Link edge with new node and set it's qvalue to R(S, A, S')
+                # Link edge with new node and set it's reward to R(S, A, S')
                 # NOTE: Board games are deterministic: R(S, A) = R(S, A, S')
-                # TODO: We set qvalue to reward because in board games all rewards are zero except
-                #       last one in game (win/lose/draw). You'll have to gather all rewards in path
-                #       in the future and change backup phase (see TODO there).
-                edge.next_node = leaf_node
-                edge.qvalue = reward
+                edge.expand(leaf_node, reward)
 
                 return leaf_node, path
 
@@ -106,13 +102,12 @@ class Planner(Callback, Mind):
         # Create edges of this node
         edges = {}
 
-        # Change value to zero if this is terminal state and don't expand possible moves
         is_terminal = self.model.is_terminal_state(leaf_node.state)
-        if is_terminal:
+        if is_terminal:  # Change value to zero and don't expand possible moves
             # Terminal state has no value
             # NOTE: Transition to terminal state has value (reward) = R(S, A, S')
             value = 0
-        else:
+        else:  # Calculate prior probability of possible actions from leaf node
             # Add Dirichlet noise to root node prior
             if is_root and train_mode:
                 pi = (1 - self.noise_ratio) * pi + self.noise_ratio * \
@@ -130,6 +125,7 @@ class Planner(Callback, Mind):
                     # If all valid moves were masked make all valid moves equally probable
                     log.warn("All valid moves were masked, do workaround!")
                     probs[valid_moves] = 1
+                # Normalize probabilities
                 probs = probs / sum_probs
 
                 # Fill this node edges with priors
@@ -151,16 +147,15 @@ class Planner(Callback, Mind):
 
         # NOTE: Node higher in tree is opponent node in zero-sum game.
         #       Gamma should be < 0 to flip return sign.
-        assert self.gamma < 0, "In zero-sum game opponents returns are mutual negations"
+        if self.gamma != -1:
+            log.info("In zero-sum games like board games opponents returns are mutual negations,"
+                     "gamma should be < 0.")
 
-        # For leaf state return is approximated with value function G = R(S, A, S') + gamma * V[S']
-        return_t = path[-1].qvalue + self.gamma * value
+        # For leaf state return is approximated with value function: G = R(S, A, S') + gamma * V[S']
+        return_t = value
         for edge in reversed(path):
+            return_t = edge.reward + self.gamma * return_t
             edge.update(return_t)
-            # TODO: This is wrong, true formula for return in Monte-Carlo Q-value update is:
-            #       G_t = gamma * G_{t-1} + reward. You should store all rewards and add them.
-            #       For now last one is enough, because other rewards in trajectory are always zero.
-            return_t *= self.gamma
 
     def expand(self, state):
         """Add new node to search tree.

@@ -32,11 +32,11 @@ class GameMDP(MDP):
         # In whole MDP we operate only on canonical board representations.
         # Canonical means, that it's from perspective of current player.
         # From perspective of some player means that he is 1 on the board.
-        next_state = self.game.getNextState(state, 1, action)
+        next_state = self._game.getNextState(state, 1, action)
         # Draw has some small value, truncate it and leave only:
         # -1 (lose), 0 (draw), 1 (win)
-        reward = float(int(self.game.getGameEnded(next_state[0], 1)))
-        return self.game.getCanonicalForm(*next_state), reward
+        reward = float(int(self._game.getGameEnded(next_state[0], 1)))
+        return self._game.getCanonicalForm(*next_state), reward
 
     def get_init_state(self):
         """Prepare and return initial state.
@@ -47,7 +47,7 @@ class GameMDP(MDP):
 
         # We need to represent init state from perspective of starting player.
         # Otherwise different first players could have different starting conditions e.g in Othello.
-        return self.game.getCanonicalForm(self.game.getInitBoard(), self.first_player)
+        return self._game.getCanonicalForm(self._game.getInitBoard(), self.first_player)
 
     def get_valid_actions(self, state):
         """Get available actions in `state`.
@@ -60,7 +60,7 @@ class GameMDP(MDP):
                 valid from the current state, 0 for invalid moves.
         """
 
-        valid_moves_map = self.game.getValidMoves(state, 1).astype(bool)
+        valid_moves_map = self._game.getValidMoves(state, 1).astype(bool)
         return np.arange(valid_moves_map.shape[0])[valid_moves_map]
 
     def is_terminal_state(self, state):
@@ -73,33 +73,19 @@ class GameMDP(MDP):
             bool: Whether state is terminal or not.
         """
 
-        return self.game.getGameEnded(state, 1) != 0
+        return self._game.getGameEnded(state, 1) != 0
 
     @property
     def action_space(self):
-        """Get action space definition.
+        """int: Number of actions."""
 
-        Returns:
-            int: Number of actions.
-        """
-
-        return self.game.getActionSize()
+        return self._game.getActionSize()
 
     @property
     def state_space(self):
-        """Get state space definition.
+        """tuple: A tuple of board dimensions."""
 
-        Returns:
-            tuple: A tuple of board dimensions.
-        """
-
-        return self.game.getBoardSize()
-
-    @property
-    def game(self):
-        """Get board game object."""
-
-        return self._game
+        return self._game.getBoardSize()
 
     @property
     def first_player(self):
@@ -109,7 +95,7 @@ class GameMDP(MDP):
 
     @first_player.setter
     def first_player(self, value):
-        """Set first player in initial state."""
+        """value (int): Set first player in initial state."""
 
         assert value == 1 or value == -1, "First player can be only 1 or -1!"
         self._first_player = value
@@ -136,10 +122,10 @@ class GameEnv(Callback, Environment):
         self._last_player = -1
 
     def step(self, action):
-        next_state = self.game.getNextState(*self.current_state, action)
+        next_state = self._game.getNextState(*self.current_state, action)
 
         # Current player took action, get reward from perspective of player one
-        end = self.game.getGameEnded(next_state[0], 1)
+        end = self._game.getGameEnded(next_state[0], 1)
         # Draw has some small value, truncate it and leave only:
         # -1 (lose), 0 (draw), 1 (win)
         reward = float(int(end))
@@ -154,7 +140,7 @@ class GameEnv(Callback, Environment):
         self.train_mode = train_mode
         # We need to represent init state from perspective of starting player.
         # Otherwise different first players could have different starting conditions e.g in Othello.
-        self._current_state = (self.game.getCanonicalForm(self.game.getInitBoard(), self._first_player),
+        self._current_state = (self._game.getCanonicalForm(self._game.getInitBoard(), self._first_player),
                                self._first_player)
 
         return self.current_state
@@ -211,48 +197,26 @@ class GameEnv(Callback, Environment):
 
     @property
     def action_space(self):
-        """Get action space definition.
+        """int: Number of actions."""
 
-        Returns:
-            int: Number of actions.
-        """
-
-        return self.game.getActionSize()
+        return self._game.getActionSize()
 
     @property
     def state_space(self):
-        """Get state space definition.
+        """tuple: A tuple of board dimensions."""
 
-        Returns:
-            tuple: A tuple of board dimensions.
-        """
-
-        return self.game.getBoardSize()
+        return self._game.getBoardSize()
 
     @property
     def current_state(self):
-        """Get current environment's observable state.
-
-        Returns:
-            object: Current state.
-        """
+        """object: Current state."""
 
         return self._current_state
 
     @property
     def valid_actions(self):
-        """Get available actions in `state`.
+        """np.ndarray: A binary vector of length self.action_space(), 1 for moves that are
+               valid from the current state, 0 for invalid moves."""
 
-        Returns:
-            np.ndarray: A binary vector of length self.action_space(), 1 for moves that are
-                valid from the current state, 0 for invalid moves.
-        """
-
-        valid_moves_map = self.game.getValidMoves(*self.current_state).astype(bool)
+        valid_moves_map = self._game.getValidMoves(*self.current_state).astype(bool)
         return np.arange(valid_moves_map.shape[0])[valid_moves_map]
-
-    @property
-    def game(self):
-        """Get board game object."""
-
-        return self._game
