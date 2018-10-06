@@ -52,7 +52,7 @@ def record_vae(ctx, path, n_games, chunk_size, state_dtype):
 
     # Create Gym environment, random agent and store to hdf5 callback
     env = hrl.create_gym(config.general['game_name'])
-    mind = RandomAgent(env.valid_actions)
+    mind = RandomAgent(env.action_space)
     store_callback = StoreTransitions2Hdf5(
         env.valid_actions, config.general['state_shape'], path, chunk_size=chunk_size, dtype=state_dtype)
 
@@ -175,7 +175,7 @@ def record_mem(ctx, path, model_path, n_games):
 
     # Create Gym environment, random agent and store to hdf5 callback
     env = hrl.create_gym(config.general['game_name'])
-    mind = RandomAgent(env.valid_actions)
+    mind = RandomAgent(env.action_space)
     store_callback = StoreTrajectories2npz(path)
 
     # Build VAE model
@@ -210,6 +210,8 @@ def train_mem(ctx, path, vae_path):
     actions = data_npz["actions"].astype(np.int)
     lengths = data_npz["lengths"].astype(np.int)
 
+    env = hrl.create_gym(config.general['game_name'])
+
     # Create training DataLoader
     data_loader = DataLoader(
         MDNDataset(states, actions, lengths, config.rnn['sequence_len']),
@@ -219,7 +221,7 @@ def train_mem(ctx, path, vae_path):
     )
 
     # Build model
-    rnn = build_rnn_model(config.rnn, states.shape[3], len(actions))
+    rnn = build_rnn_model(config.rnn, states.shape[3], env.action_space)
 
     # If render features enabled...
     if config.allow_render:
