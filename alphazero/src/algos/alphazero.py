@@ -147,9 +147,9 @@ class Planner(Callback, Mind):
 
         # NOTE: Node higher in tree is opponent node in zero-sum game.
         #       Gamma should be < 0 to flip return sign.
-        if self.gamma != -1:
-            log.info("In zero-sum games like board games opponents returns are mutual negations,"
-                     "gamma should be < 0.")
+        if self.gamma >= 0:
+            log.info("In two players zero-sum games like board games opponents returns are mutual"
+                     "negations, gamma should be < 0.")
 
         # For leaf state return is approximated with value function: G = R(S, A, S') + gamma * V[S']
         return_t = value

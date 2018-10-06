@@ -5,7 +5,7 @@ import tensorflow as tf
 import json
 
 from env import GameEnv, GameMDP
-from games import *  # This allows to create every game from board_games
+from games import *  # This allows to create every game from games
 from third_party.humblerl import Mind
 
 

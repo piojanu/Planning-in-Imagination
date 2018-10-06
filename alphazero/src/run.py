@@ -96,7 +96,7 @@ def self_play(ctx):
     tournament_players = BoardGameMind(current_player, best_player, cfg.game)
 
     # Create callbacks, storage and tournament
-    storage = Storage(cfg.game, cfg.storage)
+    storage = Storage(cfg.game, cfg)
     train_stats = CSVSaverWrapper(
         BasicStats(), cfg.logging['save_self_play_log_path'])
     tournament_stats = CSVSaverWrapper(
@@ -204,7 +204,7 @@ def train(ctx, checkpoint, save_dir, tensorboard):
         callbacks.append(TensorBoard(log_dir=tensorboard_folder))
 
     # Create storage and load data
-    storage = Storage(cfg.game, cfg.storage)
+    storage = Storage(cfg.game, cfg)
     storage.load()
 
     # Prepare training data
@@ -240,7 +240,7 @@ def hopt(ctx, n_steps):
     cfg = ctx.obj
 
     # Create storage and load data
-    storage = Storage(cfg.game, cfg.storage)
+    storage = Storage(cfg.game, cfg)
     storage.load()
 
     # Prepare training data

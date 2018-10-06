@@ -56,8 +56,7 @@ class GameMDP(MDP):
             state (np.ndarray): Canonical board game (from perspective of current player).
 
         Returns:
-            np.ndarray: A binary vector of length self.action_space(), 1 for moves that are
-                valid from the current state, 0 for invalid moves.
+            np.ndarray: Array with available moves numbers in given state.
         """
 
         valid_moves_map = self._game.getValidMoves(state, 1).astype(bool)
