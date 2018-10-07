@@ -138,18 +138,19 @@ class MDNDataset(Dataset):
         length = self.lengths[idx]
         # Sample where to start sequence of length `self.sequence_len` in episode `idx`
         # '- offset' because "next states" are offset by 'offset'
-        start = np.random.randint(length - self.sequence_len - offset)
+        sequence_len = self.sequence_len if self.sequence_len < length else length - 1
+        start = np.random.randint(max(length - sequence_len - offset, 1))
 
         # Sample latent states (this is done to prevent overfitting MDN-RNN to a specific 'z'.)
         latent = Normal(
-            loc=self.states[idx, start:start + self.sequence_len + offset, 0],
-            scale=self.states[idx, start:start + self.sequence_len + offset, 1]
+            loc=self.states[idx, start:start + sequence_len + offset, 0],
+            scale=self.states[idx, start:start + sequence_len + offset, 1]
         )
         z_samples = latent.sample()
 
-        states = z_samples[:-offset]
-        next_states = z_samples[offset:]
-        actions = self.actions[idx, start:start + self.sequence_len]
+        states[:sequence_len] = z_samples[:-offset]
+        next_states[:sequence_len] = z_samples[offset:]
+        actions[:sequence_len] = self.actions[idx, start:start + sequence_len]
 
         return [states, actions], [next_states]
 
