@@ -150,3 +150,13 @@ def get_model_path_if_exists(path, default_path, model_name):
     elif not os.path.exists(path):
         raise ValueError("{} weights in \"{}\" path doesn't exist!".format(model_name, path))
     return path
+
+
+def create_directory(dirname):
+    """Create directory recursively, if it doesn't exit
+
+    Args:
+        dirname (str): Name of directory (path, e.g. "path/to/dir/")
+    """
+    if dirname and not os.path.exists(dirname):
+        os.makedirs(dirname)
