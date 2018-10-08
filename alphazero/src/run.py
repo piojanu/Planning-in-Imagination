@@ -158,8 +158,8 @@ def self_play(ctx):
             best_elo = int(best_elo)
 
             # Create checkpoint file name and log it
-            best_fname = "_".join(['self_play', cfg.self_play["game"],
-                                   '{0:05d}'.format(global_epoch), str(best_elo)]) + ".ckpt"
+            best_fname = utils.create_checkpoint_file_name(
+                'self_play', cfg.self_play["game"], global_epoch, best_elo)
             log.info("New best player: {}".format(best_fname))
 
             # Save best and exchange weights
@@ -196,6 +196,7 @@ def train(ctx, checkpoint, save_dir, tensorboard):
     if checkpoint:
         net.load_checkpoint(checkpoint)
         global_epoch = utils.get_checkpoints_epoch(checkpoint)
+        current_elo = utils.get_checkpoints_elo(checkpoint)
         log.info("Loaded checkpoint: {}".format(checkpoint))
 
     # Create TensorBoard logging callback if enabled
@@ -220,8 +221,8 @@ def train(ctx, checkpoint, save_dir, tensorboard):
 
     # Save model checkpoint if path passed
     if save_dir:
-        save_fname = "_".join(
-            ["train", cfg.self_play["game"], str(global_epoch)]) + ".ckpt"
+        save_fname = utils.create_checkpoint_file_name(
+            'train', cfg.self_play["game"], global_epoch, current_elo)
         net.save_checkpoint(save_dir, save_fname)
 
 

@@ -8,4 +8,6 @@ install:
   - pip install -r alphazero/src/requirements.txt
   - pip install -r alphazero/src/third_party/humblerl/requirements.txt
 script:
-  - ./alphazero/scripts/check_pep8.sh && cd alphazero/scripts && ./run_cmds.sh && cd .. && pytest
+  - ./alphazero/scripts/check_pep8.sh
+  - (cd alphazero; pytest)
+  - (cd alphazero/scripts; ./run_cmds.sh)

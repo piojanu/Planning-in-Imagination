@@ -112,6 +112,10 @@ def create_tensorboard_log_dir(logdir, prefix):
     return os.path.join(logdir, prefix, dt.datetime.now().strftime("%d-%mT%H:%M"))
 
 
+def create_checkpoint_file_name(prefix, game_name, epoch, elo):
+    return "_".join([prefix, game_name, '{0:05d}'.format(epoch), str(elo)]) + ".ckpt"
+
+
 def get_checkpoints_epoch(filename):
     """Get checkpoint epoch from its filename"""
 
