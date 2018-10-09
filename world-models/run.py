@@ -339,7 +339,7 @@ def train_ctrl(ctx, vae_path, mdn_path):
 
     # Get action space size
     env = hrl.create_gym(config.general['game_name'])
-    action_size = len(env.valid_actions)
+    action_size = env.action_space
     del env
 
     # Build CMA-ES solver and linear model

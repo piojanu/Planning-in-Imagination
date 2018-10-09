@@ -143,7 +143,7 @@ class LinearModel(Mind):
 
         self.weights = np.zeros((self.in_dim + 1, self.out_dim))
 
-    def plan(self, state, player, train_mode, debug_mode):
+    def plan(self, state, train_mode, debug_mode):
         return np.concatenate((state, [1.])) @ self.weights
 
     def set_weights(self, weights):
@@ -193,7 +193,7 @@ def build_es_model(es_params, input_dim, action_size, model_path=None):
     else:
         solver = CMAES(
             mind.n_weights, popsize=es_params['popsize'], weight_decay=es_params['l2_decay'])
-        log.info("CMA-ES parameters in \"%s\" doesn't exist! ",
+        log.info("CMA-ES parameters in \"%s\" doesn't exist! "
                  "Created solver with pop. size: %d and l2 decay: %f.",
                  es_params['ckpt_path'], es_params['popsize'], es_params['l2_decay'])
 
