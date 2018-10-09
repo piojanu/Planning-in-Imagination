@@ -16,14 +16,19 @@ class TestNode(object):
         assert node.state == state
         assert node.edges == edges
 
-    @pytest.mark.parametrize("edges,c,popular_key,result_key", [
-        ({0: Edge(qvalue=4), 1: Edge(qvalue=1)}, 1., 0, 0),
-        ({0: Edge(qvalue=3), 1: Edge(qvalue=1)}, 2., 0, 1),
-        ({0: Edge(qvalue=3), 1: Edge(qvalue=1), 2: Edge(qvalue=2)}, 1., 0, 2),
-        ({0: Edge(qvalue=3), 1: Edge(qvalue=1), 2: Edge(qvalue=2)}, 1., 1, 0),
-        ({}, 0, 0, 0)
+    @pytest.mark.parametrize("qvalues,c,popular_key,result_key", [
+        ([4, 1], 1., 0, 0),
+        ([3, 1], 2., 0, 1),
+        ([3, 1, 2], 1., 0, 2),
+        ([3, 1, 2], 1., 1, 0),
+        ([], 0, 0, 0)
     ])
-    def test_select_edge(self, edges, c, popular_key, result_key):
+    def test_select_edge(self, qvalues, c, popular_key, result_key):
+        edges = {}
+        for idx, qvalue in enumerate(qvalues):
+            edges[idx] = Edge()
+            edges[idx].update(qvalue)
+
         node = Node("S0")
         node.expand(edges)
 
@@ -35,18 +40,20 @@ class TestNode(object):
 
 
 class TestEdge(object):
-    @pytest.mark.parametrize("next_node,edges,qvalue", [
-        (Node("STATE A"), {0: Edge(3)}, 1),
-        (Node("STATE B"), {0: Edge(3), 1: Edge(1)}, 2),
-        (Node(("STATE A", "AND B")), {}, .7)
+    @pytest.mark.parametrize("next_node,reward,qvalue", [
+        (Node("STATE A"), 2, 1),
+        (Node("STATE B"), 3, 2),
+        (Node(("STATE A", "AND B")), 1, .7)
     ])
-    def test_gettes(self, next_node, edges, qvalue):
-        next_node.expand(edges)
-        edge = Edge(qvalue=qvalue, next_node=next_node)
+    def test_gettes(self, next_node, reward, qvalue):
+        edge = Edge()
+        edge.expand(next_node, reward)
+        edge.update(qvalue)
 
         assert edge.next_node == next_node
+        assert edge.reward == reward
         assert edge.qvalue == qvalue
-        assert edge.num_visits == 0
+        assert edge.num_visits == 1
 
     @pytest.mark.parametrize("current_qvalue,init_visits,return_t", [
         (1, 1, 1),
@@ -56,11 +63,11 @@ class TestEdge(object):
         (2, 2, 2)
     ])
     def test_update(self, current_qvalue, init_visits, return_t):
-        edge = Edge(qvalue=current_qvalue)
+        edge = Edge()
+        edge._qvalue = current_qvalue
         edge._num_visits = init_visits
         edge.update(return_t)
 
         # NOTE: Current Q-value have to be weighted by visits number because
         # it's average over Q-value after this number of visits
-        assert edge.qvalue == (
-            current_qvalue * init_visits + return_t) / (init_visits + 1)
+        assert edge.qvalue == (current_qvalue * init_visits + return_t) / (init_visits + 1)

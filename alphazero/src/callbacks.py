@@ -9,22 +9,22 @@ from pickle import Pickler, Unpickler
 
 
 class Storage(Callback):
-    def __init__(self, model, params={}):
+    def __init__(self, game, config):
         """
         Storage with train examples.
 
         Args:
-            params (JSON Dictionary):
-                * 'exp_replay_size' (int)   : Max size of big bag. When big bag is full then oldest
-                                              element is removed. (Default: 100000)
-                * 'save_data_path' (string) : Path to file where to store/load from big bag.
-                                              (Default: "./checkpoints/data.examples")
+            game (Game): Board game object.
+            config (Config): Configuration object with parameters from .json file.
         """
 
-        self.model = model
-        self.params = params
+        self.game = game
         self.small_bag = deque()
         self.big_bag = deque()
+
+        self.exp_replay_size = config.storage["exp_replay_size"]
+        self.save_data_path = config.storage["save_data_path"]
+        self.gamma = config.planner["gamma"]
 
         self._recent_action_probs = None
 
@@ -33,26 +33,31 @@ class Storage(Callback):
         self._recent_action_probs = logits / np.sum(logits)
 
     def on_step_taken(self, step, transition, info):
-        # NOTE: We never pass terminal stateit would be next_state), so NN can't learn directly
-        # what is the value of terminal/end state.
-        small_package = transition.player, transition.state, self._recent_action_probs
+        # NOTE: We never pass terminal state (it would be next_state), so NN can't learn directly
+        #       what is the value of terminal/end state.
+        small_package = *transition.state, transition.reward, self._recent_action_probs
         self.small_bag.append(small_package)
-        if len(self.small_bag) > self.params.get("exp_replay_size", 100000):
+        if len(self.small_bag) > self.exp_replay_size:
             self.small_bag.popleft()
 
         if transition.is_terminal:
-            for player, state, mcts_pi in self.small_bag:
-                cannonical_state = self.model.get_canonical_form(state, player)
-                # Reward from env is from player one perspective,
-                # so we check if current player is the first one
-                player_reward = transition.reward * (1 if player == 0 else -1)
-                self.big_bag.append((cannonical_state, mcts_pi, player_reward))
-                if len(self.big_bag) > self.params.get("exp_replay_size", 100000):
+            return_t = 0
+            for board, player, reward, mcts_pi in reversed(self.small_bag):
+                cannonical_state = self.game.getCanonicalForm(board, player)
+                # Reward from env is from player one perspective, so we multiply reward by player
+                # id which is 1 for player one or -1 player two.
+                cannonical_reward = reward * player
+
+                return_t = cannonical_reward + self.gamma * return_t
+                self.big_bag.append((cannonical_state, mcts_pi, return_t))
+
+                if len(self.big_bag) > self.exp_replay_size:
                     self.big_bag.popleft()
+
             self.small_bag.clear()
 
     def store(self):
-        path = self.params.get("save_data_path", "./checkpoints/data.examples")
+        path = self.save_data_path
         folder = os.path.dirname(path)
         if not os.path.exists(folder):
             log.warn(
@@ -63,7 +68,7 @@ class Storage(Callback):
             Pickler(f).dump(self.big_bag)
 
     def load(self):
-        path = self.params.get("save_data_path", "./checkpoints/data.examples")
+        path = self.save_data_path
         if not os.path.isfile(path):
             log.warning("File with train examples was not found.")
         else:
@@ -72,7 +77,7 @@ class Storage(Callback):
                 self.big_bag = Unpickler(f).load()
 
             # Prune dataset if too big
-            while len(self.big_bag) > self.params.get("exp_replay_size", 100000):
+            while len(self.big_bag) > self.exp_replay_size:
                 self.big_bag.popleft()
 
     @property
