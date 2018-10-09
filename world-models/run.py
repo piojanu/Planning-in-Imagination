@@ -13,7 +13,7 @@ from third_party.humblerl.callbacks import StoreTransitions2Hdf5
 from tqdm import tqdm
 from controller import build_es_model, Evaluator, ReturnTracker
 from memory import build_rnn_model, MDNDataset, MDNVision, StoreTrajectories2npz
-from utils import Config, HDF5DataGenerator, TqdmStream, state_processor
+from utils import Config, HDF5DataGenerator, TqdmStream, state_processor, create_directory
 from vision import build_vae_model, VAEVision
 
 
@@ -134,6 +134,9 @@ def train_vae(ctx, path):
     else:
         def plot_samples(epoch, logs):
             pass
+
+    # Create checkpoint directory, if it doesn't exist
+    create_directory(os.path.dirname(config.vae['ckpt_path']))
 
     # Initialize callbacks
     callbacks = [
@@ -295,6 +298,9 @@ def train_mem(ctx, path, vae_path):
     else:
         def plot_samples(epoch):
             pass
+
+    # Create checkpoint directory, if it doesn't exist
+    create_directory(os.path.dirname(config.rnn['ckpt_path']))
 
     # Initialize callbacks
     callbacks = [
