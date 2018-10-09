@@ -84,35 +84,29 @@ class Node(object):
 class Edge(object):
     """Represents state-actions pair in MCTS search tree."""
 
-    def __init__(self, prior=1., qvalue=0., next_node=None):
+    def __init__(self, prior=1.):
         """Initialize Edge object.
 
         Args:
             prior (float): Action probability from prior policy. (Default: 1.)
-            qvalue (float): Initial Q-value of this state-action pair. (Default: 0.)
-            next_node (Node): Next node this state-action leads to.
-        If None, it means that this edge wasn't explored yet (Default: None).
         """
 
-        self.next_node = next_node
         self._prior = prior
-        self._qvalue = qvalue
+        self._next_node = None
+        self._reward = 0
+        self._qvalue = 0
         self._num_visits = 0
 
-    @property
-    def prior(self):
-        """float: Action probability from prior policy."""
-        return self._prior
+    def expand(self, next_node, reward):
+        """Explore this edge.
 
-    @property
-    def qvalue(self):
-        """float: Current Q-value estimate of this state-action pair."""
-        return self._qvalue
+        Args:
+            next_node (Node): Node that this edge points to.
+            reward (float): Reward of transition represented by this edge.
+        """
 
-    @property
-    def num_visits(self):
-        """int: Number of times this state-action pair was visited."""
-        return self._num_visits
+        self._next_node = next_node
+        self._reward = reward
 
     def update(self, return_t):
         """Update edge with data from child.
@@ -121,7 +115,33 @@ class Edge(object):
             return_t (float): (Un)discounted return from timestep 't' (this edge).
         """
 
+        self._num_visits += 1
+
         # This is formula for iteratively calculating average
         # NOTE: You can check that first arbitrary value will be forgotten after fist update
-        self._qvalue += (return_t - self.qvalue) / (self.num_visits + 1)
-        self._num_visits += 1
+        self._qvalue += (return_t - self._qvalue) / self.num_visits
+
+    @property
+    def next_node(self):
+        """next_node (Node): Node that this edge points to."""
+        return self._next_node
+
+    @property
+    def reward(self):
+        """float: Reward of transition represented by this edge."""
+        return self._reward
+
+    @property
+    def qvalue(self):
+        """float: Quality value of this edge state-action pair."""
+        return self._qvalue
+
+    @property
+    def prior(self):
+        """float: Action probability from prior policy."""
+        return self._prior
+
+    @property
+    def num_visits(self):
+        """int: Number of times this state-action pair was visited."""
+        return self._num_visits

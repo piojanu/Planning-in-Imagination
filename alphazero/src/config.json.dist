@@ -23,7 +23,7 @@
         "c"                        : 1.0,
         "dirichlet_noise"          : 0.3,
         "noise_ratio"              : 0.25,
-        "gamma"                    : 1.0,
+        "gamma"                    : -1.0,
         "n_simulations"            : 50,
         "timeout"                  : "inf"
     },
