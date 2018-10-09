@@ -444,10 +444,7 @@ class TorchTrainer(object):
         """
 
         if os.path.exists(path):
-            # If CUDA is unavailable, load model to CPU,
-            # see https://pytorch.org/docs/stable/torch.html#torch.load
-            map_location = None if torch.cuda.is_available() else 'cpu'
-            self.model.load_state_dict(torch.load(path, map_location=map_location))
+            self.model.load_state_dict(torch.load(path, map_location=self.device))
         else:
             raise ValueError("Given path doesn't exist!")
 
