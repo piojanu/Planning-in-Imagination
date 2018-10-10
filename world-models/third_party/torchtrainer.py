@@ -108,7 +108,7 @@ class EarlyStopping(Callback):
         self._last_epoch = 0
 
     def on_epoch_end(self, epoch, metrics):
-        if not self.metric in metrics:
+        if self.metric not in metrics:
             raise ValueError("\tThere is no such metric evaluated: {}".format(self.metric))
 
         new_value = metrics[self.metric]
@@ -174,7 +174,7 @@ class ModelCheckpoint(Callback):
             if self.verbose:
                 print("\tSaving module state at: {}".format(self.path))
         else:
-            if not self.metric in metrics:
+            if self.metric not in metrics:
                 raise ValueError("\tThere is no such metric evaluated: {}".format(self.metric))
 
             new_value = metrics[self.metric]
@@ -423,9 +423,9 @@ class TorchTrainer(object):
                 if self._early_stop:
                     break
             callbacks_list.on_train_end(False)
-        except:
+        except Exception as e:
             callbacks_list.on_train_end(True)
-            raise
+            raise e
 
     def save_ckpt(self, path):
         """Save model weights.

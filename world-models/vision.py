@@ -45,7 +45,7 @@ def build_vae_model(vae_params, input_shape, model_path=None):
     if K.image_data_format() == 'channel_first':
         raise ValueError("Channel first backends aren't supported!")
 
-    ### Encoder img -> mu, logvar ###
+    # Encoder img -> mu, logvar #
 
     encoder_input = Input(shape=input_shape)
 
@@ -61,7 +61,7 @@ def build_vae_model(vae_params, input_shape, model_path=None):
     mu = Dense(vae_params['latent_space_dim'])(h)
     logvar = Dense(vae_params['latent_space_dim'])(h)
 
-    ### Sample latent vector ###
+    # Sample latent vector #
 
     def sample(args):
         mu, logvar = args
@@ -73,7 +73,7 @@ def build_vae_model(vae_params, input_shape, model_path=None):
     encoder = Model(encoder_input, [mu, logvar, z], name='Encoder')
     encoder.summary(print_fn=lambda x: log.debug('%s', x))
 
-    ### Decoder z -> img ###
+    # Decoder z -> img #
 
     decoder_input = Input(shape=(vae_params['latent_space_dim'],))
 
@@ -89,7 +89,7 @@ def build_vae_model(vae_params, input_shape, model_path=None):
     decoder = Model(decoder_input, out, name='Decoder')
     decoder.summary(print_fn=lambda x: log.debug('%s', x))
 
-    ### VAE loss ###
+    # VAE loss #
 
     def elbo_loss(target, pred):
         # NOTE: You use K.reshape to preserve batch dim. K.flatten doesn't work like flatten layer
@@ -115,7 +115,7 @@ def build_vae_model(vae_params, input_shape, model_path=None):
 
         return reconstruction_loss - KL_loss
 
-    ### Build and compile VAE model ###
+    # Build and compile VAE model #
 
     decoder_output = decoder(encoder(encoder_input)[2])
     vae = Model(encoder_input, decoder_output, name='VAE')

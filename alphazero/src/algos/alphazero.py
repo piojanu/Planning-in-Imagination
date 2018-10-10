@@ -211,7 +211,7 @@ class Planner(Callback, Mind):
 
         # Get/create root node
         root = self.query_tree(state)
-        if root == None:
+        if root is None:
             root = self.expand(state)
             _ = self.evaluate(root, train_mode, is_root=True)
 
