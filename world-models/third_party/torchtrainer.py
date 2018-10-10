@@ -444,7 +444,7 @@ class TorchTrainer(object):
         """
 
         if os.path.exists(path):
-            self.model.load_state_dict(torch.load(path))
+            self.model.load_state_dict(torch.load(path, map_location=self.device))
         else:
             raise ValueError("Given path doesn't exist!")
 
