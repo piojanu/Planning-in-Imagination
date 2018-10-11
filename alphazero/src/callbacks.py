@@ -1,7 +1,6 @@
 import logging as log
 import numpy as np
 import os
-import sys
 
 from collections import deque
 from third_party.humblerl import Callback
@@ -9,16 +8,14 @@ from pickle import Pickler, Unpickler
 
 
 class Storage(Callback):
-    def __init__(self, game, config):
+    def __init__(self, config):
         """
         Storage with train examples.
 
         Args:
-            game (Game): Board game object.
             config (Config): Configuration object with parameters from .json file.
         """
 
-        self.game = game
         self.small_bag = deque()
         self.big_bag = deque()
 
@@ -35,21 +32,16 @@ class Storage(Callback):
     def on_step_taken(self, step, transition, info):
         # NOTE: We never pass terminal state (it would be next_state), so NN can't learn directly
         #       what is the value of terminal/end state.
-        small_package = *transition.state, transition.reward, self._recent_action_probs
-        self.small_bag.append(small_package)
+        self.small_bag.append(self._create_small_package(transition))
         if len(self.small_bag) > self.exp_replay_size:
             self.small_bag.popleft()
 
         if transition.is_terminal:
             return_t = 0
-            for board, player, reward, mcts_pi in reversed(self.small_bag):
-                cannonical_state = self.game.getCanonicalForm(board, player)
-                # Reward from env is from player one perspective, so we multiply reward by player
-                # id which is 1 for player one or -1 player two.
-                cannonical_reward = reward * player
+            for state, reward, mcts_pi in reversed(self.small_bag):
 
-                return_t = cannonical_reward + self.gamma * return_t
-                self.big_bag.append((cannonical_state, mcts_pi, return_t))
+                return_t = reward + self.gamma * return_t
+                self.big_bag.append((state, mcts_pi, return_t))
 
                 if len(self.big_bag) > self.exp_replay_size:
                     self.big_bag.popleft()
@@ -85,46 +77,25 @@ class Storage(Callback):
         logs = {"# samples": len(self.big_bag)}
         return logs
 
+    def _create_small_package(self, transition):
+        return (transition.state, transition.reward, self._recent_action_probs)
 
-class Tournament(Callback):
-    def __init__(self):
-        self.reset()
+
+class Scoreboard(Callback):
+    """Calculates agent average return from one loop (many episodes) run."""
 
     def on_loop_start(self):
         self.reset()
 
+    def on_episode_start(self, episode, train_mode):
+        self.episodes += 1
+
     def on_step_taken(self, step, transition, info):
-        if transition.is_terminal:
-            # NOTE: Because players have fixed player id, and reward is returned from
-            # perspective of player one, we are indifferent to who is starting the game.
-            if transition.reward == 0:
-                self.draws += 1
-            elif transition.reward > 0:
-                self.wins += 1
-            else:
-                self.losses += 1
+        self.rewards += transition.reward
 
     def reset(self):
-        self.wins, self.losses, self.draws = 0, 0, 0
+        self.episodes, self.rewards = 0, 0
 
     @property
     def metrics(self):
-        return {"wannabe": self.wins, "best": self.losses, "draws": self.draws}
-
-    @property
-    def results(self):
-        return self.wins, self.losses, self.draws
-
-
-class RenderCallback(Callback):
-    def __init__(self, env, render, fancy=False):
-        self.env = env
-        self.render = render
-        self.fancy = fancy
-
-    def on_step_taken(self, step, transition, info):
-        self.do_render()
-
-    def do_render(self):
-        if self.render:
-            self.env.render(self.fancy)
+        return {"avg. return": self.rewards / self.episodes}

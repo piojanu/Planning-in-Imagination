@@ -6,7 +6,6 @@ import json
 
 from env import GameEnv, GameMDP
 from games import *  # This allows to create every game from games
-from third_party.humblerl import Mind
 
 
 class Config(object):
@@ -24,59 +23,17 @@ class Config(object):
         custom_config = json.loads(config.read())
 
         # Merging default and custom configs, for repeating keys, key-value pairs from second dict are taken
-        self.nn = {**default_config["neural_net"],
-                   **custom_config.get("neural_net", {})}
-        self.training = {
-            **default_config["training"], **custom_config.get("training", {})}
-        self.self_play = {
-            **default_config["self_play"], **custom_config.get("self_play", {})}
-        self.logging = {**default_config["logging"],
-                        **custom_config.get("logging", {})}
-        self.storage = {**default_config["storage"],
-                        **custom_config.get("storage", {})}
-        self.planner = {**default_config["planner"],
-                        **custom_config.get("planner", {})}
+        self.nn = {**default_config["neural_net"], **custom_config.get("neural_net", {})}
+        self.training = {**default_config["training"], **custom_config.get("training", {})}
+        self.self_play = {**default_config["self_play"], **custom_config.get("self_play", {})}
+        self.logging = {**default_config["logging"], **custom_config.get("logging", {})}
+        self.storage = {**default_config["storage"], **custom_config.get("storage", {})}
+        self.planner = {**default_config["planner"], **custom_config.get("planner", {})}
 
         self.game = eval(self.self_play["game"])()
         self.env = GameEnv(self.game)
         self.mdp = GameMDP(self.game)
         self.debug = debug
-
-
-class BoardGameMind(Mind):
-    """Wraps two minds and dispatch work to appropriate one based on player id in state."""
-
-    def __init__(self, one, two, game):
-        """Initialize board game mind.
-
-        Args:
-            one (Mind): Mind which will plan for player "1".
-            two (Mind): Mind which will plan for player "-1".
-            game (Game): Board game object.
-        """
-
-        # Index '1' for player one, index '-1' for player two
-        self.players = [None, one, two]
-        self.game = game
-
-    def plan(self, state, train_mode, debug_mode):
-        """Conduct planning on state.
-
-        Args:
-            state tuple(numpy.ndarray, int): State of game to plan on and current player id.
-            train_mode (bool): Informs planner whether it's in training mode and should enable
-                additional exploration.
-            debug_mode (bool): Informs planner whether it's in debug mode or not.
-
-        Returns:
-            np.ndarray: Planning result, unnormalized action probabilities.
-            dict: Planning metrics.
-        """
-
-        board = self.game.getCanonicalForm(*state)
-        player = state[1]
-
-        return self.players[player].plan(board, train_mode, debug_mode)
 
 
 class TensorBoardLogger(object):
