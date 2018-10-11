@@ -9,7 +9,7 @@ import third_party.humblerl as hrl
 
 from functools import partial
 from third_party.humblerl.agents import RandomAgent
-from third_party.humblerl.callbacks import StoreTransitions2Hdf5
+from third_party.humblerl.callbacks import StoreStates2Hdf5
 from tqdm import tqdm
 from controller import build_es_model, Evaluator, ReturnTracker
 from memory import build_rnn_model, MDNDataset, MDNVision, StoreTrajectories2npz
@@ -53,8 +53,8 @@ def record_vae(ctx, path, n_games, chunk_size, state_dtype):
     # Create Gym environment, random agent and store to hdf5 callback
     env = hrl.create_gym(config.general['game_name'])
     mind = RandomAgent(env.action_space)
-    store_callback = StoreTransitions2Hdf5(
-        env.valid_actions, config.general['state_shape'], path, chunk_size=chunk_size, dtype=state_dtype)
+    store_callback = StoreStates2Hdf5(config.general['state_shape'], path,
+                                      chunk_size=chunk_size, dtype=state_dtype)
 
     # Resizes states to `state_shape` with cropping
     vision = hrl.Vision(partial(
