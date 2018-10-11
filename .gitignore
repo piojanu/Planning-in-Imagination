@@ -110,3 +110,4 @@ logs/
 *.json
 *.bck
 .DS_Store
+.pytest_cache
