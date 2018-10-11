@@ -10,11 +10,10 @@ from keras.callbacks import EarlyStopping, TensorBoard
 from tabulate import tabulate
 
 from algos.alphazero import Planner
-from algos.board_games import BoardGameMind, BoardGameRender, BoardGameStorage, BoardGameVision, BoardGameTournament
+from algos.board_games import AdversarialMinds, BoardRender, BoardStorage, BoardVision, Tournament, ELOScoreboard
 from algos.human import HumanPlayer
 from nn import build_keras_nn, KerasNet
 from third_party.humblerl.callbacks import BasicStats, CSVSaverWrapper
-from metrics import ELOScoreboard
 
 
 @click.group()
@@ -63,7 +62,7 @@ def self_play(ctx):
     cfg = ctx.obj
 
     # Create board games vision
-    vision = BoardGameVision(cfg.game)
+    vision = BoardVision(cfg.game)
 
     # Create TensorBoard logger
     tb_logger = TensorBoardLogger(utils.create_tensorboard_log_dir(
@@ -95,15 +94,15 @@ def self_play(ctx):
     best_player = Planner(cfg.mdp, best_net, cfg.planner)
     current_player = Planner(cfg.mdp, current_net, cfg.planner)
 
-    self_play_players = BoardGameMind(best_player, best_player)
-    tournament_players = BoardGameMind(current_player, best_player)
+    self_play_players = AdversarialMinds(best_player, best_player)
+    tournament_players = AdversarialMinds(current_player, best_player)
 
     # Create callbacks, storage and tournament
-    storage = BoardGameStorage(cfg)
+    storage = BoardStorage(cfg)
     train_stats = CSVSaverWrapper(
         BasicStats(), cfg.logging['save_self_play_log_path'])
     tournament_stats = CSVSaverWrapper(
-        BoardGameTournament(), cfg.logging['save_tournament_log_path'], True)
+        Tournament(), cfg.logging['save_tournament_log_path'], True)
     train_callbacks = [TensorBoard(log_dir=utils.create_tensorboard_log_dir(
         cfg.logging['tensorboard_log_folder'], 'self_play'))]
 
@@ -208,7 +207,7 @@ def train(ctx, checkpoint, save_dir, tensorboard):
         callbacks.append(TensorBoard(log_dir=tensorboard_folder))
 
     # Create storage and load data
-    storage = BoardGameStorage(cfg)
+    storage = BoardStorage(cfg)
     storage.load()
 
     # Prepare training data
@@ -244,7 +243,7 @@ def hopt(ctx, n_steps):
     cfg = ctx.obj
 
     # Create storage and load data
-    storage = BoardGameStorage(cfg)
+    storage = BoardStorage(cfg)
     storage.load()
 
     # Prepare training data
@@ -315,7 +314,7 @@ def clash(ctx, first_model_path, second_model_path, render, n_games):
     cfg = ctx.obj
 
     # Create board games vision
-    vision = BoardGameVision(cfg.game)
+    vision = BoardVision(cfg.game)
 
     # Create Minds, current and best
     first_player_net = KerasNet(build_keras_nn(cfg.game, cfg.nn), cfg.training)
@@ -324,10 +323,10 @@ def clash(ctx, first_model_path, second_model_path, render, n_games):
     first_player_net.load_checkpoint(first_model_path)
     second_player_net.load_checkpoint(second_model_path)
 
-    tournament = BoardGameTournament()
+    tournament = Tournament()
     first_player = Planner(cfg.mdp, first_player_net, cfg.planner)
     second_player = Planner(cfg.mdp, second_player_net, cfg.planner)
-    players = BoardGameMind(first_player, second_player)
+    players = AdversarialMinds(first_player, second_player)
     hrl.loop(cfg.env, players, vision, policy='deterministic', n_episodes=n_games,
              train_mode=False, render_mode=render, debug_mode=cfg.debug,
              name="Test  models: {} vs {}".format(first_model_path.split(
@@ -351,18 +350,18 @@ def human_play(ctx, model_path, n_games):
     cfg = ctx.obj
 
     # Create board games vision
-    vision = BoardGameVision(cfg.game)
+    vision = BoardVision(cfg.game)
 
     # Create Mind for NN oponnent
     first_player_net = KerasNet(build_keras_nn(cfg.game, cfg.nn), cfg.training)
     first_player_net.load_checkpoint(model_path)
     first_player = Planner(cfg.mdp, first_player_net, cfg.planner)
     human_player = HumanPlayer(cfg.mdp)
-    players = BoardGameMind(first_player, human_player)
+    players = AdversarialMinds(first_player, human_player)
 
-    render_callback = BoardGameRender(cfg.env, render=True, fancy=True)
+    render_callback = BoardRender(cfg.env, render=True, fancy=True)
 
-    tournament = BoardGameTournament()
+    tournament = Tournament()
     hrl.loop(cfg.env, players, vision, policy='deterministic', n_episodes=n_games, train_mode=False,
              name="Test models: {} vs HUMAN".format(model_path.split("/")[-1]),
              debug_mode=cfg.debug, callbacks=[tournament, render_callback, cfg.env])
@@ -384,7 +383,7 @@ def cross_play(ctx, checkpoints_dir, gap, second_config):
     second_cfg = Config(second_config) if second_config is not None else cfg
 
     # Create board games vision
-    vision = BoardGameVision(cfg.game)
+    vision = BoardVision(cfg.game)
 
     # Set checkpoints_dir if not passed
     if checkpoints_dir is None:
@@ -396,10 +395,10 @@ def cross_play(ctx, checkpoints_dir, gap, second_config):
         second_cfg.game, second_cfg.nn), second_cfg.training)
     first_player = Planner(cfg.mdp, first_player_net, cfg.planner)
     second_player = Planner(second_cfg.mdp, second_player_net, second_cfg.planner)
-    players = BoardGameMind(first_player, second_player)
+    players = AdversarialMinds(first_player, second_player)
 
     # Create callbacks
-    tournament = BoardGameTournament()
+    tournament = Tournament()
 
     # Get checkpoints paths
     all_checkpoints_paths = utils.get_checkpoints_for_game(
