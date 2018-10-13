@@ -234,6 +234,7 @@ def train(ctx, checkpoint, save_dir, tensorboard):
 def hopt(ctx, n_steps):
     """Hyper-parameter optimization of NN from passed configuration."""
 
+    import os
     from skopt import gp_minimize
     from skopt.plots import plot_convergence
     from skopt.space import Real, Integer, Categorical
@@ -255,15 +256,19 @@ def hopt(ctx, n_steps):
 
     # Prepare search space
     space = []
+    num_parameters_to_optimize = 0
     for k, v in cfg.nn.items():
         # Ignore loss in hyper-param tuning
         if isinstance(v, list) and k != "loss":
+            num_parameters_to_optimize += 1
             if isinstance(v[0], float):
                 space.append(Real(v[0], v[1], name=k))
             elif isinstance(v[0], int):
                 space.append(Integer(v[0], v[1], name=k))
             else:
                 space.append(Categorical(v, name=k))
+
+    assert num_parameters_to_optimize > 0
 
     @use_named_args(space)
     def objective(**params):
@@ -294,8 +299,9 @@ def hopt(ctx, n_steps):
         print("\t{} = {}".format(dim.name, model_gp.x[i]))
 
     # Plot convergence
-    _ = plot_convergence(model_gp)
-    plt.savefig("hopt_convergence.png")
+    if "DISPLAY" in os.environ:
+        _ = plot_convergence(model_gp)
+        plt.savefig("hopt_convergence.png")
 
 
 @cli.command()
