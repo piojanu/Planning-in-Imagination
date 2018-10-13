@@ -47,7 +47,7 @@ class Node(object):
 
         Args:
             c (float): The parameter c >= 0 controls the trade-off between choosing lucrative nodes
-        (low c) and exploring nodes with low visit counts (high c). (Default: 1)
+                       (low c) and exploring nodes with low visit counts (high c). (Default: 1)
 
         Returns:
             int: Action chosen with UCB formula.

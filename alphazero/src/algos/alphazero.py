@@ -201,7 +201,7 @@ class Planner(Callback, Mind):
         Args:
             state (np.ndarray): Canonical board game (from perspective of current player).
             train_mode (bool): Informs planner whether it's in training mode and should enable
-                additional exploration.
+                               additional exploration.
             debug_mode (bool): Informs planner whether it's in debug mode or not.
 
         Returns:
