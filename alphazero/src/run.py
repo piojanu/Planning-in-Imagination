@@ -12,6 +12,7 @@ from tabulate import tabulate
 from algos.alphazero import Planner
 from algos.board_games import AdversarialMinds, BoardRender, BoardStorage, BoardVision, Tournament, ELOScoreboard
 from algos.human import HumanPlayer
+from coach import BoardGameBuilder
 from nn import build_keras_nn, KerasNet
 from humblerl.callbacks import BasicStats, CSVSaverWrapper
 
@@ -59,116 +60,53 @@ def self_play(ctx):
                 * 'update_threshold' (float):         : required threshold to be new best player
                                                         (Default: 0.55)
     """
-    cfg = ctx.obj
 
-    # Create board games vision
-    vision = BoardVision(cfg.game)
+    cfg = ctx.obj
+    builder = BoardGameBuilder(cfg)
+    coach = builder.direct()
 
     # Create TensorBoard logger
     tb_logger = TensorBoardLogger(utils.create_tensorboard_log_dir(
-        cfg.logging['tensorboard_log_folder'], 'elo'))
+        cfg.logging['tensorboard_log_folder'], 'score'))
 
-    # Create Minds, current and best
-    current_net = KerasNet(build_keras_nn(cfg.game, cfg.nn), cfg.training)
-    best_net = KerasNet(build_keras_nn(cfg.game, cfg.nn), cfg.training)
+    iteration = coach.global_epoch // cfg.training['epochs']
+    while cfg.self_play["max_iter"] == -1 or iteration < cfg.self_play["max_iter"]:
+        iter_counter_str = "{:03d}/{:03d}".format(iteration + 1, cfg.self_play["max_iter"]) \
+            if cfg.self_play["max_iter"] > 0 else "{:03d}/inf".format(iteration + 1)
 
-    # Load best nn if available
-    try:
-        ckpt_path = utils.get_newest_ckpt_fname(cfg.logging['save_checkpoint_folder'])
-        best_net.load_checkpoint(cfg.logging['save_checkpoint_folder'], ckpt_path)
-        log.info("Best mind has loaded latest checkpoint: {}".format(
-            utils.get_newest_ckpt_fname(cfg.logging['save_checkpoint_folder'])))
-        global_epoch = utils.get_checkpoints_epoch(ckpt_path)
-        best_elo = utils.get_checkpoints_elo(ckpt_path)
-    except Exception:
-        log.info("No initial checkpoint, starting tabula rasa.")
-        global_epoch = 0
-        best_elo = 1000
-
-    # Copy best nn weights to current nn that will be trained
-    current_net.model.set_weights(best_net.model.get_weights())
-
-    # Create players
-    best_player = Planner(cfg.mdp, best_net, cfg.planner)
-    current_player = Planner(cfg.mdp, current_net, cfg.planner)
-
-    self_play_players = AdversarialMinds(best_player, best_player)
-    tournament_players = AdversarialMinds(current_player, best_player)
-
-    # Create callbacks, storage and tournament
-    storage = BoardStorage(cfg)
-    train_stats = CSVSaverWrapper(BasicStats(), cfg.logging['save_self_play_log_path'])
-    tournament_stats = CSVSaverWrapper(Tournament(), cfg.logging['save_tournament_log_path'], True)
-    train_callbacks = [TensorBoard(log_dir=utils.create_tensorboard_log_dir(
-        cfg.logging['tensorboard_log_folder'], 'self_play'))]
-
-    # Load storage date from disk (path in config)
-    storage.load()
-
-    iter = global_epoch // current_net.epochs
-    while cfg.self_play["max_iter"] == -1 or iter < cfg.self_play["max_iter"]:
-        iter_counter_str = "{:03d}/{:03d}".format(iter + 1, cfg.self_play["max_iter"]) if cfg.self_play["max_iter"] > 0\
-            else "{:03d}/inf".format(iter + 1)
-
-        # SELF-PLAY - gather data using best nn
-        hrl.loop(cfg.env, self_play_players, vision, policy='proportional',
-                 warmup=cfg.self_play['policy_warmup'], debug_mode=cfg.debug,
-                 n_episodes=cfg.self_play['n_self_plays'], name="Self-play  " + iter_counter_str,
-                 verbose=1, callbacks=[best_player, train_stats, storage])
-
-        # Store gathered data
-        storage.store()
+        coach.play("Self-play  " + iter_counter_str)
 
         # Proceed to training only if threshold is fulfilled
-        if len(storage.big_bag) <= cfg.self_play["min_examples"]:
-            log.warn("Skip training, gather minimum {} training examples!".format(
-                cfg.self_play["min_examples"]))
+        if len(coach.storage.big_bag) <= cfg.self_play["min_examples"]:
+            log.warning(
+                "Skip training, gather minimum %d training examples!",
+                cfg.self_play["min_examples"]
+            )
             continue
 
-        # TRAINING - improve neural net
-        trained_data = storage.big_bag
-        boards_input, target_pis, target_values = list(zip(*trained_data))
+        coach.train()
+        coach.evaluate("Tournament " + iter_counter_str)
 
-        global_epoch = current_net.train(data=np.array(boards_input), targets=[np.array(
-            target_pis), np.array(target_values)], initial_epoch=global_epoch, callbacks=train_callbacks)
-
-        # ARENA - only the best will generate data!
-        # Clear players tree
-        current_player.clear_tree()
-        best_player.clear_tree()
-
-        hrl.loop(cfg.env, tournament_players, vision, policy='deterministic', train_mode=False,
-                 debug_mode=cfg.debug, n_episodes=cfg.self_play['n_tournaments'],
-                 name="Tournament " + iter_counter_str, verbose=2,
-                 callbacks=[tournament_stats, cfg.env])  # env added to alternate starting player
-
-        wins, losses, draws = tournament_stats.callbacks[0].results
-
+        # TODO: Think how can you move best agent selection logic into coach
+        #       (thole if with ELO calculation too)
+        wins, losses, draws = coach.scoreboard.unwrapped.results
         if wins > 0 and float(wins) / (wins + losses) > cfg.self_play["update_threshold"]:
             # Update ELO rating, use best player ELO as current player ELO
             # NOTE: We update it this way as we don't need exact ELO values, we just need to see
             #       how much if at all has current player improved.
             #       Decision based on: https://github.com/gcp/leela-zero/issues/354
-            best_elo, _ = \
-                ELOScoreboard.calculate_update(
-                    best_elo, best_elo, wins, losses, draws)
+            # TODO: Think how can you make score calculation board/Atari game independent
+            best_elo, _ = ELOScoreboard.calculate_update(
+                coach.best_score, coach.best_score, wins, losses, draws)
             best_elo = int(best_elo)
 
-            # Create checkpoint file name and log it
-            best_fname = utils.create_checkpoint_file_name(
-                'self_play', cfg.self_play["game"], global_epoch, best_elo)
-            log.info("New best player: {}".format(best_fname))
+            coach.update_best(best_elo)
 
-            # Save best and exchange weights
-            current_net.save_checkpoint(
-                cfg.logging['save_checkpoint_folder'], best_fname)
-            best_net.model.set_weights(current_net.model.get_weights())
-
-        # Log current player ELO
-        tb_logger.log_scalar("Best ELO", best_elo, iter)
+        # Log current player's score
+        tb_logger.log_scalar("Best score", coach.best_score, iteration)
 
         # Increment iterator
-        iter += 1
+        iteration += 1
 
 
 @cli.command()
@@ -194,7 +132,7 @@ def train(ctx, checkpoint, save_dir, tensorboard):
         net.load_checkpoint(checkpoint)
         global_epoch = utils.get_checkpoints_epoch(checkpoint)
         current_elo = utils.get_checkpoints_elo(checkpoint)
-        log.info("Loaded checkpoint: {}".format(checkpoint))
+        log.info("Loaded checkpoint: %s", checkpoint)
 
     # Create TensorBoard logging callback if enabled
     callbacks = []
@@ -332,12 +270,14 @@ def clash(ctx, first_model_path, second_model_path, render, n_games):
     players = AdversarialMinds(first_player, second_player)
     hrl.loop(cfg.env, players, vision, policy='deterministic', n_episodes=n_games,
              train_mode=False, render_mode=render, debug_mode=cfg.debug,
-             name="Test  models: {} vs {}".format(first_model_path.split(
+             name="Test models: {} vs {}".format(first_model_path.split(
                  "/")[-1], second_model_path.split("/")[-1]),
              callbacks=[tournament, cfg.env])
 
-    log.info("{} vs {} results: {}".format(first_model_path.split("/")
-                                           [-1], second_model_path.split("/")[-1], tournament.results))
+    log.info("%s vs %s results: %s",
+             first_model_path.split("/")[-1],
+             second_model_path.split("/")[-1],
+             tournament.results)
 
 
 @cli.command()
@@ -369,8 +309,7 @@ def human_play(ctx, model_path, n_games):
              name="Test models: {} vs HUMAN".format(model_path.split("/")[-1]),
              debug_mode=cfg.debug, callbacks=[tournament, render_callback, cfg.env])
 
-    log.info("{} vs HUMAN results: {}".format(
-        model_path.split("/")[-1], tournament.results))
+    log.info("%s vs HUMAN results: %s", model_path.split("/")[-1], tournament.results)
 
 
 @cli.command()
@@ -410,7 +349,7 @@ def cross_play(ctx, checkpoints_dir, gap, second_config):
     # Reduce gap to play at least one game when there is more than one checkpoint
     if gap >= len(all_checkpoints_paths):
         gap = len(all_checkpoints_paths) - 1
-        log.info("Gap is too big. Reduced to {}".format(gap))
+        log.info("Gap is too big. Reduced to %d", gap)
 
     # Gather players ids and checkpoints paths for cross-play
     players_ids = []
@@ -471,11 +410,12 @@ def cross_play(ctx, checkpoints_dir, gap, second_config):
          elo.scores.elo.values.reshape(-1, 1).astype(np.int)),
         axis=1
     )
-    tab = tabulate(scoreboard, headers=players_ids + ["sum", "elo"], tablefmt="fancy_grid")
-    log.info("Results:\n{}".format(tab))
+
+    tab = tabulate(scoreboard, headers=players_ids +
+                   ["sum", "elo"], tablefmt="fancy_grid")
+    log.info("Results:\n%s", tab)
     for player_id, player_elo, checkpoint_path in zip(players_ids, elo.scores['elo'], checkpoints_paths):
-        log.info("ITER: {:3}, ELO: {:4}, PATH: {}".format(
-            player_id, int(player_elo), checkpoint_path))
+        log.info("ITER: %3d, ELO: %4d, PATH: %s", player_id, int(player_elo), checkpoint_path)
 
 
 if __name__ == "__main__":

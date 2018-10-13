@@ -4,7 +4,7 @@ from callbacks import Storage
 from humblerl import Callback, Mind, Vision
 
 
-class AdversarialMinds(Mind):
+class AdversarialMinds(Mind, Callback):
     """Wraps two minds and dispatch work to appropriate one based on player id in state."""
 
     def __init__(self, one, two):
@@ -34,6 +34,18 @@ class AdversarialMinds(Mind):
 
         board, player = state
         return self.players[player].plan(board, train_mode, debug_mode)
+
+    def clear_tree(self):
+        """Clear search tree of players."""
+
+        self.players[1].clear_tree()
+        self.players[-1].clear_tree()
+
+    def on_episode_start(self, episode, train_mode):
+        """Empty search tree between episodes if in train mode."""
+
+        if train_mode:
+            self.clear_tree()
 
 
 class BoardVision(Vision):
