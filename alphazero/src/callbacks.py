@@ -3,7 +3,7 @@ import numpy as np
 import os
 
 from collections import deque
-from third_party.humblerl import Callback
+from humblerl import Callback
 from pickle import Pickler, Unpickler
 
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import third_party.humblerl as hrl
+import humblerl as hrl
 import logging as log
 import numpy as np
 import utils
@@ -13,7 +13,7 @@ from algos.alphazero import Planner
 from algos.board_games import AdversarialMinds, BoardRender, BoardStorage, BoardVision, Tournament, ELOScoreboard
 from algos.human import HumanPlayer
 from nn import build_keras_nn, KerasNet
-from third_party.humblerl.callbacks import BasicStats, CSVSaverWrapper
+from humblerl.callbacks import BasicStats, CSVSaverWrapper
 
 
 @click.group()
