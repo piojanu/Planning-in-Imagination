@@ -52,8 +52,7 @@ class Storage(Callback):
         path = self.save_data_path
         folder = os.path.dirname(path)
         if not os.path.exists(folder):
-            log.warn(
-                "Examples store directory does not exist! Creating directory {}".format(folder))
+            log.warning("Examples store directory does not exist! Creating directory %s", folder)
             os.makedirs(folder)
 
         with open(path, "wb+") as f:
