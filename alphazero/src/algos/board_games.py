@@ -24,7 +24,7 @@ class AdversarialMinds(Mind):
         Args:
             state tuple(numpy.ndarray, int): State of game to plan on and current player id.
             train_mode (bool): Informs planner whether it's in training mode and should enable
-                additional exploration.
+                               additional exploration.
             debug_mode (bool): Informs planner whether it's in debug mode or not.
 
         Returns:
@@ -279,7 +279,7 @@ class ELOScoreboard(object):
 
         Args:
             ax (matplotlib.axes.Axes): Axis to plot in. If None, then plot on global axis.
-        (Default: None)
+                                       (Default: None)
         """
 
         import matplotlib.pyplot as plt

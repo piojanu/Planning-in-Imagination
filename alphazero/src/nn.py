@@ -67,7 +67,7 @@ class NeuralNet(metaclass=ABCMeta):
 
         Args:
             path (string): Directory for loading checkpoints from or full path to file
-        if filename is None.
+                           if filename is None.
             filename (string): File name of saved nn checkpoint. (Default: None)
         """
 
@@ -147,8 +147,7 @@ class KerasNet(NeuralNet):
 
         filepath = os.path.join(folder, filename)
         if not os.path.exists(folder):
-            log.warn(
-                "Checkpoint directory does not exist! Creating directory {}".format(folder))
+            log.warn("Checkpoint directory does not exist! Creating directory {}".format(folder))
             os.mkdir(folder)
         self.model.save_weights(filepath)
 
@@ -157,7 +156,7 @@ class KerasNet(NeuralNet):
 
         Args:
             path (string): Directory for loading checkpoints from or full path to file
-        if filename is None.
+                           if filename is None.
             filename (string): File name of saved nn checkpoint. (Default: None)
         """
 
@@ -176,7 +175,7 @@ def build_keras_nn(game, params):
 
     Args:
         game (Game): Perfect information dynamics/game. Used to get information
-    like action/state space sizes etc.
+                     like action/state space sizes etc.
         params (dict): Neural Net architecture hyper-parameters. Available:
           * architecture related      : ResNet like architecture description. If conv_filters = -1 or
                                         residual_filters = -1, then no conv layer/residual blocks.
@@ -269,8 +268,7 @@ def build_keras_nn(game, params):
         pi = value = Dense(dense_size, activation='relu',
                            kernel_regularizer=l2(l2_reg))(x)
     else:
-        raise ValueError(
-            "Unknown feature extractor! Possible values: 'agz', 'avgpool', 'flatten'")
+        raise ValueError("Unknown feature extractor! Possible values: 'agz', 'avgpool', 'flatten'")
 
     # Heads
     pi = Dense(ACTION_SIZE, activation='softmax',
