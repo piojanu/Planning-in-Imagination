@@ -4,10 +4,13 @@ language: python
 python:
   - "3.5"
   - "3.6"
+env:
+  - FOLDER=alphazero
+  - FOLDER=world-models
 install:
-  - pip install -r alphazero/src/requirements.txt
-  - pip install -r alphazero/src/third_party/humblerl/requirements.txt
+  - pip install pycodestyle
+  - (cd $FOLDER/scripts; ./install_dependencies.sh >install.log && cat install.log)
 script:
-  - ./alphazero/scripts/check_pep8.sh
-  - (cd alphazero; pytest)
-  - (cd alphazero/scripts; ./run_cmds.sh)
+  - pycodestyle . --exclude=humblerl,alphazero/src/games/ --ignore E501
+  - (cd $FOLDER; pytest)
+  - (cd $FOLDER/scripts; ./run_cmds.sh)

@@ -33,7 +33,7 @@ class TestNode(object):
         node.expand(edges)
 
         if len(edges) == 0:
-            assert node.select_edge(c) == None
+            assert node.select_edge(c) is None
         else:
             node.edges[popular_key]._num_visits += 10
             assert node.select_edge(c) == (result_key, node.edges[result_key])

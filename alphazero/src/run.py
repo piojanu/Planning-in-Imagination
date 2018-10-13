@@ -80,7 +80,7 @@ def self_play(ctx):
             utils.get_newest_ckpt_fname(cfg.logging['save_checkpoint_folder'])))
         global_epoch = utils.get_checkpoints_epoch(ckpt_path)
         best_elo = utils.get_checkpoints_elo(ckpt_path)
-    except:
+    except Exception:
         log.info("No initial checkpoint, starting tabula rasa.")
         global_epoch = 0
         best_elo = 1000
@@ -471,8 +471,7 @@ def cross_play(ctx, checkpoints_dir, gap, second_config):
          elo.scores.elo.values.reshape(-1, 1).astype(np.int)),
         axis=1
     )
-    tab = tabulate(scoreboard, headers=players_ids +
-                   ["sum", "elo"], tablefmt="fancy_grid")
+    tab = tabulate(scoreboard, headers=players_ids + ["sum", "elo"], tablefmt="fancy_grid")
     log.info("Results:\n{}".format(tab))
     for player_id, player_elo, checkpoint_path in zip(players_ids, elo.scores['elo'], checkpoints_paths):
         log.info("ITER: {:3}, ELO: {:4}, PATH: {}".format(
