@@ -15,7 +15,7 @@ class NeuralNet(metaclass=ABCMeta):
     """Artificial neural mind of planning."""
 
     @abstractmethod
-    def __init__(self, arch, params=None):
+    def __init__(self, arch, params):
         """Compile neural network model.
 
         Args:
@@ -77,7 +77,7 @@ class NeuralNet(metaclass=ABCMeta):
 class KerasNet(NeuralNet):
     """Artificial neural mind of planning."""
 
-    def __init__(self, model, params=None):
+    def __init__(self, model, params):
         """Compile neural network model in Keras.
 
         Args:
@@ -89,11 +89,9 @@ class KerasNet(NeuralNet):
                                                     (Default: "./logs/training.log")
         """
 
-        if params is None:
-            params = {}
         self.model = model
-        self.batch_size = params.get('batch_size', 32)
-        self.epochs = params.get('epochs', 50)
+        self.batch_size = params['batch_size']
+        self.epochs = params['epochs']
 
         # Initialize callbacks list with CSVLogger
         self.callbacks = [
@@ -194,21 +192,20 @@ def build_keras_nn(game, params):
                                         dampens oscillations. Float >= 0 (Default: 0.9)
     """
 
-    conv_filters = params.get("conv_filters", 256)
-    conv_kernel = params.get("conv_kernel", 5)
-    conv_stride = params.get("conv_stride", 2)
-    residual_bottleneck = params.get("residual_bottleneck", 128)
-    residual_filters = params.get("residual_filters", 256)
-    residual_kernel = params.get("residual_kernel", 3)
-    residual_num = params.get("residual_num", 3)
-    feature_extractor = params.get("feature_extractor", "agz")
-    dense_size = params.get("dense_size", 512)
+    conv_filters = params["conv_filters"]
+    conv_kernel = params["conv_kernel"]
+    conv_stride = params["conv_stride"]
+    residual_bottleneck = params["residual_bottleneck"]
+    residual_filters = params["residual_filters"]
+    residual_kernel = params["residual_kernel"]
+    residual_num = params["residual_num"]
+    feature_extractor = params["feature_extractor"]
+    dense_size = params["dense_size"]
 
-    loss = params.get(
-        'loss', ["categorical_crossentropy", "mean_squared_error"])
-    l2_reg = params.get("l2_regularizer", 0.0001)
-    lr = params.get('lr', 0.1)
-    momentum = params.get('momentum', 0.9)
+    loss = params['loss']
+    l2_reg = params["l2_regularizer"]
+    lr = params['lr']
+    momentum = params['momentum']
 
     DATA_FORMAT = image_data_format()
     BOARD_HEIGHT, BOARD_WIDTH = game.getBoardSize()
