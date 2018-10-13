@@ -10,7 +10,7 @@ from tree.basic import Edge, Node
 class Planner(Callback, Mind):
     """AlphaZero search operations and planning logic."""
 
-    def __init__(self, model, nn, params={}):
+    def __init__(self, model, nn, params):
         """Initialize MCTS object
 
         Args:
