@@ -19,7 +19,7 @@ from vision import build_vae_model, VAEVision
 
 @click.group()
 @click.pass_context
-@click.option('-c', '--config_path', type=click.Path(exists=True), default="config.json",
+@click.option('-c', '--config-path', type=click.Path(exists=True), default="config.json",
               help="Path to configuration file (Default: config.json)")
 @click.option('--debug/--no-debug', default=False, help="Enable debug logging (Default: False)")
 @click.option('--quiet/--no-quiet', default=False, help="Disable info logging (Default: False)")
@@ -42,9 +42,9 @@ def cli(ctx, config_path, debug, quiet, render):
 @cli.command()
 @click.pass_context
 @click.argument('path', type=click.Path(), required=True)
-@click.option('-n', '--n_games', default=10000, help='Number of games to play (Default: 10000)')
-@click.option('-c', '--chunk_size', default=128, help='HDF5 chunk size (Default: 128)')
-@click.option('-t', '--state_dtype', default='u1', help='Numpy data type of state (Default: uint8)')
+@click.option('-n', '--n-games', default=10000, help='Number of games to play (Default: 10000)')
+@click.option('-c', '--chunk-size', default=128, help='HDF5 chunk size (Default: 128)')
+@click.option('-t', '--state-dtype', default='u1', help='Numpy data type of state (Default: uint8)')
 def record_vae(ctx, path, n_games, chunk_size, state_dtype):
     """Plays chosen game randomly and records transitions to hdf5 file in `PATH`."""
 
@@ -167,11 +167,11 @@ def train_vae(ctx, path):
 @cli.command()
 @click.pass_context
 @click.argument('path', type=click.Path(), required=True)
-@click.option('-m', '--model_path', default=None,
+@click.option('-m', '--model-path', default=None,
               help='Path to VAE ckpt. Taken from .json config if `None` (Default: None)')
-@click.option('-n', '--n_games', default=10000, help='Number of games to play (Default: 10000)')
+@click.option('-n', '--n-games', default=10000, help='Number of games to play (Default: 10000)')
 def record_mem(ctx, path, model_path, n_games):
-    """Plays chosen game randomly and records preprocessed with VAE (loaded from `--model_path`
+    """Plays chosen game randomly and records preprocessed with VAE (loaded from `model_path`
     or config) states, next_states and actions trajectories to numpy archive file in `PATH`."""
 
     config = ctx.obj
@@ -197,7 +197,7 @@ def record_mem(ctx, path, model_path, n_games):
 @cli.command()
 @click.pass_context
 @click.argument('path', type=click.Path(exists=True), required=True)
-@click.option('-v', '--vae_path', default='DEFAULT',
+@click.option('-v', '--vae-path', default='DEFAULT',
               help='Path to VAE ckpt. Needed for visualization only when render is enabled.')
 def train_mem(ctx, path, vae_path):
     """Train MDN-RNN model as specified in .json config with data at `PATH`."""
@@ -320,13 +320,13 @@ def train_mem(ctx, path, vae_path):
 
 @cli.command()
 @click.pass_context
-@click.option('-v', '--vae_path', default=None,
+@click.option('-v', '--vae-path', default=None,
               help='Path to VAE ckpt. Taken from .json config if `None` (Default: None)')
-@click.option('-m', '--mdn_path', default=None,
+@click.option('-m', '--mdn-path', default=None,
               help='Path to MDN-RNN ckpt. Taken from .json config if `None` (Default: None)')
 def train_ctrl(ctx, vae_path, mdn_path):
     """Plays chosen game and trains Controller on preprocessed states with VAE and MDN-RNN
-    (loaded from `--vae_path` or `--mdn_path`)."""
+    (loaded from `vae_path` or `mdn_path`)."""
 
     config = ctx.obj
 
@@ -380,13 +380,13 @@ def train_ctrl(ctx, vae_path, mdn_path):
 
 @cli.command()
 @click.pass_context
-@click.option('-v', '--vae_path', default=None,
+@click.option('-v', '--vae-path', default=None,
               help='Path to VAE ckpt. Taken from .json config if `None` (Default: None)')
-@click.option('-m', '--mdn_path', default=None,
+@click.option('-m', '--mdn-path', default=None,
               help='Path to MDN-RNN ckpt. Taken from .json config if `None` (Default: None)')
-@click.option('-c', '--cma_path', default=None,
+@click.option('-c', '--cma-path', default=None,
               help='Path to CMA-ES ckpt. Taken from .json config if `None` (Default: None)')
-@click.option('-n', '--n_games', default=3, help='Number of games to play (Default: 3)')
+@click.option('-n', '--n-games', default=3, help='Number of games to play (Default: 3)')
 def eval(ctx, vae_path, mdn_path, cma_path, n_games):
     """Plays chosen game testing whole pipeline: VAE -> MDN-RNN -> CMA-ES
     (loaded from `vae_path`, `mdn_path` and `cma-path`)."""
