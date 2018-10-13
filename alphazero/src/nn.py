@@ -15,7 +15,7 @@ class NeuralNet(metaclass=ABCMeta):
     """Artificial neural mind of planning."""
 
     @abstractmethod
-    def __init__(self, arch, params={}):
+    def __init__(self, arch, params=None):
         """Compile neural network model.
 
         Args:
@@ -39,13 +39,13 @@ class NeuralNet(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def train(self, data, targets, callbacks=[]):
+    def train(self, data, targets, callbacks=None):
         """Perform training according to passed parameters in :method:`build` call.
 
         Args:
             data (np.ndarray): States to train on.
             targets (np.ndarray): Ground truth targets, depend on specific model.
-            callbacks (list): Extra callbacks to pass to keras model fit method. (Default: [])
+            callbacks (list): Extra callbacks to pass to keras model fit method. (Default: None)
          """
 
         pass
@@ -77,7 +77,7 @@ class NeuralNet(metaclass=ABCMeta):
 class KerasNet(NeuralNet):
     """Artificial neural mind of planning."""
 
-    def __init__(self, model, params={}):
+    def __init__(self, model, params=None):
         """Compile neural network model in Keras.
 
         Args:
@@ -89,6 +89,8 @@ class KerasNet(NeuralNet):
                                                     (Default: "./logs/training.log")
         """
 
+        if params is None:
+            params = {}
         self.model = model
         self.batch_size = params.get('batch_size', 32)
         self.epochs = params.get('epochs', 50)
@@ -109,20 +111,23 @@ class KerasNet(NeuralNet):
 
         return self.model.predict(state)
 
-    def train(self, data, targets, initial_epoch=0, callbacks=[]):
+    def train(self, data, targets, initial_epoch=0, callbacks=None):
         """Perform training according to passed parameters in `build` call.
 
         Args:
             data (np.ndarray): States to train on.
             targets (np.ndarray): Ground truth targets, depend on specific model.
             initial_epoch (int): Epoch at which to start training. (Default: 0)
-            callbacks (list): Extra callbacks to pass to keras model fit method. (Default: [])
+            callbacks (list): Extra callbacks to pass to keras model fit method. (Default: None)
 
         Return:
             int: Number of training epochs to this moment.
         """
 
         epochs = self.epochs + initial_epoch
+
+        if callbacks is None:
+            callbacks = []
 
         self.model.fit(data, targets,
                        batch_size=self.batch_size,
