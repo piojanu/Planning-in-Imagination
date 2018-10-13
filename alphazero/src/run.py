@@ -74,10 +74,8 @@ def self_play(ctx):
 
     # Load best nn if available
     try:
-        ckpt_path = utils.get_newest_ckpt_fname(
-            cfg.logging['save_checkpoint_folder'])
-        best_net.load_checkpoint(
-            cfg.logging['save_checkpoint_folder'], ckpt_path)
+        ckpt_path = utils.get_newest_ckpt_fname(cfg.logging['save_checkpoint_folder'])
+        best_net.load_checkpoint(cfg.logging['save_checkpoint_folder'], ckpt_path)
         log.info("Best mind has loaded latest checkpoint: {}".format(
             utils.get_newest_ckpt_fname(cfg.logging['save_checkpoint_folder'])))
         global_epoch = utils.get_checkpoints_epoch(ckpt_path)
@@ -99,10 +97,8 @@ def self_play(ctx):
 
     # Create callbacks, storage and tournament
     storage = BoardStorage(cfg)
-    train_stats = CSVSaverWrapper(
-        BasicStats(), cfg.logging['save_self_play_log_path'])
-    tournament_stats = CSVSaverWrapper(
-        Tournament(), cfg.logging['save_tournament_log_path'], True)
+    train_stats = CSVSaverWrapper(BasicStats(), cfg.logging['save_self_play_log_path'])
+    tournament_stats = CSVSaverWrapper(Tournament(), cfg.logging['save_tournament_log_path'], True)
     train_callbacks = [TensorBoard(log_dir=utils.create_tensorboard_log_dir(
         cfg.logging['tensorboard_log_folder'], 'self_play'))]
 
@@ -115,11 +111,10 @@ def self_play(ctx):
             else "{:03d}/inf".format(iter + 1)
 
         # SELF-PLAY - gather data using best nn
-        hrl.loop(cfg.env, self_play_players, vision,
-                 policy='proportional', warmup=cfg.self_play['policy_warmup'],
-                 debug_mode=cfg.debug, n_episodes=cfg.self_play['n_self_plays'],
-                 name="Self-play  " + iter_counter_str, verbose=1,
-                 callbacks=[best_player, train_stats, storage])
+        hrl.loop(cfg.env, self_play_players, vision, policy='proportional',
+                 warmup=cfg.self_play['policy_warmup'], debug_mode=cfg.debug,
+                 n_episodes=cfg.self_play['n_self_plays'], name="Self-play  " + iter_counter_str,
+                 verbose=1, callbacks=[best_player, train_stats, storage])
 
         # Store gathered data
         storage.store()
@@ -179,7 +174,7 @@ def self_play(ctx):
 @cli.command()
 @click.pass_context
 @click.option('-ckpt', '--checkpoint', help="Path to NN checkpoint, if None then start fresh (Default: None)", type=click.Path(), default=None)
-@click.option('-save', '--save_dir', help="Dir where to save NN checkpoint, if None then don't save (Default: None)", type=click.Path(), default=None)
+@click.option('-save', '--save-dir', help="Dir where to save NN checkpoint, if None then don't save (Default: None)", type=click.Path(), default=None)
 @click.option('--tensorboard/--no-tensorboard', help="Enable tensorboard logging (Default: False)", default=False)
 def train(ctx, checkpoint, save_dir, tensorboard):
     """Train NN from passed configuration."""
@@ -232,7 +227,9 @@ def train(ctx, checkpoint, save_dir, tensorboard):
 @click.pass_context
 @click.option('-n', '--n-steps', help="Number of optimization steps (Default: 100)", default=100)
 def hopt(ctx, n_steps):
-    """Hyper-parameter optimization of NN from passed configuration."""
+    """Hyper-parameter optimization.
+       All hyperparameters (except loss function) passed to config as list are optimized.
+    """
 
     from skopt import gp_minimize
     from skopt.plots import plot_convergence
@@ -300,8 +297,8 @@ def hopt(ctx, n_steps):
 
 @cli.command()
 @click.pass_context
-@click.argument('first_model_path', nargs=1, type=click.Path(exists=True))
-@click.argument('second_model_path', nargs=1, type=click.Path(exists=True))
+@click.argument('first-model-path', nargs=1, type=click.Path(exists=True))
+@click.argument('second-model-path', nargs=1, type=click.Path(exists=True))
 @click.option('--render/--no-render', help="Enable rendering game (Default: True)", default=True)
 @click.option('-n', '--n-games', help="Number of games (Default: 2)", default=2)
 def clash(ctx, first_model_path, second_model_path, render, n_games):
@@ -339,7 +336,7 @@ def clash(ctx, first_model_path, second_model_path, render, n_games):
 
 @cli.command()
 @click.pass_context
-@click.argument('model_path', nargs=1, type=click.Path(exists=True))
+@click.argument('model-path', nargs=1, type=click.Path(exists=True))
 @click.option('-n', '--n-games', help="Number of games (Default: 2)", default=2)
 def human_play(ctx, model_path, n_games):
     """Play `n_games` with trained model.
@@ -372,10 +369,10 @@ def human_play(ctx, model_path, n_games):
 
 @cli.command()
 @click.pass_context
-@click.option('-d', '--checkpoints_dir', type=click.Path(exists=True), default=None,
+@click.option('-d', '--checkpoints-dir', type=click.Path(exists=True), default=None,
               help="Path to checkpoints. If None then take from config (Default: None)")
 @click.option('-g', '--gap', help="Gap between versions of best model (Default: 2)", default=2)
-@click.option('-sc', '--second_config', type=click.File('r'),
+@click.option('-sc', '--second-config', type=click.File('r'),
               help="Path to second configuration file", default=None)
 def cross_play(ctx, checkpoints_dir, gap, second_config):
     """Validate trained models. Best networks play with each other."""
@@ -463,8 +460,7 @@ def cross_play(ctx, checkpoints_dir, gap, second_config):
     elo.save_csv(cfg.logging['save_elo_scoreboard_path'])
 
     scoreboard = np.concatenate(
-        (np.array(players_ids).reshape(-1, 1),
-         results,
+        (np.array(players_ids).reshape(-1, 1), results,
          np.sum(results, axis=1).reshape(-1, 1),
          elo.scores.elo.values.reshape(-1, 1).astype(np.int)),
         axis=1
