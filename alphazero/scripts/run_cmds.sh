@@ -1,10 +1,11 @@
 #/bin/bash
 CKPT_DIR=checkpoints/test/
 MAIN_SCRIPT_PATH=../src/run.py
+CONFIG_FILE=test_config.json
 
 run_test () {
   echo "Testing $1"
-  python $MAIN_SCRIPT_PATH -c test_config.json ${@:1:99} >test.log 2>error.log && echo "$1 succeeded" || { cat test.log && cat error.log && echo "$1 failed" && exit 1; }
+  python $MAIN_SCRIPT_PATH -c $CONFIG_FILE ${@:1:99} >test_${1}.log 2>error_${1}.log && echo "$1 succeeded" || { cat test_${1}.log && cat error_${1}.log && echo "$1 failed" && exit 1; }
 }
 
 run_test self_play
@@ -15,7 +16,7 @@ run_test clash --no-render $CKPT_DIR`ls $CKPT_DIR | cut -f 1 | head -n1` $CKPT_D
 
 run_test train -ckpt $CKPT_DIR`ls $CKPT_DIR | cut -f 1 | tail -n1`
 
-#TODO: enable it
-#run_test hopt -n 20
+CONFIG_FILE=test_config_for_hopt.json
+run_test hopt -n 20
 
 rm -rf checkpoints
