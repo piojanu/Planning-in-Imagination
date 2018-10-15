@@ -3,7 +3,7 @@ import time
 import logging as log
 import numpy as np
 
-from third_party.humblerl import Callback, Mind
+from humblerl import Callback, Mind
 from tree.basic import Edge, Node
 
 

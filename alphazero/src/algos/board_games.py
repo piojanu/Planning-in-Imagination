@@ -1,7 +1,7 @@
 import pandas as pd
 
 from callbacks import Storage
-from third_party.humblerl import Callback, Mind, Vision
+from humblerl import Callback, Mind, Vision
 
 
 class AdversarialMinds(Mind):

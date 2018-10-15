@@ -1,6 +1,6 @@
 import numpy as np
 
-from third_party.humblerl import Callback, Environment, MDP
+from humblerl import Callback, Environment, MDP
 
 
 class GameMDP(MDP):
