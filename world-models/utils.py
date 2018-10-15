@@ -19,7 +19,7 @@ class Config(object):
             allow_render (bool): Specify to enable render/plot features
         """
 
-        with open("config.json.dist") as f:
+        with open(os.path.join(os.path.dirname(__file__), "config.json.dist")) as f:
             default_config = json.loads(f.read())
         with open(config_path) as f:
             custom_config = json.loads(f.read())
