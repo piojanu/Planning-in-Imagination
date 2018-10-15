@@ -27,8 +27,10 @@ def cli(ctx, config, debug):
     log.basicConfig(level=log.DEBUG if debug else log.INFO,
                     format="[%(levelname)s]: %(message)s")
 
-    # Create context
-    ctx.obj = Config(config, debug)
+    # Create context and builder
+    cfg = Config(config, debug)
+    builder = BoardGameBuilder(cfg)
+    ctx.obj = cfg, builder
 
 
 @cli.command()
@@ -61,8 +63,7 @@ def self_play(ctx):
                                                         (Default: 0.55)
     """
 
-    cfg = ctx.obj
-    builder = BoardGameBuilder(cfg)
+    cfg, builder = ctx.obj
     coach = builder.direct()
 
     # Create TensorBoard logger
@@ -87,15 +88,14 @@ def self_play(ctx):
         coach.train()
         coach.evaluate("Tournament " + iter_counter_str)
 
-        # TODO: Think how can you move best agent selection logic into coach
-        #       (thole if with ELO calculation too)
+        # TODO: Think how can you move best agent selection logic into coach (whole with
+        #       ELO calculation and logging too). Pack it all to "selection" phase!
         wins, losses, draws = coach.scoreboard.unwrapped.results
         if wins > 0 and float(wins) / (wins + losses) > cfg.self_play["update_threshold"]:
             # Update ELO rating, use best player ELO as current player ELO
             # NOTE: We update it this way as we don't need exact ELO values, we just need to see
             #       how much if at all has current player improved.
             #       Decision based on: https://github.com/gcp/leela-zero/issues/354
-            # TODO: Think how can you make score calculation board/Atari game independent
             best_elo, _ = ELOScoreboard.calculate_update(
                 coach.best_score, coach.best_score, wins, losses, draws)
             best_elo = int(best_elo)
@@ -117,48 +117,24 @@ def self_play(ctx):
 def train(ctx, checkpoint, save_dir, tensorboard):
     """Train NN from passed configuration."""
 
-    cfg = ctx.obj
-
-    # Get TensorBoard log dir
-    tensorboard_folder = utils.create_tensorboard_log_dir(
-        cfg.logging['tensorboard_log_folder'], 'train')
-
-    # Create Keras NN
-    net = KerasNet(build_keras_nn(cfg.game, cfg.nn), cfg.training)
-
-    # Load checkpoint nn if available
-    global_epoch = 0
-    if checkpoint:
-        net.load_checkpoint(checkpoint)
-        global_epoch = utils.get_checkpoints_epoch(checkpoint)
-        current_elo = utils.get_checkpoints_elo(checkpoint)
-        log.info("Loaded checkpoint: %s", checkpoint)
+    cfg, builder = ctx.obj
+    coach = builder.direct(checkpoint)
 
     # Create TensorBoard logging callback if enabled
-    callbacks = []
     if tensorboard:
-        callbacks.append(TensorBoard(log_dir=tensorboard_folder))
+        coach.train_callbacks = [
+            TensorBoard(log_dir=utils.create_tensorboard_log_dir(
+                cfg.logging['tensorboard_log_folder'], 'train'))]
+    else:
+        coach.train_callbacks = []
 
-    # Create storage and load data
-    storage = BoardStorage(cfg)
-    storage.load()
-
-    # Prepare training data
-    trained_data = storage.big_bag
-    boards_input, target_pis, target_values = list(zip(*trained_data))
-
-    # Run training
-    global_epoch = net.train(data=np.array(boards_input),
-                             targets=[np.array(target_pis),
-                                      np.array(target_values)],
-                             initial_epoch=global_epoch,
-                             callbacks=callbacks)
+    coach.train()
 
     # Save model checkpoint if path passed
     if save_dir:
         save_fname = utils.create_checkpoint_file_name(
-            'train', cfg.self_play["game"], global_epoch, current_elo)
-        net.save_checkpoint(save_dir, save_fname)
+            'train', cfg.self_play["game"], coach.global_epoch, coach.best_score)
+        coach.current_nn.save_checkpoint(save_dir, save_fname)
 
 
 @cli.command()
@@ -176,7 +152,7 @@ def hopt(ctx, n_steps):
     from skopt.utils import use_named_args
     import matplotlib.pyplot as plt
 
-    cfg = ctx.obj
+    cfg, _ = ctx.obj
 
     # Create storage and load data
     storage = BoardStorage(cfg)
@@ -252,32 +228,22 @@ def clash(ctx, first_model_path, second_model_path, render, n_games):
             first_model_path: (string): Path to player one model.
             second_model_path (string): Path to player two model.
     """
-    cfg = ctx.obj
 
-    # Create board games vision
-    vision = BoardVision(cfg.game)
+    cfg, builder = ctx.obj
+    coach = builder.direct(first_model_path, second_model_path)
 
-    # Create Minds, current and best
-    first_player_net = KerasNet(build_keras_nn(cfg.game, cfg.nn), cfg.training)
-    second_player_net = KerasNet(build_keras_nn(cfg.game, cfg.nn), cfg.training)
-
-    first_player_net.load_checkpoint(first_model_path)
-    second_player_net.load_checkpoint(second_model_path)
-
-    tournament = Tournament()
-    first_player = Planner(cfg.mdp, first_player_net, cfg.planner)
-    second_player = Planner(cfg.mdp, second_player_net, cfg.planner)
-    players = AdversarialMinds(first_player, second_player)
-    hrl.loop(cfg.env, players, vision, policy='deterministic', n_episodes=n_games,
-             train_mode=False, render_mode=render, debug_mode=cfg.debug,
-             name="Test models: {} vs {}".format(first_model_path.split(
-                 "/")[-1], second_model_path.split("/")[-1]),
-             callbacks=[tournament, cfg.env])
+    coach.scoreboard = Tournament()
+    coach.evaluate(
+        desc="Test models: {} vs {}".format(
+            first_model_path.split("/")[-1], second_model_path.split("/")[-1]),
+        render_mode=render,
+        n_games=n_games
+    )
 
     log.info("%s vs %s results: %s",
              first_model_path.split("/")[-1],
              second_model_path.split("/")[-1],
-             tournament.results)
+             coach.scoreboard.results)
 
 
 @cli.command()
@@ -290,26 +256,22 @@ def human_play(ctx, model_path, n_games):
         Args:
             model_path: (string): Path to trained model.
     """
-    cfg = ctx.obj
 
-    # Create board games vision
-    vision = BoardVision(cfg.game)
+    cfg, builder = ctx.obj
+    coach = builder.direct(model_path)
 
-    # Create Mind for NN oponnent
-    first_player_net = KerasNet(build_keras_nn(cfg.game, cfg.nn), cfg.training)
-    first_player_net.load_checkpoint(model_path)
-    first_player = Planner(cfg.mdp, first_player_net, cfg.planner)
-    human_player = HumanPlayer(cfg.mdp)
-    players = AdversarialMinds(first_player, human_player)
+    coach.current_mind.players[-1] = HumanPlayer(cfg.mdp)
+    coach.eval_callbacks.append(BoardRender(cfg.env, render=True, fancy=True))
+    coach.scoreboard = Tournament()
 
-    render_callback = BoardRender(cfg.env, render=True, fancy=True)
+    coach.evaluate(
+        desc="Test models: {} vs HUMAN".format(model_path.split("/")[-1]),
+        n_games=n_games
+    )
 
-    tournament = Tournament()
-    hrl.loop(cfg.env, players, vision, policy='deterministic', n_episodes=n_games, train_mode=False,
-             name="Test models: {} vs HUMAN".format(model_path.split("/")[-1]),
-             debug_mode=cfg.debug, callbacks=[tournament, render_callback, cfg.env])
-
-    log.info("%s vs HUMAN results: %s", model_path.split("/")[-1], tournament.results)
+    log.info("%s vs HUMAN results: %s",
+             model_path.split("/")[-1],
+             coach.scoreboard.results)
 
 
 @cli.command()
@@ -321,7 +283,9 @@ def human_play(ctx, model_path, n_games):
               help="Path to second configuration file", default=None)
 def cross_play(ctx, checkpoints_dir, gap, second_config):
     """Validate trained models. Best networks play with each other."""
-    cfg = ctx.obj
+
+    # TODO: Use coach object.
+    cfg, _ = ctx.obj
     second_cfg = Config(second_config) if second_config is not None else cfg
 
     # Create board games vision
@@ -411,8 +375,7 @@ def cross_play(ctx, checkpoints_dir, gap, second_config):
         axis=1
     )
 
-    tab = tabulate(scoreboard, headers=players_ids +
-                   ["sum", "elo"], tablefmt="fancy_grid")
+    tab = tabulate(scoreboard, headers=players_ids + ["sum", "elo"], tablefmt="fancy_grid")
     log.info("Results:\n%s", tab)
     for player_id, player_elo, checkpoint_path in zip(players_ids, elo.scores['elo'], checkpoints_paths):
         log.info("ITER: %3d, ELO: %4d, PATH: %s", player_id, int(player_elo), checkpoint_path)

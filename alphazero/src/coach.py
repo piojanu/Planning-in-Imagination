@@ -1,7 +1,8 @@
 import click
-import third_party.humblerl as hrl
 import logging as log
 import numpy as np
+import os.path
+import humblerl as hrl
 import utils
 
 from abc import ABCMeta, abstractmethod
@@ -12,7 +13,7 @@ from algos.alphazero import Planner
 from algos.board_games import AdversarialMinds, BoardRender, BoardStorage, BoardVision, Tournament, ELOScoreboard
 from algos.human import HumanPlayer
 from nn import build_keras_nn, KerasNet
-from third_party.humblerl.callbacks import BasicStats, CSVSaverWrapper
+from humblerl.callbacks import BasicStats, CSVSaverWrapper
 from utils import Config, TensorBoardLogger
 
 
@@ -82,11 +83,14 @@ class Coach(object):
                                                   initial_epoch=self.global_epoch,
                                                   callbacks=self.train_callbacks)
 
-    def evaluate(self, desc="Evaluation"):
+    def evaluate(self, desc="Evaluation", render_mode=False, n_games=None):
         """Evaluation phase, check how good current mind is.
 
         Args:
             desc (str): Progress bar description.
+            render_mode (bool): Enable rendering game. (Default: False)
+            n_games (int): How many games to play. If None, then value is taken from config.
+                (Default: None)
 
         Note:
             `self.scoreboard` should measure and keep performance of mind
@@ -95,9 +99,9 @@ class Coach(object):
         # Clear current agent tree and evaluate it
         self.current_mind.clear_tree()
         hrl.loop(self.env, self.current_mind, self.vision, policy='deterministic', train_mode=False,
-                 debug_mode=self.cfg.debug, n_episodes=self.cfg.self_play['n_tournaments'],
-                 name=desc, verbose=2,
-                 callbacks=[self.scoreboard, *self.eval_callbacks])
+                 debug_mode=self.cfg.debug, render_mode=render_mode,
+                 n_episodes=n_games if n_games else self.cfg.self_play['n_tournaments'], name=desc,
+                 verbose=2, callbacks=[self.scoreboard, *self.eval_callbacks])
 
     def update_best(self, best_score):
         """Updates best score and saves current nn as new best.
@@ -133,8 +137,15 @@ class Builder(metaclass=ABCMeta):
         self.cfg = config
         self.coach = None
 
-    def direct(self):
-        """Direct AlphaZero coach building process."""
+    def direct(self, best_ckpt=None, current_ckpt=None):
+        """Direct AlphaZero coach building process.
+
+        Args:
+            best_ckpt (string): Path to best agent nn weights. If None, then newest ckpt file in
+                ckpt dir from config is taken. (Default: None)
+            current_ckpt (string): Path to current agent (trained one) nn weights. If None, then the
+                weights are copied from best nn. (Default: None)
+        """
 
         self.coach = Coach()
         self.coach.cfg = self.cfg
@@ -147,22 +158,29 @@ class Builder(metaclass=ABCMeta):
         self.build_scoreboard()
         self.build_callbacks()
 
-        # Load best nn if available
+        # Load best nn checkpoint if available
         try:
-            ckpt_path = utils.get_newest_ckpt_fname(
-                self.cfg.logging['save_checkpoint_folder'])
-            self.coach.best_nn.load_checkpoint(
-                self.cfg.logging['save_checkpoint_folder'], ckpt_path)
-            log.info("Best mind has loaded latest checkpoint: %s",
-                     utils.get_newest_ckpt_fname(self.cfg.logging['save_checkpoint_folder']))
+            if best_ckpt:
+                ckpt_path = best_ckpt
+            else:
+                ckpt_dir = self.cfg.logging['save_checkpoint_folder']
+                ckpt_path = os.path.join(ckpt_dir, utils.get_newest_ckpt_fname(ckpt_dir))
+
+            self.coach.best_nn.load_checkpoint(ckpt_path)
             self.coach.global_epoch = utils.get_checkpoints_epoch(ckpt_path)
             self.coach.best_score = utils.get_checkpoints_elo(ckpt_path)
-        except:
+
+            log.info("Best mind has loaded latest checkpoint: %s", ckpt_path)
+        except BaseException:
             log.info("No initial checkpoint, starting tabula rasa.")
             self.build_metadata()
 
-        # Copy best nn weights to current nn that will be trained
-        self.coach.current_nn.model.set_weights(self.coach.best_nn.model.get_weights())
+        if current_ckpt:
+            # Load current nn checkpoint
+            self.coach.current_nn.load_checkpoint(current_ckpt)
+        else:
+            # Copy best nn weights to current nn that will be trained
+            self.coach.current_nn.model.set_weights(self.coach.best_nn.model.get_weights())
 
         return self.coach
 
@@ -200,7 +218,7 @@ class Builder(metaclass=ABCMeta):
 
 
 class BoardGameBuilder(Builder):
-    """ALphaZero coach builder for board games."""
+    """AlphaZero coach builder for board games."""
 
     def build_env(self):
         self.coach.env = self.cfg.env

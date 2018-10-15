@@ -9,4 +9,4 @@ pandas==0.23.3
 scikit-optimize==0.5.2
 autopep8==1.3.5
 matplotlib==2.2.3
--e git+https://github.com/piojanu/humblerl.git@8e29a55afe709c31d48943e38bac62f560dc7155#egg=humblerl
+-e git+https://github.com/piojanu/humblerl.git@921b30983c01d5c8c4a99a10ddd68d928a461f8a#egg=humblerl
