@@ -8,14 +8,6 @@ or Go Bang (Gomoku).
 ## Getting started
 Clone this repository and install requirements: `pip install -r requirements.txt`
 
-(Optionally) If you haven't initialized HumbleRL yet:
-```bash
-git submodule init
-git submodule update
-cd third_party/humblerl
-pip install -r requirements.txt
-```
-
 ## Basic usage
 `python run.py [OPTIONS] COMMAND ARGS`
 
@@ -35,6 +27,8 @@ Parameters used in training and evaluation are stored in JSON config.
 
 By default, `config.json` will be used. To obtain a basic
 config, copy `config.json.dist` to `config.json` or link it to `run.py` by a `-c PATH` option.
+
+If you don't specify some parameter in .json config, then default value from `config.json.dist` is used.
 
 ### Neural Network
 AlphaZero is based on Monte Carlo Tree Search (MCTS) that uses a neural network for policy (prior probability, pi) 
@@ -150,8 +144,21 @@ Command-line options:
 ```
 
 ### Hyperparameter optimization
-We can perform automatic hyperparameter optimization to find optimal values for our parameters. 
-All hyperparameters (except loss function) passed to config as list are optimized.
+We can perform automatic hyperparameter optimization to find optimal values for our neural net hyperparameters.
+To do this, set their values in config to lists. In list you need to pass two integers or floats. This is range in
+which optimiser will search for optimal parameters. You can also pass list of strings. Then optimiser will search for
+optimal parameter from those. Example:
+```
+"neural_net": {
+     ...
+     "residual_num"             : [1, 5],
+     "feature_extractor"        : ["agz", "avgpool", "flatten"],
+     "lr"                       : [0.00001, 0.1],
+     ...
+ }
+```
+
+"loss" parameter is not affected and can't be searched for.
 
 To perform hyperparameter optimization, run:
 
