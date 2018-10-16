@@ -1,4 +1,3 @@
-import click
 import logging as log
 import numpy as np
 import os.path
@@ -6,15 +5,13 @@ import humblerl as hrl
 import utils
 
 from abc import ABCMeta, abstractmethod
-from keras.callbacks import EarlyStopping, TensorBoard
-from tabulate import tabulate
+from keras.callbacks import TensorBoard
 
 from algos.alphazero import Planner
-from algos.board_games import AdversarialMinds, BoardRender, BoardStorage, BoardVision, Tournament, ELOScoreboard
-from algos.human import HumanPlayer
+from algos.board_games import AdversarialMinds, BoardStorage, BoardVision
 from nn import build_keras_nn, KerasNet
+from metrics import Tournament
 from humblerl.callbacks import BasicStats, CSVSaverWrapper
-from utils import Config, TensorBoardLogger
 
 
 class Coach(object):
@@ -83,11 +80,12 @@ class Coach(object):
                                                   initial_epoch=self.global_epoch,
                                                   callbacks=self.train_callbacks)
 
-    def evaluate(self, desc="Evaluation", render_mode=False, n_games=None):
+    def evaluate(self, desc="Evaluation", tournament_mode=False, render_mode=False, n_games=None):
         """Evaluation phase, check how good current mind is.
 
         Args:
             desc (str): Progress bar description.
+            tournament_mode (bool): If current agent should be compared to best too or only evaluated.
             render_mode (bool): Enable rendering game. (Default: False)
             n_games (int): How many games to play. If None, then value is taken from config.
                 (Default: None)
@@ -103,7 +101,12 @@ class Coach(object):
                  n_episodes=n_games if n_games else self.cfg.self_play['n_tournaments'], name=desc,
                  verbose=2, callbacks=[self.scoreboard, *self.eval_callbacks])
 
-    def update_best(self, best_score):
+        if tournament_mode:
+            current_score, is_better = self.scoreboard.unwrapped.compare(self.best_score)
+            if is_better:
+                self._update_best(current_score)
+
+    def _update_best(self, best_score):
         """Updates best score and saves current nn as new best.
 
         Args:
@@ -250,7 +253,8 @@ class BoardGameBuilder(Builder):
 
     def build_scoreboard(self):
         self.coach.scoreboard = CSVSaverWrapper(
-            Tournament(), self.cfg.logging['save_tournament_log_path'], True)
+            Tournament(self.cfg.self_play["update_threshold"]),
+            self.cfg.logging['save_tournament_log_path'], True)
 
     def build_callbacks(self):
         self.coach.play_callbacks = [

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 import humblerl as hrl
 import logging as log
 import numpy as np
@@ -10,9 +11,10 @@ from keras.callbacks import EarlyStopping, TensorBoard
 from tabulate import tabulate
 
 from algos.alphazero import Planner
-from algos.board_games import AdversarialMinds, BoardRender, BoardStorage, BoardVision, Tournament, ELOScoreboard
+from algos.board_games import AdversarialMinds, BoardRender, BoardStorage, BoardVision, ELOScoreboard
 from algos.human import HumanPlayer
 from coach import BoardGameBuilder
+from metrics import Tournament
 from nn import build_keras_nn, KerasNet
 from humblerl.callbacks import BasicStats, CSVSaverWrapper
 
@@ -86,21 +88,7 @@ def self_play(ctx):
             continue
 
         coach.train()
-        coach.evaluate("Tournament " + iter_counter_str)
-
-        # TODO: Think how can you move best agent selection logic into coach (whole with
-        #       ELO calculation and logging too). Pack it all to "selection" phase!
-        wins, losses, draws = coach.scoreboard.unwrapped.results
-        if wins > 0 and float(wins) / (wins + losses) > cfg.self_play["update_threshold"]:
-            # Update ELO rating, use best player ELO as current player ELO
-            # NOTE: We update it this way as we don't need exact ELO values, we just need to see
-            #       how much if at all has current player improved.
-            #       Decision based on: https://github.com/gcp/leela-zero/issues/354
-            best_elo, _ = ELOScoreboard.calculate_update(
-                coach.best_score, coach.best_score, wins, losses, draws)
-            best_elo = int(best_elo)
-
-            coach.update_best(best_elo)
+        coach.evaluate("Tournament " + iter_counter_str, tournament_mode=True)
 
         # Log current player's score
         tb_logger.log_scalar("Best score", coach.best_score, iteration)
@@ -230,7 +218,7 @@ def clash(ctx, first_model_path, second_model_path, render, n_games):
     """
 
     cfg, builder = ctx.obj
-    coach = builder.direct(first_model_path, second_model_path)
+    coach = builder.direct(current_ckpt=first_model_path, best_ckpt=second_model_path)
 
     coach.scoreboard = Tournament()
     coach.evaluate(
@@ -260,16 +248,16 @@ def human_play(ctx, model_path, n_games):
     cfg, builder = ctx.obj
     coach = builder.direct(model_path)
 
-    coach.current_mind.players[-1] = HumanPlayer(cfg.mdp)
+    coach.current_mind.players[1] = HumanPlayer(cfg.mdp)
     coach.eval_callbacks.append(BoardRender(cfg.env, render=True, fancy=True))
     coach.scoreboard = Tournament()
 
     coach.evaluate(
-        desc="Test models: {} vs HUMAN".format(model_path.split("/")[-1]),
+        desc="Test models: Human vs. {}".format(model_path.split("/")[-1]),
         n_games=n_games
     )
 
-    log.info("%s vs HUMAN results: %s",
+    log.info("Human vs. %s results: %s",
              model_path.split("/")[-1],
              coach.scoreboard.results)
 

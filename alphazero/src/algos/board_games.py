@@ -104,42 +104,6 @@ class BoardStorage(Storage):
         return (transition.state[0], transition.reward, self._recent_action_probs)
 
 
-class Tournament(Callback):
-    """Calculates winning rates of player one (wannabe) and player two (best) and draws.
-
-    Note:
-        This is supposed to be used with board games.
-    """
-
-    def on_loop_start(self):
-        self.reset()
-
-    def on_step_taken(self, step, transition, info):
-        if transition.is_terminal:
-            # NOTE: Because players have fixed player id, and reward is returned from perspective
-            #       of current player, we transform it into perspective of player one and check
-            #       who wins.
-            player = transition.state[1]
-            reward = player * transition.reward
-            if reward == 0:
-                self.draws += 1
-            elif reward > 0:
-                self.wannabe += 1
-            else:
-                self.best += 1
-
-    def reset(self):
-        self.wannabe, self.best, self.draws = 0, 0, 0
-
-    @property
-    def metrics(self):
-        return {"wannabe": self.wannabe, "best": self.best, "draws": self.draws}
-
-    @property
-    def results(self):
-        return self.wannabe, self.best, self.draws
-
-
 class ELOScoreboard(object):
     """Calculates and keeps players ELO statistics.
 
