@@ -8,7 +8,7 @@
         "residual_kernel"          : 3,
         "residual_num"             : 3,
         "feature_extractor"        : "agz",
-        "dense_size"               : 512,
+        "dense_size"               : 256,
         "loss"                     : ["categorical_crossentropy", "mean_squared_error"],
         "l2_regularizer"           : 0.0001,
         "lr"                       : 0.02,
@@ -44,7 +44,7 @@
         "min_examples"             : 2000,
         "policy_warmup"            : 12,
         "n_self_plays"             : 100,
-        "n_tournaments"            : 10,
+        "n_tournaments"            : 50,
         "update_threshold"         : 0.55
      }
 }
