@@ -145,7 +145,7 @@ def get_model_path_if_exists(path, default_path, model_name):
         if os.path.exists(default_path):
             path = default_path
         else:
-            log.info("{} weights in \"{}\" doesn't exist! Starting tabula rasa.".format(model_name, path))
+            log.info("%s weights in \"%s\" doesn't exist! Starting tabula rasa.", model_name, path)
     elif not os.path.exists(path):
         raise ValueError("{} weights in \"{}\" path doesn't exist!".format(model_name, path))
     return path

@@ -52,8 +52,7 @@ class Storage(Callback):
         path = self.save_data_path
         folder = os.path.dirname(path)
         if not os.path.exists(folder):
-            log.warn(
-                "Examples store directory does not exist! Creating directory {}".format(folder))
+            log.warning("Examples store directory does not exist! Creating directory %s", folder)
             os.makedirs(folder)
 
         with open(path, "wb+") as f:
@@ -79,23 +78,3 @@ class Storage(Callback):
 
     def _create_small_package(self, transition):
         return (transition.state, transition.reward, self._recent_action_probs)
-
-
-class Scoreboard(Callback):
-    """Calculates agent average return from one loop (many episodes) run."""
-
-    def on_loop_start(self):
-        self.reset()
-
-    def on_episode_start(self, episode, train_mode):
-        self.episodes += 1
-
-    def on_step_taken(self, step, transition, info):
-        self.rewards += transition.reward
-
-    def reset(self):
-        self.episodes, self.rewards = 0, 0
-
-    @property
-    def metrics(self):
-        return {"avg. return": self.rewards / self.episodes}

@@ -4,7 +4,7 @@ from callbacks import Storage
 from humblerl import Callback, Mind, Vision
 
 
-class AdversarialMinds(Mind):
+class AdversarialMinds(Mind, Callback):
     """Wraps two minds and dispatch work to appropriate one based on player id in state."""
 
     def __init__(self, one, two):
@@ -34,6 +34,18 @@ class AdversarialMinds(Mind):
 
         board, player = state
         return self.players[player].plan(board, train_mode, debug_mode)
+
+    def clear_tree(self):
+        """Clear search tree of players."""
+
+        self.players[1].clear_tree()
+        self.players[-1].clear_tree()
+
+    def on_episode_start(self, episode, train_mode):
+        """Empty search tree between episodes if in train mode."""
+
+        if train_mode:
+            self.clear_tree()
 
 
 class BoardVision(Vision):
@@ -90,42 +102,6 @@ class BoardStorage(Storage):
 
     def _create_small_package(self, transition):
         return (transition.state[0], transition.reward, self._recent_action_probs)
-
-
-class Tournament(Callback):
-    """Calculates winning rates of player one (wannabe) and player two (best) and draws.
-
-    Note:
-        This is supposed to be used with board games.
-    """
-
-    def on_loop_start(self):
-        self.reset()
-
-    def on_step_taken(self, step, transition, info):
-        if transition.is_terminal:
-            # NOTE: Because players have fixed player id, and reward is returned from perspective
-            #       of current player, we transform it into perspective of player one and check
-            #       who wins.
-            player = transition.state[1]
-            reward = player * transition.reward
-            if reward == 0:
-                self.draws += 1
-            elif reward > 0:
-                self.wannabe += 1
-            else:
-                self.best += 1
-
-    def reset(self):
-        self.wannabe, self.best, self.draws = 0, 0, 0
-
-    @property
-    def metrics(self):
-        return {"wannabe": self.wannabe, "best": self.best, "draws": self.draws}
-
-    @property
-    def results(self):
-        return self.wannabe, self.best, self.draws
 
 
 class ELOScoreboard(object):
