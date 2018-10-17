@@ -123,7 +123,7 @@ class Planner(Callback, Mind):
                 sum_probs = np.sum(probs)
                 if sum_probs <= 0:
                     # If all valid moves were masked make all valid moves equally probable
-                    log.warn("All valid moves were masked, do workaround!")
+                    log.warning("All valid moves were masked, do workaround!")
                     probs[valid_moves] = 1
                 # Normalize probabilities
                 probs = probs / sum_probs
@@ -248,9 +248,9 @@ class Planner(Callback, Mind):
 
     def on_episode_start(self, episode, train_mode):
         """Empty search tree between episodes if in train mode."""
+
         if train_mode:
             self.clear_tree()
-        return {}
 
     def _debug_log(self, root, metrics):
         # Evaluate root state

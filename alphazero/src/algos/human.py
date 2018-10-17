@@ -49,3 +49,7 @@ class HumanPlayer(hrl.Mind):
             logits[np.where(available_actions_board.flatten() == action)] = 1.0
 
         return logits, {}
+
+    def clear_tree(self):
+        """Dummy method to comply with AdversarialMind requirements."""
+        pass
