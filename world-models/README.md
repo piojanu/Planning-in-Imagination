@@ -184,9 +184,9 @@ Best model will be saved to and loaded from `ckpt_path`.
 ## Evaluation
 After training all the components of our World Model, we can put it all together and evaluate it on the game we chose.
 
-To do this using models specified in config, run:
+To do this on CPU, using models specified in config, run:
 
-`python -c config.json eval`
+`CUDA_VISIBLE_DEVICES= python run.py -c config.json eval`
 
 Command-line options:
 

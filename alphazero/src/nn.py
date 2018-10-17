@@ -247,15 +247,19 @@ def build_keras_nn(game, params):
 
     # Tower of residual blocks
     if residual_filters > 0:
+        if conv_filters != residual_filters:
+            # Add additional layer to even out the number of filters between input CNN
+            # and residual blocks, so that residual shortcut connection works properly
+            x = conv2d_n_batchnorm(x, filters=residual_filters, kernel_size=residual_kernel,
+                                   strides=1)
         for _ in range(residual_num):
-            x = residual_block(x, residual_filters,
-                               residual_bottleneck, residual_kernel)
+            x = residual_block(x, residual_filters, residual_bottleneck, residual_kernel)
 
     # Final feature extractors
     if feature_extractor == "agz":
         pi = Flatten()(conv2d_n_batchnorm(x, filters=2, kernel_size=1, strides=1))
         value = Flatten()(conv2d_n_batchnorm(x, filters=1, kernel_size=1, strides=1))
-        value = Dense(256, activation='relu',
+        value = Dense(dense_size, activation='relu',
                       kernel_regularizer=l2(l2_reg))(value)
     elif feature_extractor == "avgpool":
         x = GlobalAveragePooling2D(data_format=DATA_FORMAT)(x)
