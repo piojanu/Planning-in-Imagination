@@ -7,7 +7,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
-from third_party.humblerl import Callback, Vision
+from humblerl import Callback, Vision
 from third_party.torchtrainer import TorchTrainer
 from torch.distributions import Normal
 from torch.utils.data import Dataset

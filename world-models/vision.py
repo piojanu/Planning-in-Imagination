@@ -4,7 +4,7 @@ import keras.backend as K
 import numpy as np
 import os.path
 
-from third_party.humblerl import Vision
+from humblerl import Vision
 from keras.layers import Conv2D, Conv2DTranspose, Dense, Flatten, Input, Lambda, Reshape
 from keras.models import Model
 from keras.optimizers import Adam

@@ -9,8 +9,8 @@ env:
   - FOLDER=world-models
 install:
   - pip install pycodestyle
-  - (cd $FOLDER/scripts; ./install_dependencies.sh >install.log && cat install.log)
+  - pip install -r requirements.txt > install.log; cat install.log
 script:
   - pycodestyle . --exclude=humblerl,alphazero/src/games/ --ignore E501
-  - (cd $FOLDER; pytest)
+  - pytest
   - (cd $FOLDER/scripts; ./run_cmds.sh)
