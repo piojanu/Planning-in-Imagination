@@ -19,19 +19,19 @@
         "hidden_units"     : 256,
         "n_gaussians"      : 5,
         "temperature"      : 1.15,
-        "epochs"           : 300,
+        "epochs"           : 10,
         "learning_rate"    : 0.01,
         "patience"         : 25,
-        "ckpt_path"        : "./checkpoints_n_logs/best_memory.ckpt",
-        "logs_dir"         : "./checkpoints_n_logs"
+        "ckpt_path"        : "./checkpoints/test/best_memory.ckpt",
+        "logs_dir"         : "./checkpoints/test"
     },
     "es_training": {
-        "epochs"           : 300,
-        "popsize"          : 64,
-        "n_episodes"       : 5,
+        "epochs"           : 2,
+        "popsize"          : 2,
+        "n_episodes"       : 1,
         "processes"        : -1,
         "l2_decay"         : 0.01,
-        "ckpt_path"        : "./checkpoints_n_logs/best_controller.ckpt",
-        "logs_dir"         : "./checkpoints_n_logs"
+        "ckpt_path"        : "./checkpoints/test/best_controller.ckpt",
+        "logs_dir"         : "./checkpoints/test"
     }
 }

@@ -14,4 +14,14 @@ run_test record_vae -n 1 ${VAE_FILE}
 
 run_test train_vae ${VAE_FILE}
 
+MEMORY_FILE=${CKPT_DIR}/memory.npz
+
+run_test record_mem -n 1 ${MEMORY_FILE}
+
+run_test train_mem ${MEMORY_FILE}
+
+run_test train_ctrl
+
+run_test eval -n 1
+
 rm -rf checkpoints
