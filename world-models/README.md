@@ -152,9 +152,9 @@ the Controller. The training is performed using
 [Covariance-Matrix Adaptation Evolution Strategy](http://blog.otoro.net/2017/10/29/visual-evolution-strategies/) (CMA-ES),
 which can be easily parallelized on CPU.
 
-To train the Controller on CPU, run:
+To train the Controller, run:
 
-`CUDA_VISIBLE_DEVICES= python run.py -c config.json train_ctrl`
+`python run.py -c config.json train_ctrl`
 
 Config options:
 
@@ -172,6 +172,7 @@ Config options:
 ```
 
 Best model will be saved to and loaded from `ckpt_path`.
+Note: When number of processes is different than 1 then Controller's training is executed only on CPUs.
 
 ## Evaluation
 After training all the components of our World Model, we can put it all together and evaluate it on the game we chose.

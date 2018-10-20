@@ -161,7 +161,7 @@ def create_directory(dirname):
         os.makedirs(dirname)
 
 
-def hide_gpus():
+def force_cpu():
     """Force using CPU"""
 
     os.environ['CUDA_VISIBLE_DEVICES'] = ''
