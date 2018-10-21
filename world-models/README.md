@@ -172,7 +172,7 @@ Config options:
 ```
 
 Best model will be saved to and loaded from `ckpt_path`.
-Note: When number of processes is different than 1 then Controller's training is executed only on CPUs.
+Note: Controller's training is executed only on CPUs.
 
 ## Evaluation
 After training all the components of our World Model, we can put it all together and evaluate it on the game we chose.

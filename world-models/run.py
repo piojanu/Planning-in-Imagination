@@ -338,9 +338,8 @@ def train_ctrl(ctx, vae_path, mdn_path):
     processes = config.es['processes']
     processes = processes if processes > 0 else None
 
-    if processes is None or processes > 1:
-        # We will spawn multiple workers, we don't want them to access GPU
-        force_cpu()
+    # We will spawn multiple workers, we don't want them to access GPU
+    force_cpu()
 
     # Get action space size
     env = hrl.create_gym(config.general['game_name'])
