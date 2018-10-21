@@ -1,6 +1,7 @@
 import numpy as np
 
 from humblerl import Callback, Environment, MDP
+from humblerl.environments import Discrete
 
 
 class GameMDP(MDP):
@@ -15,6 +16,7 @@ class GameMDP(MDP):
 
         self._game = game
         self._first_player = 1
+        self._action_space = Discrete(num=game.getActionSize())
 
     def transition(self, state, action):
         """Perform `action` in `state`. Return outcome.
@@ -76,9 +78,9 @@ class GameMDP(MDP):
 
     @property
     def action_space(self):
-        """int: Number of actions."""
+        """Discrete: Discrete action space."""
 
-        return self._game.getActionSize()
+        return self._action_space
 
     @property
     def state_space(self):
@@ -119,6 +121,7 @@ class GameEnv(Callback, Environment):
         self._first_player = 1
         self._last_action = -1
         self._last_player = -1
+        self._action_space = Discrete(num=game.getActionSize())
 
     def step(self, action):
         next_state = self._game.getNextState(*self.current_state, action)
@@ -196,9 +199,13 @@ class GameEnv(Callback, Environment):
 
     @property
     def action_space(self):
-        """int: Number of actions."""
+        """Get action space definition.
 
-        return self._game.getActionSize()
+        Returns:
+            Discrete: Discrete action space.
+        """
+
+        return self._action_space
 
     @property
     def state_space(self):
