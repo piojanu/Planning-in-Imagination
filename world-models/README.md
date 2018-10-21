@@ -7,14 +7,6 @@ framework. Allows to easily train a world model on [OpenAI Gym](https://gym.open
 ## Getting started
 Clone this repository and install requirements: `pip install -r requirements.txt`
 
-(Optionally) If you haven't initialized HumbleRL yet:
-```bash
-git submodule init
-git submodule update
-cd third_party/humblerl
-pip install -r requirements.txt
-```
-
 ## Basic usage
 `python run.py [OPTIONS] COMMAND ARGS`
 
