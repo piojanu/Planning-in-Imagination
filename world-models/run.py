@@ -5,15 +5,16 @@ import os
 import click
 import h5py as h5
 import numpy as np
-import third_party.humblerl as hrl
+import humblerl as hrl
 
 from functools import partial
-from third_party.humblerl.agents import RandomAgent
-from third_party.humblerl.callbacks import StoreStates2Hdf5
+from humblerl.agents import RandomAgent
+from humblerl.callbacks import StoreStates2Hdf5
 from tqdm import tqdm
+import tensorflow
 from controller import build_es_model, Evaluator, ReturnTracker
 from memory import build_rnn_model, MDNDataset, MDNVision, StoreTrajectories2npz
-from utils import Config, HDF5DataGenerator, TqdmStream, state_processor, create_directory
+from utils import Config, HDF5DataGenerator, TqdmStream, state_processor, create_directory, force_cpu
 from vision import build_vae_model, VAEVision
 
 
@@ -336,6 +337,9 @@ def train_ctrl(ctx, vae_path, mdn_path):
     # Gen number of workers to run
     processes = config.es['processes']
     processes = processes if processes > 0 else None
+
+    # We will spawn multiple workers, we don't want them to access GPU
+    force_cpu()
 
     # Get action space size
     env = hrl.create_gym(config.general['game_name'])

@@ -4,10 +4,10 @@ import numpy as np
 import os.path
 import pickle
 import bz2
-import third_party.humblerl as hrl
+import humblerl as hrl
 
 from functools import partial
-from third_party.humblerl import Callback, Mind, Worker
+from humblerl import Callback, Mind, Worker
 from memory import build_rnn_model, MDNVision
 from utils import state_processor
 from vision import build_vae_model
