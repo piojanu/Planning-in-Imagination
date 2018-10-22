@@ -1,13 +1,7 @@
-# Transfer Learning In Model-based Reinforcement Learning
+# Planning (using great AlphaZero algorithm) and learning from raw pixels observations (using World Models to model dynamics)
 
-Nowadays AI agents are highly specialized in solving specific problems. Those models are typically trained in separation, without sharing knowledge which is noneffective. Huge amount of effort is put into research aiming at transfer learning, that is using knowledge obtained in one problem when solving other related problems.  
-Goal of this project is to evaluate method of transfer learning between different Atari games via generative models described [here](https://blog.openai.com/requests-for-research-2/).
-
-## Road map
-1. **Until end of April:** Study model-based reinforcement learning and generative models.
-2. **Until end of June:** Proof of concept - Model-based agent (using generative model) for Atari games.
-3. **Until end of July:** Transfer Learning experiments at an advanced stage, work ended or nearly ended.
-4. **Until end of August:** Paper finished, applying for participation in conferences!
+If World Models controller was able to train solely in imagination, then maybe representation it creates from pixels is sufficient for AlphaZero to be applied in closed environments (without access to env. dynamic).  
+We want to leverage great planning power of AlphaZero in high-dim. environments where agent don't have access to game rules i.e. agent have to learn from observations. We want to use World Models to create compact representation of the environment that could be used to train dynamics model and then finally AlphaZero algorithm. More [here](https://www.evernote.com/l/AjgnLgyX35FE1bJNn6InNWcZFDGi8f5ShEg).
 
 ## Repository organization
 
