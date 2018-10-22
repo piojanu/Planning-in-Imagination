@@ -13,7 +13,7 @@ import torch
 import torch.nn as nn
 import torch.utils.data
 
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 from tqdm import tqdm
 
 
@@ -244,21 +244,26 @@ class TorchTrainer(object):
 
         Args:
             optimizer (torch.optim.Optimizer): Parameters optimizer.
-            loss (func): Loss function with signature `func(pred, target) -> scalar tensor`, where
-                `pred` is PyTorch module output (can be tuple if multiple outputs) and `target`
-                is target labels/values from provided data (can be tuple if multiple targets).
-            metrics (list): List of functions with the same signature as loss. Those metrics will be
-                evaluated on each training and validation batch. Final value is always average
-                over all batches. (Default: always loss)
+            loss (func or dict): Loss function with signature `func(pred, target) -> scalar tensor`,
+                where `pred` is PyTorch module output (can be tuple if multiple outputs) and
+                `target` is target labels/values from provided data (can be tuple if multiple
+                targets). Also, can be dictionary of such functions. Then outputs have to be
+                OrderedDict. Outputs are then mapped to losses based on keys (strings!) and to
+                targets based on order.
+            metrics (list or dict): List of functions with the same signature as loss. Those metrics
+                will be evaluated on each training and validation batch. Final value (after epoch)
+                is always average over all batches. Can be dictionary of such lists. Look above in
+                loss docstring for mapping specifics. (Default: None)
         """
 
         self.optim = optimizer
         self.loss = loss
-        self.metrics = {}
-        if metrics is not None:
-            for metric in metrics:
-                self.metrics[metric.__name__] = metric
+        self.metrics = metrics or ({} if isinstance(loss, dict) else [])
 
+        assert isinstance(loss, dict) == isinstance(metrics, dict), \
+            "Both loss and metrics have to be dict or not together."
+
+        self._is_multi_loss = isinstance(loss, dict)
         self._is_compiled = True
 
     def evaluate(self, data, target, batch_size=64, verbose=0):
@@ -304,13 +309,14 @@ class TorchTrainer(object):
 
         # Evaluate on whole dataset
         results_avg = defaultdict(float)
-        for iter_t, (data, target) in enumerate(
-                tqdm(data_loader, ascii=True, desc="Evaluate", disable=(not verbose))):
-            data = [d.to(self.device, non_blocking=True) for d in data]
-            target = [t.to(self.device, non_blocking=True) for t in target]
+        with tqdm(data_loader, ascii=True, disable=(not verbose), bar_format='{n_fmt}/{total_fmt} [{bar}] ETA: {remaining}, {rate_fmt}{postfix}') as pbar:
+            for iter_t, (data, target) in enumerate(pbar):
+                data = [d.to(self.device, non_blocking=True) for d in data]
+                target = [t.to(self.device, non_blocking=True) for t in target]
 
-            results_tmp, _ = self._eval_metrics(data, target)
-            self._average_metrics(results_avg, results_tmp, iter_t)
+                _, results_tmp = self._eval_loss_n_metrics(data, target)
+                self._average_metrics(results_avg, results_tmp, iter_t)
+                pbar.set_postfix({k: "{:.4f}".format(v) for k, v in results_avg.items()})
 
         return results_avg
 
@@ -396,8 +402,8 @@ class TorchTrainer(object):
 
                 # Train on whole dataset
                 results_avg = defaultdict(float)
-                with tqdm(data_loader, ascii=True, desc="{:2d}/{}".format(epoch + 1, epochs),
-                          disable=(not verbose)) as pbar:
+                tqdm.write('Epoch {:2d}/{}'.format(epoch + 1, epochs))
+                with tqdm(data_loader, ascii=True, disable=(not verbose), bar_format='{n_fmt}/{total_fmt} [{bar}] ETA: {remaining}, {rate_fmt}{postfix}') as pbar:
                     for iter_t, (data, target) in enumerate(pbar):
                         callbacks_list.on_batch_begin(iter_t, data[0].size(0))
                         data = [d.to(self.device, non_blocking=True) for d in data]
@@ -405,7 +411,7 @@ class TorchTrainer(object):
 
                         self.optim.zero_grad()
 
-                        results_tmp, loss = self._eval_metrics(data, target)
+                        loss, results_tmp = self._eval_loss_n_metrics(data, target)
                         self._average_metrics(results_avg, results_tmp, iter_t)
 
                         loss.backward()
@@ -417,7 +423,7 @@ class TorchTrainer(object):
                             results_val = self.evaluate_loader(validation_loader)
                             results_avg = self._merge_results(results_avg, results_val)
 
-                        pbar.set_postfix(results_avg)
+                        pbar.set_postfix({k: "{:.4f}".format(v) for k, v in results_avg.items()})
 
                 callbacks_list.on_epoch_end(epoch, results_avg)
                 if self._early_stop:
@@ -469,7 +475,7 @@ class TorchTrainer(object):
         for key, value in tmp.items():
             avg[key] += (value - avg[key]) / (iter_t + 1)
 
-    def _eval_metrics(self, data, target):
+    def _eval_loss_n_metrics(self, data, target):
         """Evaluate PyTorch module with all metrics.
 
         Args:
@@ -477,22 +483,38 @@ class TorchTrainer(object):
             target (np.ndarray): Batch of true values/targets.
 
         Return:
+            torch.Tensor: Module loss on given batch. In multi loss case it's sum of partial losses.
             dict: Metrics evaluation results, keys are metrics' names.
-            torch.Tensor: Module loss on given batch.
         """
 
-        # Unpack if target is list with only one element
-        if isinstance(target, (list, tuple)) and len(target) == 1:
-            target = target[0]
-
+        results = {}
         pred = self.model(*data)
-        loss = self.loss(pred, target)
 
-        results = {'loss': loss.item()}
-        for key, func in self.metrics.items():
-            results[key] = func(pred, target).item()
+        if self._is_multi_loss:
+            assert isinstance(pred, OrderedDict), \
+                "For multi loss case module output have to be OrderedDict."
 
-        return results, loss
+            losses = []
+            for (key, output), label in zip(pred.items(), target):
+                losses.append(self.loss[key](output, label))
+                results[key + "_loss"] = losses[-1].item()
+
+                for func in self.metrics[key]:
+                    results[key + "_" + func.__name__] = func(output, label).item()
+
+            # NOTE: It has to be `torch.tensor` not `torch.Tensor` to preserve types.
+            loss = sum(losses)
+        else:
+            # Unpack if target is list with only one element
+            if len(target) == 1:
+                target = target[0]
+
+            loss = self.loss(pred, target)
+            for func in self.metrics:
+                results[func.__name__] = func(pred, target).item()
+
+        results['loss'] = loss.item()
+        return loss, results
 
     @staticmethod
     def _merge_results(train_r, val_r):
