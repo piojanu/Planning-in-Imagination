@@ -14,8 +14,8 @@ from keras.optimizers import Adam
 from utils import get_model_path_if_exists
 
 
-class StoreStates2Hdf5(Callback):
-    """Save transitions to HDF5 file in three datasets:
+class StoreVaeTransitions(Callback):
+    """Save transitions to HDF5 file in one dataset:
         * 'states': Keeps transition's state (e.g. image).
         Datasets are organized in such a way, that you can access transition 'I' by accessing
         'I'-th position in all three datasets.
