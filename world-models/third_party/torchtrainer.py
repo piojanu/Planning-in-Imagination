@@ -260,7 +260,7 @@ class TorchTrainer(object):
         self.loss = loss
         self.metrics = metrics or ({} if isinstance(loss, dict) else [])
 
-        assert isinstance(loss, dict) == isinstance(metrics, dict), \
+        assert isinstance(self.loss, dict) == isinstance(self.metrics, dict), \
             "Both loss and metrics have to be dict or not together."
 
         self._is_multi_loss = isinstance(loss, dict)
@@ -318,7 +318,7 @@ class TorchTrainer(object):
                 self._average_metrics(results_avg, results_tmp, iter_t)
                 pbar.set_postfix({k: "{:.4f}".format(v) for k, v in results_avg.items()})
 
-        return results_avg
+        return dict(results_avg)
 
     def fit(self, data, target, batch_size=64, epochs=1, verbose=1, callbacks=None,
             validation_split=0.0, validation_data=None, shuffle=True, initial_epoch=0):
@@ -392,7 +392,7 @@ class TorchTrainer(object):
         self._prepare()
 
         # Create callbacks list
-        callbacks_list = CallbackList(callbacks, trainer=self)
+        callbacks_list = CallbackList(callbacks or [], trainer=self)
 
         try:
             # Train for # epochs
@@ -402,7 +402,8 @@ class TorchTrainer(object):
 
                 # Train on whole dataset
                 results_avg = defaultdict(float)
-                tqdm.write('Epoch {:2d}/{}'.format(epoch + 1, epochs))
+                if verbose:
+                    tqdm.write('Epoch {:2d}/{}'.format(epoch + 1, epochs))
                 with tqdm(data_loader, ascii=True, disable=(not verbose), bar_format='{n_fmt}/{total_fmt} [{bar}] ETA: {remaining}, {rate_fmt}{postfix}') as pbar:
                     for iter_t, (data, target) in enumerate(pbar):
                         callbacks_list.on_batch_begin(iter_t, data[0].size(0))
@@ -499,10 +500,12 @@ class TorchTrainer(object):
                 losses.append(self.loss[key](output, label))
                 results[key + "_loss"] = losses[-1].item()
 
+                if key not in self.metrics:
+                    continue
+
                 for func in self.metrics[key]:
                     results[key + "_" + func.__name__] = func(output, label).item()
 
-            # NOTE: It has to be `torch.tensor` not `torch.Tensor` to preserve types.
             loss = sum(losses)
         else:
             # Unpack if target is list with only one element
@@ -561,6 +564,89 @@ class TorchTrainer(object):
         self._early_stop = False
         if not self._is_compiled:
             raise ValueError("You need to compile Trainer before using it!")
+
+
+def test_one_loss():
+    import numpy as np
+    import torch.optim as optim
+    import pytest
+
+    np.random.seed(7)
+    torch.manual_seed(7)
+
+    X = np.random.rand(100, 2).astype(np.float32)
+    y = X[:, 0] * X[:, 0] + X[:, 1] * X[:, 1]
+
+    class Net(nn.Module):
+        def __init__(self):
+            super(Net, self).__init__()
+
+            self.h = nn.Linear(2, 2)
+            self.out = nn.Linear(2, 1)
+
+        def forward(self, x):
+            hidden = torch.tanh(self.h(x))
+            return self.out(hidden)
+
+    def l2(pred, target):
+        return sum((target - pred)**2)
+
+    net = TorchTrainer(Net())
+    net.compile(
+        optimizer=optim.SGD(net.model.parameters(), lr=1e-3, momentum=0.9),
+        loss=nn.MSELoss(),
+        metrics=[l2]
+    )
+    net.fit(X, y[:, np.newaxis], epochs=25, verbose=0)
+
+    metrics = net.evaluate(X, y[:, np.newaxis], verbose=0)
+    assert np.allclose(metrics["loss"], 0.135, atol=1.e-3)
+    assert np.allclose(metrics["l2"], 6.708, atol=1.e-3)
+
+
+def test_multi_loss():
+    import numpy as np
+    import torch.optim as optim
+    import pytest
+
+    from collections import OrderedDict
+
+    np.random.seed(7)
+    torch.manual_seed(7)
+
+    X = np.random.rand(100, 2).astype(np.float32)
+    y_1 = X[:, 0] * X[:, 0] + X[:, 1] * X[:, 1]
+    y_2 = X[:, 0] + X[:, 1]
+
+    class Net(nn.Module):
+        def __init__(self):
+            super(Net, self).__init__()
+
+            self.h = nn.Linear(2, 3)
+            self.out_1 = nn.Linear(3, 1)
+            self.out_2 = nn.Linear(3, 1)
+
+        def forward(self, x):
+            hidden = torch.tanh(self.h(x))
+            return OrderedDict([("out_1", self.out_1(hidden)), ("out_2", self.out_2(hidden))])
+
+    def l2(pred, target):
+        return sum((target - pred)**2)
+
+    net = TorchTrainer(Net())
+    net.compile(
+        optimizer=optim.SGD(net.model.parameters(), lr=1e-3, momentum=0.9),
+        loss={"out_1": nn.MSELoss(), "out_2": nn.L1Loss()},
+        metrics={"out_1": [l2], "out_2": [l2]}
+    )
+    net.fit(X, [y_1[:, np.newaxis], y_2[:, np.newaxis]], epochs=40, verbose=0)
+
+    metrics = net.evaluate(X, [y_1[:, np.newaxis], y_2[:, np.newaxis]], verbose=0)
+    assert np.allclose(metrics["out_1_loss"], 0.116, atol=1.e-3)
+    assert np.allclose(metrics["out_2_loss"], 0.283, atol=1.e-3)
+    assert np.allclose(metrics["out_1_l2"], 5.771, atol=1.e-3)
+    assert np.allclose(metrics["out_2_l2"], 5.494, atol=1.e-3)
+    assert np.allclose(metrics["loss"], 0.399, atol=1.e-3)
 
 
 if __name__ == "__main__":
