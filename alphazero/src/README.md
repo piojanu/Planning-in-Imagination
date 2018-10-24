@@ -1,7 +1,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 # AlphaZero
-Implementation of [AlphaZero paper](https://arxiv.org/abs/1712.01815) using [HumbleRL](https://github.com/piojanu/humblerl) 
+Implementation of [AlphaZero paper](https://arxiv.org/abs/1712.01815) using [HumbleRL](https://github.com/piojanu/humblerl)
 framework. Allows to easily train an AlphaZero model to play board games, such as Tic-Tac-Toe, Othello, Connect 4
 or Go Bang (Gomoku).
 
@@ -18,21 +18,21 @@ Commands correspond to different actions you can perform with `run.py`.
 
 To see available commands, run: `python run.py --help`.
 
-To see command-level help, run: `python run.py -c <config_path> COMMAND --help`.
+To see command-level help, run: `python run.py COMMAND --help`.
 
 Commands are described below, in context of training an AlphaZero model from scratch.
 
 ## Config
 Parameters used in training and evaluation are stored in JSON config.
 
-By default, `config.json` will be used. To obtain a basic
-config, copy `config.json.dist` to `config.json` or link it to `run.py` by a `-c PATH` option.
+By default, `config.json.dist` will be used. To customize configuration you can provide your own config using option `-c PATH`.
+Default custom config filename is `config.json`.
 
 If you don't specify some parameter in .json config, then default value from `config.json.dist` is used.
 
 ### Neural Network
-AlphaZero is based on Monte Carlo Tree Search (MCTS) that uses a neural network for policy (prior probability, pi) 
-and value predictions. 
+AlphaZero is based on Monte Carlo Tree Search (MCTS) that uses a neural network for policy (prior probability, pi)
+and value predictions.
 
 Neural network is structured like this:
 
@@ -67,11 +67,11 @@ Actions are chosen by performing simulations with MCTS, which uses Upper Confide
 
 Config parameters:
 ```
-"planner": { 
+"planner": {
     "c"                        : 1.0,       -- UCT exploration-exploitation trade-off param
     "dirichlet_noise"          : 0.3,       -- Dirichlet noise added to root prior
     "noise_ratio"              : 0.25,      -- Noise contribution to prior probabilities (Default: 0.25)
-    "gamma"                    : -1.0,      -- Discounting factor for value. In 2-player zero-sum games (like board games) 
+    "gamma"                    : -1.0,      -- Discounting factor for value. In 2-player zero-sum games (like board games)
                                             -- opponents' returns are mutual negations, so gamma should be < 0.
     "n_simulations"            : 50,        -- Number of simulations to perform before choosing action, can be "inf" if timeout is set.
     "timeout"                  : "inf"      -- Timeout value for performing simulations, can be "inf" if n_simulations is set.
@@ -97,7 +97,7 @@ For training the NN, we need to store some transitions.
 
 Config parameters:
 ```
-"storage": { 
+"storage": {
     "exp_replay_size"          : 200000,                        -- Maximum number of transitions that can be stored.
     "save_data_path"           : "./checkpoints/data.examples"  -- Path to where the storage is saved.
 }
@@ -112,7 +112,7 @@ the new model beats the previous best in tournament (number of games against eac
 
 To perform self-play, run:
 
-`python run.py -c config.json self_play`
+`python run.py self_play`
 
 Config parameters:
 ```
@@ -120,7 +120,7 @@ Config parameters:
     "game"                     : "othello",     -- Game name: tictactoe/othello/connect4/gobang
     "max_iter"                 : -1,            -- Number of self-play iterations, -1 means infinite
     "min_examples"             : 2000,          -- Minimum examples that must be gathered to train the NN
-    "policy_warmup"            : 12,            -- Number of steps that policy is 'proportional' (weighted random) 
+    "policy_warmup"            : 12,            -- Number of steps that policy is 'proportional' (weighted random)
                                                 -- before switching to 'deterministic'
     "n_self_plays"             : 100,           -- Number of episodes played in each self-play loop
     "n_tournaments"            : 50,            -- Number of tournament games between current and previous best NN.
@@ -130,11 +130,11 @@ Config parameters:
 ```
 
 ### Neural Network training outside of self-play
-Neural network can be trained outside of self-play using stored examples gathered during previous self-play. 
+Neural network can be trained outside of self-play using stored examples gathered during previous self-play.
 
 To perform NN training, run:
 
-`python run.py -c config.json train -save checkpoints/`
+`python run.py train -save checkpoints/`
 
 Command-line options:
 ```
@@ -162,7 +162,7 @@ optimal parameter from those. Example:
 
 To perform hyperparameter optimization, run:
 
-`python run.py -c config.json hopt`
+`python run.py hopt`
 
 Command-line options:
 ```
@@ -177,7 +177,7 @@ Test two model's checkpoints by playing a number of games between them.
 
 To perform clash, run:
 
-`python -c config.json clash <first_ckpt_path> <second_ckpt_path>`
+`python clash <first_ckpt_path> <second_ckpt_path>`
 
 Command-line options:
 ```
@@ -189,12 +189,12 @@ second_ckpt_path     - Path to first model's checkpoint
 ```
 
 ### Cross-play
-Perform a tournament between the model's checkpoints, which play a number of games between each other. 
+Perform a tournament between the model's checkpoints, which play a number of games between each other.
 At the end, a table with game results and ELO is displayed.
 
 To perform cross-play, run:
 
-`python -c config.json cross-play`
+`python cross-play`
 
 Command-line options:
 ```
@@ -207,7 +207,7 @@ Play a number of games against a trained model.
 
 To play against a model, run:
 
-`python -c config.json human_play <model_ckpt_path>`
+`python human_play <model_ckpt_path>`
 
 Command-line options:
 ```
