@@ -11,6 +11,11 @@ from skimage.transform import resize
 from tqdm import tqdm
 
 
+def mute_tf_logs_if_needed():
+    if "TF_CPP_MIN_LOG_LEVEL" not in os.environ:
+        os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+
+
 class Config(object):
     def __init__(self, config_path, is_debug, allow_render):
         """Loads custom configuration, unspecified parameters are taken from default configuration.
@@ -20,7 +25,7 @@ class Config(object):
             is_debug (bool): Specify to enable debugging features
             allow_render (bool): Specify to enable render/plot features
         """
-
+        mute_tf_logs_if_needed()
         with open(os.path.join(os.path.dirname(__file__), "config.json.dist")) as config_file:
             default_config = json.loads(config_file.read())
 

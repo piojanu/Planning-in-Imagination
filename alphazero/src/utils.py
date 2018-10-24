@@ -8,6 +8,11 @@ from env import GameEnv, GameMDP
 from games import *  # This allows to create every game from games
 
 
+def mute_tf_logs_if_needed():
+    if "TF_CPP_MIN_LOG_LEVEL" not in os.environ:
+        os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+
+
 class Config(object):
     def __init__(self, config_path, debug=False):
         """Loads custom configuration, unspecified parameters are taken from default configuration.
@@ -17,6 +22,7 @@ class Config(object):
             debug (boolean): Specify to enable debugging features
         """
 
+        mute_tf_logs_if_needed()
         with open(os.path.join(os.path.dirname(__file__), "config.json.dist")) as config_file:
             default_config = json.loads(config_file.read())
 
