@@ -15,7 +15,14 @@ import tensorflow
 from controller import build_es_model, Evaluator, ReturnTracker
 from memory import build_rnn_model, MDNDataset, MDNVision, StoreTrajectories2npz
 from utils import Config, HDF5DataGenerator, TqdmStream, state_processor, create_directory, force_cpu
+from utils import limit_gpu_memory_usage
 from vision import build_vae_model, VAEVision
+
+
+def obtain_config(ctx, use_gpu=True):
+    if use_gpu:
+        limit_gpu_memory_usage()
+    return ctx.obj
 
 
 @click.group()
@@ -49,7 +56,7 @@ def cli(ctx, config_path, debug, quiet, render):
 def record_vae(ctx, path, n_games, chunk_size, state_dtype):
     """Plays chosen game randomly and records transitions to hdf5 file in `PATH`."""
 
-    config = ctx.obj
+    config = obtain_config(ctx)
 
     # Create Gym environment, random agent and store to hdf5 callback
     env = hrl.create_gym(config.general['game_name'])
@@ -74,7 +81,7 @@ def train_vae(ctx, path):
     """Train VAE model as specified in .json config with data at `PATH`."""
 
     from keras.callbacks import EarlyStopping, LambdaCallback, ModelCheckpoint
-    config = ctx.obj
+    config = obtain_config(ctx)
 
     # Get dataset length and eight examples to evaluate VAE on
     with h5.File(path, 'r') as hfile:
@@ -175,7 +182,7 @@ def record_mem(ctx, path, model_path, n_games):
     """Plays chosen game randomly and records preprocessed with VAE (loaded from `model_path`
     or config) states, next_states and actions trajectories to numpy archive file in `PATH`."""
 
-    config = ctx.obj
+    config = obtain_config(ctx)
 
     # Create Gym environment, random agent and store to hdf5 callback
     env = hrl.create_gym(config.general['game_name'])
@@ -205,7 +212,7 @@ def train_mem(ctx, path, vae_path):
 
     from third_party.torchtrainer import EarlyStopping, LambdaCallback, ModelCheckpoint
     from torch.utils.data import DataLoader
-    config = ctx.obj
+    config = obtain_config(ctx)
 
     env = hrl.create_gym(config.general['game_name'])
 
@@ -329,7 +336,7 @@ def train_ctrl(ctx, vae_path, mdn_path):
     """Plays chosen game and trains Controller on preprocessed states with VAE and MDN-RNN
     (loaded from `vae_path` or `mdn_path`)."""
 
-    config = ctx.obj
+    config = obtain_config(ctx, use_gpu=False)
 
     # Book keeping variables
     best_return = float('-inf')
@@ -395,7 +402,7 @@ def eval(ctx, vae_path, mdn_path, cma_path, n_games):
     """Plays chosen game testing whole pipeline: VAE -> MDN-RNN -> CMA-ES
     (loaded from `vae_path`, `mdn_path` and `cma-path`)."""
 
-    config = ctx.obj
+    config = obtain_config(ctx)
 
     # Gen number of workers to run
     processes = config.es['processes']

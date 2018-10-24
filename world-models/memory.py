@@ -52,6 +52,9 @@ class MDNVision(Vision, Callback):
     def on_step_taken(self, step, transition, info):
         state = torch.from_numpy(transition.state[:self.latent_dim]).view(1, 1, -1)
         action = torch.from_numpy(np.array([transition.action])).view(1, 1, -1)
+        if torch.cuda.is_available():
+            state = state.cuda()
+            action = action.cuda()
         self.mdn_model(state, action)
 
 

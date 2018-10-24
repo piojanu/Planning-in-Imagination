@@ -3,7 +3,9 @@ import h5py as h5
 import numpy as np
 import os
 import logging as log
+import tensorflow as tf
 
+from keras.backend.tensorflow_backend import set_session
 from keras.utils import Sequence
 from skimage.transform import resize
 from tqdm import tqdm
@@ -149,6 +151,18 @@ def get_model_path_if_exists(path, default_path, model_name):
     elif not os.path.exists(path):
         raise ValueError("{} weights in \"{}\" path doesn't exist!".format(model_name, path))
     return path
+
+
+def limit_gpu_memory_usage():
+    """This function makes that we don't allocate more graphics memory than we need.
+       For TensorFlow, we need to set `alow_growth` flag to True.
+       For PyTorch, this is the default behavior.
+
+    """
+
+    tf_config = tf.ConfigProto()
+    tf_config.gpu_options.allow_growth = True
+    set_session(tf.Session(config=tf_config))
 
 
 def create_directory(dirname):
