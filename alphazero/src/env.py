@@ -199,11 +199,7 @@ class GameEnv(Callback, Environment):
 
     @property
     def action_space(self):
-        """Get action space definition.
-
-        Returns:
-            Discrete: Discrete action space.
-        """
+        """Discrete: Discrete action space."""
 
         return self._action_space
 

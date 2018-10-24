@@ -90,7 +90,9 @@ class StoreTrajectories2npz(Callback):
         num_episodes = len(self._episod_lengths)
 
         if len(np.shape(self._actions)) == 2:
-            # Add aditional axis for discrete actions
+            # NOTE: Add aditional axis for discrete actions, which are kept in 2D list:
+            #       [episodes, actions], since continuous actions are kept in 3D list:
+            #       [episodes, actions, action parameters]
             self._actions = np.expand_dims(self._actions, axis=-1)
 
         states = np.zeros((num_episodes, longest_episode, *self._states[0][0].shape))
