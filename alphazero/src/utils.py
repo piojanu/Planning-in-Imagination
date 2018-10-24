@@ -9,19 +9,19 @@ from games import *  # This allows to create every game from games
 
 
 class Config(object):
-    def __init__(self, config, debug=False):
+    def __init__(self, config_path, debug=False):
         """Loads custom configuration, unspecified parameters are taken from default configuration.
 
         Args:
-            config (file): file containing configuration json
-            debug (boolean): specify to enable debugging features
+            config_path (str): Path to .json file with custom configuration
+            debug (boolean): Specify to enable debugging features
         """
 
         with open(os.path.join(os.path.dirname(__file__), "config.json.dist")) as config_file:
             default_config = json.loads(config_file.read())
 
-        if os.path.exists(config):
-            with open(config) as custom_config_file:
+        if os.path.exists(config_path):
+            with open(config_path) as custom_config_file:
                 custom_config = json.loads(custom_config_file.read())
         else:
             custom_config = {}

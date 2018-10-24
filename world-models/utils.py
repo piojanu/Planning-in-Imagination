@@ -24,8 +24,8 @@ class Config(object):
         with open(os.path.join(os.path.dirname(__file__), "config.json.dist")) as config_file:
             default_config = json.loads(config_file.read())
 
-        if os.path.exists(config):
-            with open(config) as custom_config_file:
+        if os.path.exists(config_path):
+            with open(config_path) as custom_config_file:
                 custom_config = json.loads(custom_config_file.read())
         else:
             custom_config = {}
