@@ -87,10 +87,10 @@ class CMAES:
 
 
 class Evaluator(Worker):
-    def __init__(self, config, state_size, action_size, vae_path, mdn_path):
+    def __init__(self, config, state_size, action_space, vae_path, mdn_path):
         self.config = config
         self.state_size = state_size
-        self.action_size = action_size
+        self.action_space = action_space
         self.vae_path = vae_path
         self.mdn_path = mdn_path
 
@@ -102,7 +102,7 @@ class Evaluator(Worker):
         self._vision = self._vision_factory()
 
     def mind_factory(self, weights):
-        mind = LinearModel(self.state_size, self.action_size)
+        mind = LinearModel(self.state_size, self.action_space)
         mind.set_weights(weights)
         return mind
 
@@ -123,7 +123,7 @@ class Evaluator(Worker):
         # Build MDN-RNN model and load checkpoint
         rnn = build_rnn_model(self.config.rnn,
                               self.config.vae['latent_space_dim'],
-                              self.action_size,
+                              self.action_space,
                               self.mdn_path)
 
         # Resizes states to `state_shape` with cropping and encode to latent space + hidden state
@@ -137,14 +137,20 @@ class Evaluator(Worker):
 class LinearModel(Mind):
     """Simple linear regression agent."""
 
-    def __init__(self, input_dim, output_dim):
+    def __init__(self, input_dim, action_space):
         self.in_dim = input_dim
-        self.out_dim = output_dim
+        self.action_space = action_space
+        self.out_dim = action_space.num
+        self.is_discrete = isinstance(action_space, hrl.environments.Discrete)
 
         self.weights = np.zeros((self.in_dim + 1, self.out_dim))
 
     def plan(self, state, train_mode, debug_mode):
-        return np.concatenate((state, [1.])) @ self.weights
+        action_vec = np.concatenate((state, [1.])) @ self.weights
+        # Discrete: Treat action_vec as logits and pass them to humblerl
+        # Continuous: Treat action_vec as action to perform and use tanh
+        #             to bound its values to [-1, 1]
+        return action_vec if self.is_discrete else np.tanh(action_vec)
 
     def set_weights(self, weights):
         self.weights[:] = weights.reshape(self.in_dim + 1, self.out_dim)
@@ -168,13 +174,13 @@ class ReturnTracker(Callback):
         return {"return": self.ret}
 
 
-def build_es_model(es_params, input_dim, action_size, model_path=None):
+def build_es_model(es_params, input_dim, action_space, model_path=None):
     """Builds linear regression controller model and CMA-ES solver.
 
     Args:
         es_params (dict): CMA-ES training parameters from .json config.
         input_dim (int): Should be vision latent space dim. + memory hidden state size.
-        action_size (int): Size of action shape.
+        action_space (hrl.environments.ActionSpace): Action space, discrete or continuous.
         model_path (str): Path to CMA-ES ckpt. Taken from .json config if `None` (Default: None)
 
     Returns:
@@ -182,7 +188,7 @@ def build_es_model(es_params, input_dim, action_size, model_path=None):
         LinearModel: HumbleRL 'Mind' with weights set to ones from checkpoint if available.
     """
 
-    mind = LinearModel(input_dim, action_size)
+    mind = LinearModel(input_dim, action_space)
 
     model_path = get_model_path_if_exists(
         path=model_path, default_path=es_params['ckpt_path'], model_name="CMA-ES")

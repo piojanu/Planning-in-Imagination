@@ -19,7 +19,7 @@ class HumanPlayer(hrl.Mind):
 
         if valid_actions.size == 1 and state.size in valid_actions:
             # You have no other available actions then skip move
-            logits = np.zeros(self.mdp.action_space, dtype=np.float32)
+            logits = np.zeros(self.mdp.action_space.num, dtype=np.float32)
             logits[-1] = 1.0
         else:
             # Create a board with available actions represented as int values from 1 to n_actions.
@@ -45,7 +45,7 @@ class HumanPlayer(hrl.Mind):
                     print("Please input a valid integer!")
 
             # Create "logits" with all elements equal to 0, and taken action equal to 1.
-            logits = np.zeros(self.mdp.action_space, dtype=np.float32)
+            logits = np.zeros(self.mdp.action_space.num, dtype=np.float32)
             logits[np.where(available_actions_board.flatten() == action)] = 1.0
 
         return logits, {}
