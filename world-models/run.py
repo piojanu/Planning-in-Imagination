@@ -27,7 +27,7 @@ def obtain_config(ctx, use_gpu=True):
 
 @click.group()
 @click.pass_context
-@click.option('-c', '--config-path', type=click.Path(exists=True), default="config.json",
+@click.option('-c', '--config-path', type=click.Path(exists=False), default="config.json",
               help="Path to configuration file (Default: config.json)")
 @click.option('--debug/--no-debug', default=False, help="Enable debug logging (Default: False)")
 @click.option('--quiet/--no-quiet', default=False, help="Disable info logging (Default: False)")

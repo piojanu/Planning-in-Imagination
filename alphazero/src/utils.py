@@ -20,7 +20,11 @@ class Config(object):
         with open(os.path.join(os.path.dirname(__file__), "config.json.dist")) as config_file:
             default_config = json.loads(config_file.read())
 
-        custom_config = json.loads(config.read())
+        if os.path.exists(config):
+            with open(config) as custom_config_file:
+                custom_config = json.loads(custom_config_file.read())
+        else:
+            custom_config = {}
 
         # Merging default and custom configs, for repeating keys, key-value pairs from second dict are taken
         self.nn = {**default_config["neural_net"], **custom_config.get("neural_net", {})}

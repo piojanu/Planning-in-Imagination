@@ -21,7 +21,7 @@ from humblerl.callbacks import BasicStats, CSVSaverWrapper
 
 @click.group()
 @click.pass_context
-@click.option('-c', '--config', type=click.File('r'),
+@click.option('-c', '--config', type=click.Path(exists=False),
               help="Path to configuration file (Default: config.json)", default="config.json")
 @click.option('--debug/--no-debug', help="Enable debug logging (Default: False)", default=False)
 def cli(ctx, config, debug):

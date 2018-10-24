@@ -8,6 +8,8 @@ run_test () {
   python $MAIN_SCRIPT_PATH -c $CONFIG_FILE ${@:1:99} >test_${1}.log 2>error_${1}.log && echo "$1 succeeded" || { cat test_${1}.log && cat error_${1}.log && echo "$1 failed" && exit 1; }
 }
 
+python $MAIN_SCRIPT_PATH record_vae --help
+
 VAE_FILE=${CKPT_DIR}/vae.hdf5
 
 run_test record_vae -n 1 ${VAE_FILE}

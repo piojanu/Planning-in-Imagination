@@ -21,10 +21,14 @@ class Config(object):
             allow_render (bool): Specify to enable render/plot features
         """
 
-        with open(os.path.join(os.path.dirname(__file__), "config.json.dist")) as f:
-            default_config = json.loads(f.read())
-        with open(config_path) as f:
-            custom_config = json.loads(f.read())
+        with open(os.path.join(os.path.dirname(__file__), "config.json.dist")) as config_file:
+            default_config = json.loads(config_file.read())
+
+        if os.path.exists(config):
+            with open(config) as custom_config_file:
+                custom_config = json.loads(custom_config_file.read())
+        else:
+            custom_config = {}
 
         # Merging default and custom configs, for repeating keys second dict overwrites values
         self.general = {**default_config["general"], **custom_config.get("general", {})}

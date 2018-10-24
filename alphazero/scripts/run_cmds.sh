@@ -8,6 +8,8 @@ run_test () {
   python $MAIN_SCRIPT_PATH -c $CONFIG_FILE ${@:1:99} >test_${1}.log 2>error_${1}.log && echo "$1 succeeded" || { cat test_${1}.log && cat error_${1}.log && echo "$1 failed" && exit 1; }
 }
 
+python $MAIN_SCRIPT_PATH self_play --help
+
 run_test self_play
 
 run_test cross_play -d $CKPT_DIR
