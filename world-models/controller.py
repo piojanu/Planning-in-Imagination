@@ -49,6 +49,7 @@ class CMAES:
             popsize (int)        : Population size. (Default: 100)
             weight_decay (float) : L2 weight decay rate. (Default: 0.01)
         """
+
         self.weight_decay = weight_decay
         self.population = None
 
