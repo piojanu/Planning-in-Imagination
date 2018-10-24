@@ -187,7 +187,7 @@ def record_mem(ctx, path, model_path, n_games):
     env = hrl.create_gym(config.general['game_name'])
     mind = RandomAgent(env)
     store_callback = StoreMemTransitions(path, latent_dim=config.vae['latent_space_dim'],
-                                         action_dim=env.action_space.num)
+                                         action_space=env.action_space)
 
     # Build VAE model
     vae, encoder, _ = build_vae_model(config.vae, config.general['state_shape'], model_path)

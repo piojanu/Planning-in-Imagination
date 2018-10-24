@@ -77,12 +77,12 @@ class StoreMemTransitions(Callback):
         * 'LATENT_DIM': VAE's latent dimension.
         * 'ACTION_DIM': Action's dimension (1 for discrete).
     """
-    def __init__(self, out_path, latent_dim, action_dim=1, min_transitions=10000, chunk_size=128):
+    def __init__(self, out_path, latent_dim, action_space, min_transitions=10000, chunk_size=128):
         self.out_path = out_path
         self.dataset_size = min_transitions
         self.min_transitions = min_transitions
         self.latent_dim = latent_dim
-        self.action_dim = action_dim
+        self.action_dim = action_space.num if isinstance(action_space, hrl.environments.Continuous) else 1
         self.transition_count = 0
         self.game_count = 0
 
@@ -97,7 +97,7 @@ class StoreMemTransitions(Callback):
         self.out_file.attrs["N_GAMES"] = 0
         self.out_file.attrs["CHUNK_SIZE"] = chunk_size
         self.out_file.attrs["LATENT_DIM"] = latent_dim
-        self.out_file.attrs["ACTION_DIM"] = action_dim
+        self.out_file.attrs["ACTION_DIM"] = self.action_dim
 
         # Create datasets
         self.out_states = self.out_file.create_dataset(
@@ -105,8 +105,8 @@ class StoreMemTransitions(Callback):
             shape=(self.dataset_size, 2, latent_dim), maxshape=(None, 2, latent_dim),
             compression="lzf")
         self.out_actions = self.out_file.create_dataset(
-            name="actions", dtype=np.int, chunks=(chunk_size, action_dim),
-            shape=(self.dataset_size, action_dim), maxshape=(None, action_dim),
+            name="actions", dtype=np.int, chunks=(chunk_size, self.action_dim),
+            shape=(self.dataset_size, self.action_dim), maxshape=(None, self.action_dim),
             compression="lzf")
         self.out_episodes = self.out_file.create_dataset(
             name="episodes", dtype=np.int, chunks=(chunk_size,),
@@ -238,7 +238,6 @@ class MDN(nn.Module):
     def forward(self, latent, action):
         self.lstm.flatten_parameters()
         sequence_len = latent.size(1)
-
         if self.embedding:
             # Use one-hot representation for discrete actions
             x = torch.cat((latent, self.embedding(action).squeeze(dim=2)), dim=2)
