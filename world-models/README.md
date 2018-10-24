@@ -1,7 +1,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 # World-Models
-Reimplementation of [World Models](https://worldmodels.github.io) using [HumbleRL](https://github.com/piojanu/humblerl) 
+Reimplementation of [World Models](https://worldmodels.github.io) using [HumbleRL](https://github.com/piojanu/humblerl)
 framework. Allows to easily train a world model on [OpenAI Gym](https://gym.openai.com/) environments.
 
 ## Getting started
@@ -13,15 +13,19 @@ Clone this repository and install requirements: `pip install -r requirements.txt
 To see script-level help, run: `python run.py --help`.
 
 ### Config
-To use any of the commands, you need to have a JSON config. By default, `config.json` will be used. To obtain a basic
-config, copy `config.json.dist` to `config.json` or link it to `run.py` by a `-c PATH` option.
+Parameters used in training and evaluation are stored in JSON config.
+
+By default, `config.json.dist` will be used. To customize configuration you can provide your own config using option `-c PATH`.
+Default custom config filename is `config.json`.
+
+If you don't specify some parameter in .json config, then default value from `config.json.dist` is used.
 
 ### Commands
 Commands correspond to different actions you can perform with `run.py`.
 
 To see available commands, run: `python run.py --help`.
 
-To see command-level help, run: `python run.py -c <config_path> COMMAND --help`.
+To see command-level help, run: `python run.py COMMAND --help`.
 
 Commands are described below, in context of training a world model from scratch.
 
@@ -36,7 +40,7 @@ World model consists of 3 parts:
 
 _Image taken from original paper._
 
-For more information on World Models, see the original [website](https://worldmodels.github.io) or 
+For more information on World Models, see the original [website](https://worldmodels.github.io) or
 [paper](https://arxiv.org/abs/1803.10122).
 
 ## Training
@@ -51,8 +55,8 @@ The general parameters are described here, the rest is covered within appropriat
     "game_name"        : "Boxing-v0",            -- Name of the game we want to play (see OpenAI Gym enviroments).
     "state_shape"      : [64, 64, 3],            -- Shape of state (game frame) we want to work on. If frame shape is
                                                  -- different, it will be reshaped before operating on it.
-    "crop_range"       : "[30:183, 28:131, :]"   -- What we want to crop from game frame. Since some games have 
-                                                 -- redundant information (e.g. score, time), we can remove this 
+    "crop_range"       : "[30:183, 28:131, :]"   -- What we want to crop from game frame. Since some games have
+                                                 -- redundant information (e.g. score, time), we can remove this
                                                  -- information by performing the crop operation for every axis.
 }
 ```
@@ -64,13 +68,13 @@ and stored in HDF5 file, that will later be used to train the Vision component.
 
 To record the trajectories to `data/vae.hdf5` file, run:
 
-`python run.py -c config.json record_vae data/vae.hdf5` 
+`python run.py record_vae data/vae.hdf5`
 
 Command-line options:
 
 ```
 -n, --n_games     - Number of games to play (Default: 10000)
--c, --chunk_size  - HDF5 chunk size (Default: 128)  
+-c, --chunk_size  - HDF5 chunk size (Default: 128)
 -t, --state_dtype - Numpy data type of state (Default: uint8)
 ```
 
@@ -81,13 +85,13 @@ which will act as our Vision component.
 
 To train the Vision component, run:
 
-`python run.py -c config.json train_vae data/vae.hdf5` 
+`python run.py train_vae data/vae.hdf5`
 
 Config options:
 
 ```
 "vae_training": {
-    "batch_size"       : 256,  
+    "batch_size"       : 256,
     "latent_space_dim" : 16,                   -- Size of latent space vector, which is the result of feature extraction
                                                -- done by VAE on input observation (game frame).
     "epochs"           : 300,
@@ -108,7 +112,7 @@ file, that will be later used to train the Memory component.
 
 To record the trajectories to `data/mem.npz` file using VAE model specified in config, run:
 
-`python run.py -c config.json record_mem data/mem.npz`
+`python run.py record_mem data/mem.npz`
 
 Command-line options:
 
@@ -124,7 +128,7 @@ act as our Memory component.
 
 To train the Memory component, run:
 
-`python run.py -c config.json train_mem data/mem.npz`
+`python run.py train_mem data/mem.npz`
 
 Config options:
 
@@ -154,7 +158,7 @@ which can be easily parallelized on CPU.
 
 To train the Controller, run:
 
-`python run.py -c config.json train_ctrl`
+`python run.py train_ctrl`
 
 Config options:
 
@@ -179,7 +183,7 @@ After training all the components of our World Model, we can put it all together
 
 To do this on CPU, using models specified in config, run:
 
-`CUDA_VISIBLE_DEVICES= python run.py -c config.json eval`
+`CUDA_VISIBLE_DEVICES= python run.py eval`
 
 Command-line options:
 
