@@ -2,15 +2,12 @@ os: linux
 dist: xenial
 language: python
 python:
-  - "3.5"
   - "3.6"
-env:
-  - FOLDER=alphazero
-  - FOLDER=world-models
 install:
   - pip install pycodestyle
   - pip install -r requirements.txt > install.log; cat install.log
 script:
   - pycodestyle . --exclude=humblerl,alphazero/src/games/ --ignore E501
   - pytest
-  - (cd $FOLDER/scripts; ./run_cmds.sh)
+  - (cd alphazero/scripts; ./run_cmds.sh)
+  - (cd world-models/scripts; ./run_cmds.sh)

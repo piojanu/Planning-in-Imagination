@@ -60,7 +60,7 @@ def record_vae(ctx, path, n_games, chunk_size, state_dtype):
 
     # Create Gym environment, random agent and store to hdf5 callback
     env = hrl.create_gym(config.general['game_name'])
-    mind = RandomAgent(env.action_space)
+    mind = RandomAgent(env)
     store_callback = StoreStates2Hdf5(config.general['state_shape'], path,
                                       chunk_size=chunk_size, dtype=state_dtype)
 
@@ -186,7 +186,7 @@ def record_mem(ctx, path, model_path, n_games):
 
     # Create Gym environment, random agent and store to hdf5 callback
     env = hrl.create_gym(config.general['game_name'])
-    mind = RandomAgent(env.action_space)
+    mind = RandomAgent(env)
     store_callback = StoreTrajectories2npz(path)
 
     # Build VAE model
@@ -214,14 +214,14 @@ def train_mem(ctx, path, vae_path):
     from torch.utils.data import DataLoader
     config = obtain_config(ctx)
 
+    env = hrl.create_gym(config.general['game_name'])
+
     # Load data
     data_npz = np.load(path)
 
     states = data_npz["states"].astype(np.float32)
-    actions = data_npz["actions"].astype(np.int)
+    actions = data_npz["actions"].astype(np.int if env.is_discrete else np.float32)
     lengths = data_npz["lengths"].astype(np.int)
-
-    env = hrl.create_gym(config.general['game_name'])
 
     # Create training DataLoader
     data_loader = DataLoader(
@@ -350,13 +350,13 @@ def train_ctrl(ctx, vae_path, mdn_path):
 
     # Get action space size
     env = hrl.create_gym(config.general['game_name'])
-    action_size = env.action_space
+    action_space = env.action_space
     del env
 
     # Build CMA-ES solver and linear model
     solver, _ = build_es_model(config.es,
                                config.vae['latent_space_dim'] + config.rnn['hidden_units'],
-                               action_size)
+                               action_space)
 
     # Train for N epochs
     pbar = tqdm(range(config.es['epochs']), ascii=True)
@@ -368,7 +368,7 @@ def train_ctrl(ctx, vae_path, mdn_path):
         hists = hrl.pool(
             Evaluator(config,
                       config.vae['latent_space_dim'] + config.rnn['hidden_units'],
-                      action_size, vae_path, mdn_path),
+                      action_space, vae_path, mdn_path),
             jobs=population,
             processes=processes,
             n_episodes=config.es['n_episodes'],
@@ -410,7 +410,6 @@ def eval(ctx, vae_path, mdn_path, cma_path, n_games):
 
     # Get action space size
     env = hrl.create_gym(config.general['game_name'])
-    action_size = len(env.valid_actions)
 
     # Create VAE + MDN-RNN vision
     _, encoder, _ = build_vae_model(config.vae,
@@ -419,7 +418,7 @@ def eval(ctx, vae_path, mdn_path, cma_path, n_games):
 
     rnn = build_rnn_model(config.rnn,
                           config.vae['latent_space_dim'],
-                          action_size,
+                          env.action_space,
                           mdn_path)
 
     vision = MDNVision(encoder, rnn.model, config.vae['latent_space_dim'],
@@ -431,7 +430,7 @@ def eval(ctx, vae_path, mdn_path, cma_path, n_games):
     # Build CMA-ES solver and linear model
     _, mind = build_es_model(config.es,
                              config.vae['latent_space_dim'] + config.rnn['hidden_units'],
-                             action_size,
+                             env.action_space,
                              cma_path)
 
     hist = hrl.loop(env, mind, vision,

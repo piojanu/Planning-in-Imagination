@@ -6,6 +6,7 @@ import os.path
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import humblerl as hrl
 
 from humblerl import Callback, Vision
 from third_party.torchtrainer import TorchTrainer
@@ -91,14 +92,20 @@ class StoreTrajectories2npz(Callback):
         longest_episode = max(self._episod_lengths)
         num_episodes = len(self._episod_lengths)
 
+        if len(np.shape(self._actions)) == 2:
+            # NOTE: Add aditional axis for discrete actions, which are kept in 2D list:
+            #       [episodes, actions], since continuous actions are kept in 3D list:
+            #       [episodes, actions, action parameters]
+            self._actions = np.expand_dims(self._actions, axis=-1)
+
         states = np.zeros((num_episodes, longest_episode, *self._states[0][0].shape))
-        actions = np.zeros((num_episodes, longest_episode, 1))
+        actions = np.zeros((num_episodes, longest_episode, np.shape(self._actions)[-1]))
         lengths = np.zeros((num_episodes, 1))
 
         for idx, (states_seq, actions_seq, length) in enumerate(zip(
                 self._states, self._actions, self._episod_lengths)):
             states[idx, :length, :] = states_seq
-            actions[idx, :length, 0] = actions_seq
+            actions[idx, :length, :] = actions_seq
             lengths[idx] = length
 
         np.savez(os.path.splitext(self.path)[0],  # Strip extension off path (if there is one)
@@ -136,7 +143,7 @@ class MDNDataset(Dataset):
 
         states = torch.zeros(self.sequence_len, self.states.shape[3], dtype=self.states.dtype)
         next_states = torch.zeros(self.sequence_len, self.states.shape[3], dtype=self.states.dtype)
-        actions = torch.zeros(self.sequence_len, 1, dtype=self.actions.dtype)
+        actions = torch.zeros(self.sequence_len, self.actions.shape[-1], dtype=self.actions.dtype)
 
         length = self.lengths[idx]
         # Sample where to start sequence of length `self.sequence_len` in episode `idx`
@@ -162,7 +169,7 @@ class MDNDataset(Dataset):
 
 
 class MDN(nn.Module):
-    def __init__(self, hidden_units, latent_dim, action_size, temperature, n_gaussians, num_layers=1):
+    def __init__(self, hidden_units, latent_dim, action_space, temperature, n_gaussians, num_layers=1):
         super(MDN, self).__init__()
 
         self.hidden_units = hidden_units
@@ -171,8 +178,9 @@ class MDN(nn.Module):
         self.n_gaussians = n_gaussians
         self.num_layers = num_layers
 
-        self.embedding = nn.Embedding.from_pretrained(torch.eye(int(action_size)))
-        self.lstm = nn.LSTM(input_size=(latent_dim + action_size),
+        self.embedding = nn.Embedding.from_pretrained(torch.eye(action_space.num)) \
+            if isinstance(action_space, hrl.environments.Discrete) else None
+        self.lstm = nn.LSTM(input_size=(latent_dim + action_space.num),
                             hidden_size=hidden_units,
                             num_layers=num_layers,
                             batch_first=True)
@@ -184,7 +192,12 @@ class MDN(nn.Module):
         self.lstm.flatten_parameters()
         sequence_len = latent.size(1)
 
-        x = torch.cat((latent, self.embedding(action).squeeze(dim=2)), dim=2)
+        if self.embedding:
+            # Use one-hot representation for discrete actions
+            x = torch.cat((latent, self.embedding(action).squeeze(dim=2)), dim=2)
+        else:
+            # Pass raw action vector for continuous actions
+            x = torch.cat((latent, action.float()), dim=2)
 
         h, self.hidden = self.lstm(x, self.hidden)
 
@@ -207,13 +220,13 @@ class MDN(nn.Module):
         )
 
 
-def build_rnn_model(rnn_params, latent_dim, action_size, model_path=None):
+def build_rnn_model(rnn_params, latent_dim, action_space, model_path=None):
     """Builds MDN-RNN memory module, which model time dependencies.
 
     Args:
         rnn_params (dict): MDN-RNN parameters from .json config.
         latent_dim (int): Latent space dimensionality.
-        action_size (int): Size of action shape.
+        action_space (hrl.environments.ActionSpace): Action space, discrete or continuous.
         model_path (str): Path to VAE ckpt. Taken from .json config if `None` (Default: None)
 
     Returns:
@@ -239,7 +252,7 @@ def build_rnn_model(rnn_params, latent_dim, action_size, model_path=None):
 
         return torch.mean(loss)
 
-    mdn = TorchTrainer(MDN(rnn_params['hidden_units'], latent_dim, action_size,
+    mdn = TorchTrainer(MDN(rnn_params['hidden_units'], latent_dim, action_space,
                            rnn_params['temperature'], rnn_params['n_gaussians']),
                        device_name='cuda' if use_cuda else 'cpu')
 

@@ -240,7 +240,7 @@ class Planner(Callback, Mind):
             self._debug_log(root, metrics)
 
         # Get actions' visit counts
-        actions = np.zeros(self.model.action_space)
+        actions = np.zeros(self.model.action_space.num)
         for action, edge in root.edges.items():
             actions[action] = edge.num_visits
 
@@ -273,7 +273,7 @@ class Planner(Callback, Mind):
 
         # Action size must be multiplication of board width
         BOARD_WIDTH = root.state.shape[1]
-        action_size = self.model.action_space
+        action_size = self.model.action_space.num
         if action_size % BOARD_WIDTH == 1:
             # There is extra 'null' action, ignore it
             # NOTE: For this WA to work 'null' action has to have last idx in the environment!
