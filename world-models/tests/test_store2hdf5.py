@@ -61,8 +61,8 @@ class TestStoreVaeTransitions(object):
         N_TRANSITIONS = 1024
 
         callback = StoreVaeTransitions(STATE_SPACE_SHAPE, self.hdf5_path,
-                                    shuffle=False, min_transitions=MIN_TRANSITIONS,
-                                    chunk_size=CHUNK_SIZE, dtype=np.float)
+                                       shuffle=False, min_transitions=MIN_TRANSITIONS,
+                                       chunk_size=CHUNK_SIZE, dtype=np.float)
         transitions = []
         for idx in range(N_TRANSITIONS):
             transition = Transition(
@@ -95,8 +95,8 @@ class TestStoreVaeTransitions(object):
         N_TRANSITIONS = 48
 
         callback = StoreVaeTransitions(STATE_SPACE_SHAPE, self.hdf5_path,
-                                    shuffle=True, min_transitions=MIN_TRANSITIONS,
-                                    chunk_size=CHUNK_SIZE, dtype=np.float)
+                                       shuffle=True, min_transitions=MIN_TRANSITIONS,
+                                       chunk_size=CHUNK_SIZE, dtype=np.float)
 
         states = []
         next_states = []

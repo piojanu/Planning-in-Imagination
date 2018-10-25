@@ -184,15 +184,15 @@ class MDNDataset(Dataset):
         """Get sequence at random starting position of given sequence length from episode `idx`."""
         offset = 1
 
-        t_start, t_end = self.dataset['episodes'][idx:idx+2]
+        t_start, t_end = self.dataset['episodes'][idx:idx + 2]
         episode_length = t_end - t_start
         # Sample where to start sequence of length `self.sequence_len` in episode `idx`
         # '- offset' because "next states" are offset by 'offset'
         sequence_len = self.sequence_len if self.sequence_len < episode_length else episode_length - 1
         start = t_start + np.random.randint(max(episode_length - sequence_len - offset, 1))
 
-        states_ = torch.from_numpy(self.dataset['states'][start:start+sequence_len+offset])
-        actions_ = torch.from_numpy(self.dataset['actions'][start:start+sequence_len])
+        states_ = torch.from_numpy(self.dataset['states'][start:start + sequence_len + offset])
+        actions_ = torch.from_numpy(self.dataset['actions'][start:start + sequence_len])
 
         states = torch.zeros(self.sequence_len, self.latent_dim, dtype=states_.dtype)
         next_states = torch.zeros(self.sequence_len, self.latent_dim, dtype=states_.dtype)
