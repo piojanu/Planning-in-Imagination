@@ -85,6 +85,7 @@ class StoreMemTransitions(Callback):
         self.action_dim = action_space.num if isinstance(action_space, hrl.environments.Continuous) else 1
         self.transition_count = 0
         self.game_count = 0
+        self.episodes_size = 1000
 
         # Make sure that path to out file exists
         dirname = os.path.dirname(out_path)
@@ -105,12 +106,12 @@ class StoreMemTransitions(Callback):
             shape=(self.dataset_size, 2, latent_dim), maxshape=(None, 2, latent_dim),
             compression="lzf")
         self.out_actions = self.out_file.create_dataset(
-            name="actions", dtype=np.int, chunks=(chunk_size, self.action_dim),
+            name="actions", dtype=action_space.sample().dtype, chunks=(chunk_size, self.action_dim),
             shape=(self.dataset_size, self.action_dim), maxshape=(None, self.action_dim),
             compression="lzf")
         self.out_episodes = self.out_file.create_dataset(
             name="episodes", dtype=np.int, chunks=(chunk_size,),
-            shape=(self.dataset_size + 1,), maxshape=(None,))
+            shape=(self.episodes_size + 1,), maxshape=(None,))
 
         self.states = []
         self.actions = []
@@ -125,6 +126,9 @@ class StoreMemTransitions(Callback):
 
         if transition.is_terminal:
             self.game_count += 1
+            if self.game_count == self.episodes_size:
+                self.episodes_size *= 2
+                self.out_episodes.resize(self.episodes_size, axis=0)
             self.out_episodes[self.game_count] = self.transition_count
 
         if self.transition_count % self.min_transitions == 0:
@@ -144,6 +148,7 @@ class StoreMemTransitions(Callback):
         # Resize datasets if needed
         if self.transition_count > self.dataset_size:
             self.out_states.resize(self.transition_count, axis=0)
+            self.out_actions.resize(self.transition_count, axis=0)
             self.dataset_size = self.transition_count
 
         n_transitions = len(self.states)

@@ -16,7 +16,7 @@ run_test record_vae -n 1 ${VAE_FILE}
 
 run_test train_vae ${VAE_FILE}
 
-MEMORY_FILE=${CKPT_DIR}/memory.npz
+MEMORY_FILE=${CKPT_DIR}/memory.hdf5
 
 run_test record_mem -n 1 ${MEMORY_FILE}
 
