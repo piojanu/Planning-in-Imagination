@@ -176,8 +176,9 @@ def train_vae(ctx, path):
 @click.argument('path', type=click.Path(), required=True)
 @click.option('-m', '--model-path', default=None,
               help='Path to VAE ckpt. Taken from .json config if `None` (Default: None)')
+@click.option('-c', '--chunk-size', default=128, help='HDF5 chunk size (Default: 128)')
 @click.option('-n', '--n-games', default=10000, help='Number of games to play (Default: 10000)')
-def record_mem(ctx, path, model_path, n_games):
+def record_mem(ctx, path, model_path, chunk_size, n_games):
     """Plays chosen game randomly and records preprocessed with VAE (loaded from `model_path`
     or config) states, next_states and actions trajectories to HDF5 file in `PATH`."""
 
@@ -187,7 +188,7 @@ def record_mem(ctx, path, model_path, n_games):
     env = hrl.create_gym(config.general['game_name'])
     mind = RandomAgent(env)
     store_callback = StoreMemTransitions(path, latent_dim=config.vae['latent_space_dim'],
-                                         action_space=env.action_space)
+                                         action_space=env.action_space, chunk_size=chunk_size)
 
     # Build VAE model
     vae, encoder, _ = build_vae_model(config.vae, config.general['state_shape'], model_path)

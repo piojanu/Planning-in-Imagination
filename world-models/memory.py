@@ -60,9 +60,10 @@ class MDNVision(Vision, Callback):
 
 
 class StoreMemTransitions(Callback):
-    """Save transitions for Memory training to HDF5 file in three datasets:
+    """Save transitions for Memory training to HDF5 file in four datasets:
         * 'states': States preprocessed by MDNVision.
         * 'actions': Actions.
+        * 'rewards': Rewards.
         * 'episodes': Indices of each episode (episodes[i] -> start index of episode `i`
                       in states and actions datasets).
 
@@ -74,18 +75,36 @@ class StoreMemTransitions(Callback):
         HDF5 file also keeps meta-informations (attributes) as such:
         * 'N_TRANSITIONS': Datasets size (number of transitions).
         * 'N_GAMES': From how many games those transitions come from.
-        * 'LATENT_DIM': VAE's latent dimension.
-        * 'ACTION_DIM': Action's dimension (1 for discrete).
+        * 'LATENT_DIM': VAE's latent state dimensionality.
+        * 'ACTION_DIM': Action's dimensionality (1 for discrete).
     """
-    def __init__(self, out_path, latent_dim, action_space, min_transitions=10000, chunk_size=128):
+
+    def __init__(self, out_path, latent_dim, action_space, min_transitions=10000, min_episodes=1000, chunk_size=128):
+        """Initialize memory data storage.
+
+        Args:
+            out_path (str): Path to output hdf5 file.
+            latent_dim (int): VAE's latent state dimensionality.
+            action_space (hrl.environments.ActionSpace): Object representing action space,
+                check HumbleRL.
+            min_transitions (int): Minimum expected number of transitions in dataset. If more is
+                gathered, then hdf5 dataset size is expanded.
+            min_episodes (int): Minimum expected number of episodes in dataset. If more is
+                gathered, then hdf5 dataset size is expanded.
+            chunk_size (int): Chunk size in transitions. For efficiency reasons, data is saved
+                to file in chunks to limit the disk usage (chunk is smallest unit that get fetched
+                from disk). For best performance set it to training batch size. (Default: 128)
+        """
+
         self.out_path = out_path
         self.dataset_size = min_transitions
         self.min_transitions = min_transitions
+        self.episodes_size = min_episodes
         self.latent_dim = latent_dim
-        self.action_dim = action_space.num if isinstance(action_space, hrl.environments.Continuous) else 1
+        self.action_dim = action_space.num if isinstance(
+            action_space, hrl.environments.Continuous) else 1
         self.transition_count = 0
         self.game_count = 0
-        self.episodes_size = 1000
 
         # Make sure that path to out file exists
         dirname = os.path.dirname(out_path)
@@ -109,18 +128,24 @@ class StoreMemTransitions(Callback):
             name="actions", dtype=action_space.sample().dtype, chunks=(chunk_size, self.action_dim),
             shape=(self.dataset_size, self.action_dim), maxshape=(None, self.action_dim),
             compression="lzf")
+        self.out_rewards = self.out_file.create_dataset(
+            name="rewards", dtype=np.float32, chunks=(chunk_size,),
+            shape=(self.dataset_size,), maxshape=(None,),
+            compression="lzf")
         self.out_episodes = self.out_file.create_dataset(
             name="episodes", dtype=np.int, chunks=(chunk_size,),
             shape=(self.episodes_size + 1,), maxshape=(None,))
 
         self.states = []
         self.actions = []
+        self.rewards = []
         self.out_episodes[0] = 0
 
     def on_step_taken(self, step, transition, info):
         action = transition.action
         self.states.append(transition.state)
         self.actions.append(action if isinstance(action, np.ndarray) else [action])
+        self.rewards.append(transition.reward)
 
         self.transition_count += 1
 
@@ -149,6 +174,7 @@ class StoreMemTransitions(Callback):
         if self.transition_count > self.dataset_size:
             self.out_states.resize(self.transition_count, axis=0)
             self.out_actions.resize(self.transition_count, axis=0)
+            self.out_rewards.resize(self.transition_count, axis=0)
             self.dataset_size = self.transition_count
 
         n_transitions = len(self.states)
@@ -158,12 +184,14 @@ class StoreMemTransitions(Callback):
 
         self.out_states[start:self.transition_count] = self.states
         self.out_actions[start:self.transition_count] = self.actions
+        self.out_rewards[start:self.transition_count] = self.rewards
 
         self.out_file.attrs["N_TRANSITIONS"] = self.transition_count
         self.out_file.attrs["N_GAMES"] = self.game_count
 
-        self.states = []
-        self.actions = []
+        self.states.clear()
+        self.actions.clear()
+        self.rewards.clear()
 
 
 class MDNDataset(Dataset):
@@ -193,8 +221,11 @@ class MDNDataset(Dataset):
         episode_length = t_end - t_start
         # Sample where to start sequence of length `self.sequence_len` in episode `idx`
         # '- offset' because "next states" are offset by 'offset'
-        sequence_len = self.sequence_len if self.sequence_len < episode_length else episode_length - 1
-        start = t_start + np.random.randint(max(episode_length - sequence_len - offset, 1))
+        sequence_len = self.sequence_len if self.sequence_len <= episode_length - offset \
+            else episode_length - offset
+        # NOTE: np.random.randint takes EXCLUSIVE upper bound of range to sample from, that's why
+        #       one is added.
+        start = t_start + np.random.randint(episode_length - sequence_len - offset + 1)
 
         states_ = torch.from_numpy(self.dataset['states'][start:start + sequence_len + offset])
         actions_ = torch.from_numpy(self.dataset['actions'][start:start + sequence_len])

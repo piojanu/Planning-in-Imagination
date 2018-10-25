@@ -152,14 +152,17 @@ class TestStoreMemTransitions(object):
         action_space = Discrete(3)
         latent_dim = 16
         min_transitions = 96
+        min_episodes = 96
         chunk_size = 48
         n_transitions = 1024
         n_games = n_transitions // 16
 
-        callback = StoreMemTransitions(self.hdf5_path, latent_dim, action_space, min_transitions, chunk_size)
+        callback = StoreMemTransitions(self.hdf5_path, latent_dim, action_space,
+                                       min_transitions, min_episodes, chunk_size)
         transitions = []
         for idx in range(n_transitions):
-            transition = self.get_random_transition(action_space, latent_dim, is_terminal=(idx + 1) % 16 == 0)
+            transition = self.get_random_transition(
+                action_space, latent_dim, is_terminal=(idx + 1) % 16 == 0)
             transitions.append(transition)
             callback.on_step_taken(idx, transition, None)
         callback.on_loop_end(False)
@@ -174,6 +177,7 @@ class TestStoreMemTransitions(object):
         for idx, transition in enumerate(transitions):
             assert np.allclose(h5py_file['states'][idx], transition.state)
             assert h5py_file['actions'][idx][0] == transition.action
+            assert np.allclose(h5py_file['rewards'][idx], transition.reward)
 
         for idx in range(n_games + 1):
             assert h5py_file['episodes'][idx] == idx * 16
@@ -183,14 +187,17 @@ class TestStoreMemTransitions(object):
                                   high=np.array([1.0, 1.0, 1.0]))
         latent_dim = 16
         min_transitions = 96
+        min_episodes = 96
         chunk_size = 48
         n_transitions = 1024
         n_games = n_transitions // 16
 
-        callback = StoreMemTransitions(self.hdf5_path, latent_dim, action_space, min_transitions, chunk_size)
+        callback = StoreMemTransitions(self.hdf5_path, latent_dim, action_space,
+                                       min_transitions, min_episodes, chunk_size)
         transitions = []
         for idx in range(n_transitions):
-            transition = self.get_random_transition(action_space, latent_dim, is_terminal=(idx + 1) % 16 == 0)
+            transition = self.get_random_transition(
+                action_space, latent_dim, is_terminal=(idx + 1) % 16 == 0)
             transitions.append(transition)
             callback.on_step_taken(idx, transition, None)
         callback.on_loop_end(False)
@@ -205,6 +212,7 @@ class TestStoreMemTransitions(object):
         for idx, transition in enumerate(transitions):
             assert np.allclose(h5py_file['states'][idx], transition.state)
             assert np.allclose(h5py_file['actions'][idx], transition.action)
+            assert np.allclose(h5py_file['rewards'][idx], transition.reward)
 
         for idx in range(n_games + 1):
             assert h5py_file['episodes'][idx] == idx * 16
