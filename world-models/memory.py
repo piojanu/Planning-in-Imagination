@@ -1,6 +1,5 @@
 import logging as log
 
-
 import numpy as np
 import torch
 import torch.nn as nn
@@ -8,7 +7,8 @@ import torch.optim as optim
 import h5py
 import humblerl as hrl
 
-from humblerl import Callback, Vision
+from collections import OrderedDict
+from humblerl import Callback, MDP, Vision
 from third_party.torchtrainer import TorchTrainer, evaluate
 from torch.distributions import Normal
 from torch.utils.data import Dataset
@@ -36,7 +36,9 @@ class MDNVision(Vision, Callback):
         self.state_processor_fn = state_processor_fn
 
     def __call__(self, state, reward=0.):
-        return self.process_state(state), reward
+        # NOTE: Rewards are clipped to range from -1 to 1. Memory module NN reward head returns also
+        #       values in (-1, 1) range. It uses tanh activation function. See also VAEVision.
+        return self.process_state(state), np.clip(reward, -1, 1)
 
     def process_state(self, state):
         # NOTE: [0][0] <- it gets first in the batch latent space mean (mu)
@@ -86,18 +88,24 @@ class MDNDataset(Dataset):
         episode_length = t_end - t_start
         # Sample where to start sequence of length `self.sequence_len` in episode `idx`
         # '- offset' because "next states" are offset by 'offset'
-        sequence_len = self.sequence_len if self.sequence_len <= episode_length - offset \
-            else episode_length - offset
+        if self.sequence_len <= episode_length - offset:
+            sequence_len = self.sequence_len
+        else:
+            sequence_len = episode_length - offset
+            log.warning(
+                "Episode %d is too short to form full sequence, data will be zero-padded.", idx)
         # NOTE: np.random.randint takes EXCLUSIVE upper bound of range to sample from, that's why
         #       one is added.
         start = t_start + np.random.randint(episode_length - sequence_len - offset + 1)
 
         states_ = torch.from_numpy(self.dataset['states'][start:start + sequence_len + offset])
         actions_ = torch.from_numpy(self.dataset['actions'][start:start + sequence_len])
+        rewards_ = torch.from_numpy(self.dataset['rewards'][start:start + sequence_len])
 
         states = torch.zeros(self.sequence_len, self.latent_dim, dtype=states_.dtype)
         next_states = torch.zeros(self.sequence_len, self.latent_dim, dtype=states_.dtype)
         actions = torch.zeros(self.sequence_len, self.action_dim, dtype=actions_.dtype)
+        rewards = torch.zeros(self.sequence_len, 1, dtype=rewards_.dtype)
 
         # Sample latent states (this is done to prevent overfitting MDN-RNN to a specific 'z'.)
         mu = states_[:, 0]
@@ -108,8 +116,9 @@ class MDNDataset(Dataset):
         states[:sequence_len] = z_samples[:-offset]
         next_states[:sequence_len] = z_samples[offset:]
         actions[:sequence_len] = actions_
+        rewards[:sequence_len, 0] = rewards_
 
-        return [states, actions], [next_states]
+        return [states, actions], [next_states, rewards]
 
     def __len__(self):
         return self.dataset.attrs["N_GAMES"]
@@ -137,8 +146,9 @@ class MDN(nn.Module):
         self.pi = nn.Linear(hidden_units, n_gaussians * latent_dim)
         self.mu = nn.Linear(hidden_units, n_gaussians * latent_dim)
         self.logsigma = nn.Linear(hidden_units, n_gaussians * latent_dim)
+        self.reward = nn.Linear(hidden_units, 1)
 
-    def forward(self, latent, action):
+    def forward(self, latent, action, hidden=None):
         self.lstm.flatten_parameters()
         sequence_len = latent.size(1)
         if self.embedding:
@@ -148,7 +158,7 @@ class MDN(nn.Module):
             # Pass raw action vector for continuous actions
             x = torch.cat((latent, action.float()), dim=2)
 
-        h, self.hidden = self.lstm(x, self.hidden)
+        h, self.hidden = self.lstm(x, hidden if hidden else self.hidden)
 
         pi = self.pi(h).view(-1, sequence_len, self.n_gaussians, self.latent_dim) / self.temperature
         pi = torch.softmax(pi, dim=2)
@@ -158,9 +168,13 @@ class MDN(nn.Module):
 
         mu = self.mu(h).view(-1, sequence_len, self.n_gaussians, self.latent_dim)
 
-        return mu, sigma, pi
+        # NOTE: Rewards are clipped to range (-1, 1) range using tanh activation function.
+        #       Both MDNVision and VAEVision also clip rewards to value between -1 and 1 inclusive.
+        reward = torch.tanh(self.reward(h))
 
-    def sample(self, latent, action):
+        return OrderedDict([("mdn", (mu, sigma, pi)), ("reward", reward)])
+
+    def sample(self, latent, action, hidden=None):
         """Sample (simulate) next state from Mixture Density Network a.k.a. Gaussian Mixture Model.
 
         Args:
@@ -168,15 +182,20 @@ class MDN(nn.Module):
                 Shape of tensor: batch x sequence x latent dim.
             action (torch.Tensor): Actions to simulate.
                 Shape of tensor: batch x sequence x action dim.
+            hidden (tuple): Memory module (torch.nn.LSTM) hidden state.
 
         Return:
             numpy.ndarray: Latent vector of next state.
                 Shape of array: batch x sequence x latent dim.
+            float: Transition reward.
+
+        Note:
+            You can find next hidden state in this module `hidden` member.
         """
 
         # Simulate transition
         with torch.no_grad(), evaluate(self) as net:
-            mu, sigma, pi = net(latent, action)
+            (mu, sigma, pi), reward = net(latent, action, hidden).values()
 
         # Transform tensors to numpy arrays and move "gaussians mixture" dim to the end
         # NOTE: Arrays will have shape (batch x sequence x latent dim. x num. gaussians)
@@ -194,9 +213,9 @@ class MDN(nn.Module):
         stddev = np.take_along_axis(sigma, choices, axis=-1)
         samples = mean + stddev * np.random.randn(*mean.shape)
 
-        return np.squeeze(samples, axis=-1)
+        return np.squeeze(samples, axis=-1), reward
 
-    def simulate(self, latent, actions):
+    def simulate(self, latent, actions, hidden=None):
         """Simulate environment trajectory.
 
         Args:
@@ -204,16 +223,21 @@ class MDN(nn.Module):
                 Shape of tensor: batch x 1 (sequence dim.) x latent dim.
             actions (torch.Tensor): Tensor with actions to take in simulated trajectory.
                 Shape of tensor: batch x sequence x action dim.
+            hidden (tuple): Memory module (torch.nn.LSTM) hidden state.
 
         Return:
             np.ndarray: Array of latent vectors of simulated trajectory.
                 Shape of array: batch x sequence x latent dim.
+
+        Note:
+            You can find next hidden state in this module `hidden` member.
         """
 
         states = []
         for a in range(actions.shape[1]):
-            # NOTE: We use np.newaxis to preserve shape of tensor
-            states.append(self.sample(latent, actions[:, a, np.newaxis, :]))
+            # NOTE: We use np.newaxis to preserve shape of tensor.
+            # NOTE 2: We only take latent vector, reward is discarded (self.sample(...)[0]).
+            states.append(self.sample(latent, actions[:, a, np.newaxis, :], hidden)[0])
             # NOTE: This is a bit arbitrary to set it to float32 which happens to be type of torch
             #       tensors. It can blow up further in code if we'll choose to change tensors types.
             latent = torch.from_numpy(states[-1]).float().to(next(self.parameters()).device)
@@ -227,6 +251,96 @@ class MDN(nn.Module):
             torch.zeros(self.num_layers, batch_size, self.hidden_units, device=device),
             torch.zeros(self.num_layers, batch_size, self.hidden_units, device=device)
         )
+
+
+class MDNMDP(MDP):
+    """MDP using memory module as dynamics model."""
+
+    def __init__(self, env, mdn_model):
+        """Initialize MDP.
+
+        Args:
+            env (hrl.Environment): Environment for which this MDP is.
+            mdn_model (torch.nn.Module): PyTorch MDN-RNN memory.
+
+        Note:
+            MDN-RNN memory module will change its internal hidden state each time `transition` is
+            called. Remember about it.
+        """
+
+        self.env = env
+        self.mdn_model = mdn_model
+
+    def transition(self, state, action):
+        """Perform `action` in `state`. Return outcome.
+
+        Args:
+            state (tuple): MDP's state (observation latent vector, memory hidden state).
+            action (int): MDP's action.
+
+        Returns:
+            state (tuple): MDP's next state (observation latent vector, memory hidden state).
+            float: Reward.
+        """
+
+        latent, hidden = state
+        next_latent, reward = self.mdn_model.sample(latent, action, hidden)
+        return (next_latent, self.mdn_model.hidden), reward
+
+    def get_init_state(self):
+        """Prepare and return initial state.
+
+        It's not needed and left not implemented.
+        """
+
+        # NOTE: It should take env init state, encode it and return in tuple with zero hidden state,
+        #       but it's left not implemented as long as it's not used anywhere.
+        raise NotImplementedError()
+
+    def get_valid_actions(self, state):
+        """Get available actions in `state`.
+
+        Args:
+            state (tuple): MDP's state (observation latent vector, memory hidden state).
+
+        Returns:
+            np.ndarray: Array with enumerated valid actions for given state.
+        """
+
+        assert self.env.is_discrete, "This MDP works only for discrete action space!"
+        # In OpenAI Gym all of the actions are always valid.
+        return self.env.valid_actions
+
+    def is_terminal_state(self, state):
+        """Check if `state` is terminal.
+
+        Args:
+            state (tuple): MDP's state (observation latent vector, memory hidden state).
+
+        Returns:
+            bool: Whether state is terminal or not.
+        """
+
+        # TODO: In the future add some classification in here.
+        return False
+
+    def action_space(self):
+        """Get action space definition.
+
+        Returns:
+            ActionSpace: Action space, discrete or continuous.
+        """
+
+        return self.env.action_space
+
+    def state_space(self):
+        """Get environment state space definition.
+
+        Returns:
+            object: State space representation depends on model.
+        """
+
+        return self.env.state_space
 
 
 def build_rnn_model(rnn_params, latent_dim, action_space, model_path=None):
@@ -265,8 +379,11 @@ def build_rnn_model(rnn_params, latent_dim, action_space, model_path=None):
                            rnn_params['temperature'], rnn_params['n_gaussians']),
                        device_name='cuda' if use_cuda else 'cpu')
 
-    mdn.compile(optimizer=optim.Adam(mdn.model.parameters(), lr=rnn_params['learning_rate']),
-                loss=mdn_loss_function)
+    mdn.compile(
+        optimizer=optim.Adam(mdn.model.parameters(), lr=rnn_params['learning_rate']),
+        loss={"mdn": mdn_loss_function, "reward": nn.MSELoss()},
+        loss_weights={"mdn": 1., "reward": rnn_params['reward_loss_weight']}
+    )
 
     model_path = get_model_path_if_exists(
         path=model_path, default_path=rnn_params['ckpt_path'], model_name="MDN-RNN")

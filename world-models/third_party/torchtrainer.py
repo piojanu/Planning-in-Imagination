@@ -253,7 +253,7 @@ class TorchTrainer(object):
         self._early_stop = False
         self._is_compiled = False
 
-    def compile(self, optimizer, loss, metrics=None):
+    def compile(self, optimizer, loss, metrics=None, loss_weights=None):
         """Set trainer optimizer, loss and metrics to evaluate.
 
         Args:
@@ -262,17 +262,22 @@ class TorchTrainer(object):
                 where `pred` is PyTorch module output (can be tuple if multiple outputs) and
                 `target` is target labels/values from provided data (can be tuple if multiple
                 targets). Also, can be dictionary of such functions. Then outputs have to be
-                OrderedDict. Outputs are then mapped to losses based on keys (strings!) and to
+                OrderedDict. Outputs are then mapped to losses based on keys (strings) and to
                 targets based on order.
             metrics (list or dict): List of functions with the same signature as loss. Those metrics
                 will be evaluated on each training and validation batch. Final value (after epoch)
                 is always average over all batches. Can be dictionary of such lists. Look above in
                 loss docstring for mapping specifics. (Default: None)
+            loss (dict): Dictionary specifying scalar coefficients (floats) to weight the loss
+                contributions of different model outputs. Outputs are then mapped based on keys
+                (strings). (Default: None)
         """
 
         self.optim = optimizer
         self.loss = loss
         self.metrics = metrics or ({} if isinstance(loss, dict) else [])
+        self.loss_weights = loss_weights or \
+            ({k: 1. for k in loss.keys()} if isinstance(loss, dict) else None)
 
         assert isinstance(self.loss, dict) == isinstance(self.metrics, dict), \
             "Both loss and metrics have to be dict or not together."
@@ -512,7 +517,7 @@ class TorchTrainer(object):
 
             losses = []
             for (key, output), label in zip(pred.items(), target):
-                losses.append(self.loss[key](output, label))
+                losses.append(self.loss[key](output, label) * self.loss_weights[key])
                 results[key + "_loss"] = losses[-1].item()
 
                 if key not in self.metrics:

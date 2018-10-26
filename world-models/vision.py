@@ -23,8 +23,13 @@ class VAEVision(Vision):
 
         # NOTE: [0:2] <- it gets latent space mean (mu) and logvar, then concatenate batch dimension
         #       (batch size is one, after concatenate we get array '2 x latent space dim').
-        super(VAEVision, self).__init__(lambda state: np.concatenate(
-            model.predict(state_processor_fn(state)[np.newaxis, :] / 255.)[0:2]))
+        # NOTE2: Rewards are clipped to range from -1 to 1. Memory module NN reward head returns also
+        #        values in (-1, 1) range. It uses tanh activation function. See also MDNVision.
+        super(VAEVision, self).__init__(
+            state_processor_fn=lambda state: np.concatenate(
+                model.predict(state_processor_fn(state)[np.newaxis, :] / 255.)[0:2]),
+            reward_processor_fn=lambda reward: np.clip(reward, -1, 1)
+        )
 
 
 def build_vae_model(vae_params, input_shape, model_path=None):
