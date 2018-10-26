@@ -4,7 +4,7 @@ import humblerl as hrl
 import logging as log
 import numpy as np
 import utils
-from utils import Config, TensorBoardLogger
+from utils import Config, TensorBoardLogger, mute_tf_logs_if_needed
 import click
 
 from keras.callbacks import EarlyStopping, TensorBoard
@@ -26,6 +26,7 @@ from humblerl.callbacks import BasicStats, CSVSaverWrapper
 @click.option('--debug/--no-debug', help="Enable debug logging (Default: False)", default=False)
 def cli(ctx, config, debug):
     # Get and set up logger level and formatter
+    mute_tf_logs_if_needed()
     log.basicConfig(level=log.DEBUG if debug else log.INFO,
                     format="[%(levelname)s]: %(message)s")
 

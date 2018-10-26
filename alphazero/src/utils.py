@@ -104,3 +104,8 @@ def get_checkpoints_for_game(dirname, game_name):
     files.sort(key=lambda x: get_checkpoints_epoch(x))
 
     return files
+
+
+def mute_tf_logs_if_needed():
+    if "TF_CPP_MIN_LOG_LEVEL" not in os.environ:
+        os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
