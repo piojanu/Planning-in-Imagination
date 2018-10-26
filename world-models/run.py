@@ -306,7 +306,7 @@ def train_mem(ctx, path, vae_path):
     # Create checkpoint directory, if it doesn't exist
     create_directory(os.path.dirname(config.rnn['ckpt_path']))
 
-    # Initialize callbacks
+    # Create callbacks
     callbacks = [
         EarlyStopping(metric='loss', patience=config.rnn['patience'], verbose=1),
         LambdaCallback(on_batch_begin=lambda _, batch_size: rnn.model.init_hidden(batch_size),

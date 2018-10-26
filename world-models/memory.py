@@ -215,6 +215,7 @@ class MDNDataset(Dataset):
 
     def __getitem__(self, idx):
         """Get sequence at random starting position of given sequence length from episode `idx`."""
+
         offset = 1
 
         t_start, t_end = self.dataset['episodes'][idx:idx + 2]
