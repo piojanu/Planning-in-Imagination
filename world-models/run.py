@@ -14,7 +14,7 @@ import tensorflow
 from controller import build_es_model, Evaluator, ReturnTracker
 from memory import build_rnn_model, MDNDataset, MDNVision, StoreMemTransitions
 from utils import Config, HDF5DataGenerator, TqdmStream, state_processor, create_directory, force_cpu
-from utils import limit_gpu_memory_usage
+from utils import limit_gpu_memory_usage, mute_tf_logs_if_needed
 from vision import build_vae_model, VAEVision, StoreVaeTransitions
 
 
@@ -40,6 +40,7 @@ def cli(ctx, config_path, debug, quiet, render):
     else:
         level = log.INFO
 
+    mute_tf_logs_if_needed()
     log.basicConfig(level=level, format="[%(levelname)s]: %(message)s", stream=TqdmStream)
 
     # Load configuration from .json file into ctx object

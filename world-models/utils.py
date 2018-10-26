@@ -20,7 +20,6 @@ class Config(object):
             is_debug (bool): Specify to enable debugging features
             allow_render (bool): Specify to enable render/plot features
         """
-
         with open(os.path.join(os.path.dirname(__file__), "config.json.dist")) as config_file:
             default_config = json.loads(config_file.read())
 
@@ -183,3 +182,8 @@ def force_cpu():
     """Force using CPU"""
 
     os.environ['CUDA_VISIBLE_DEVICES'] = ''
+
+
+def mute_tf_logs_if_needed():
+    if "TF_CPP_MIN_LOG_LEVEL" not in os.environ:
+        os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"

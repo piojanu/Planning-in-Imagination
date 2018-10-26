@@ -11,6 +11,7 @@ Clone this repository and install requirements: `pip install -r requirements.txt
 `python run.py [OPTIONS] COMMAND ARGS`
 
 To see script-level help, run: `python run.py --help`.
+Note: By default, logs from TensorFlow are hidden by setting `TF_CPP_MIN_LOG_LEVEL` environment variable to value of 3. To change it, define environment variable `TF_CPP_MIN_LOG_LEVEL`.
 
 ### Config
 Parameters used in training and evaluation are stored in JSON config.
