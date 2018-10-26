@@ -9,14 +9,13 @@ import humblerl as hrl
 
 from functools import partial
 from humblerl.agents import RandomAgent
-from humblerl.callbacks import StoreStates2Hdf5
 from tqdm import tqdm
 import tensorflow
 from controller import build_es_model, Evaluator, ReturnTracker
-from memory import build_rnn_model, MDNDataset, MDNVision, StoreTrajectories2npz
+from memory import build_rnn_model, MDNDataset, MDNVision, StoreMemTransitions
 from utils import Config, HDF5DataGenerator, TqdmStream, state_processor, create_directory, force_cpu
 from utils import limit_gpu_memory_usage
-from vision import build_vae_model, VAEVision
+from vision import build_vae_model, VAEVision, StoreVaeTransitions
 
 
 def obtain_config(ctx, use_gpu=True):
@@ -61,8 +60,8 @@ def record_vae(ctx, path, n_games, chunk_size, state_dtype):
     # Create Gym environment, random agent and store to hdf5 callback
     env = hrl.create_gym(config.general['game_name'])
     mind = RandomAgent(env)
-    store_callback = StoreStates2Hdf5(config.general['state_shape'], path,
-                                      chunk_size=chunk_size, dtype=state_dtype)
+    store_callback = StoreVaeTransitions(config.general['state_shape'], path,
+                                         chunk_size=chunk_size, dtype=state_dtype)
 
     # Resizes states to `state_shape` with cropping
     vision = hrl.Vision(partial(
@@ -177,17 +176,19 @@ def train_vae(ctx, path):
 @click.argument('path', type=click.Path(), required=True)
 @click.option('-m', '--model-path', default=None,
               help='Path to VAE ckpt. Taken from .json config if `None` (Default: None)')
+@click.option('-c', '--chunk-size', default=128, help='HDF5 chunk size (Default: 128)')
 @click.option('-n', '--n-games', default=10000, help='Number of games to play (Default: 10000)')
-def record_mem(ctx, path, model_path, n_games):
+def record_mem(ctx, path, model_path, chunk_size, n_games):
     """Plays chosen game randomly and records preprocessed with VAE (loaded from `model_path`
-    or config) states, next_states and actions trajectories to numpy archive file in `PATH`."""
+    or config) states, next_states and actions trajectories to HDF5 file in `PATH`."""
 
     config = obtain_config(ctx)
 
     # Create Gym environment, random agent and store to hdf5 callback
     env = hrl.create_gym(config.general['game_name'])
     mind = RandomAgent(env)
-    store_callback = StoreTrajectories2npz(path)
+    store_callback = StoreMemTransitions(path, latent_dim=config.vae['latent_space_dim'],
+                                         action_space=env.action_space, chunk_size=chunk_size)
 
     # Build VAE model
     vae, encoder, _ = build_vae_model(config.vae, config.general['state_shape'], model_path)
@@ -216,23 +217,17 @@ def train_mem(ctx, path, vae_path):
 
     env = hrl.create_gym(config.general['game_name'])
 
-    # Load data
-    data_npz = np.load(path)
-
-    states = data_npz["states"].astype(np.float32)
-    actions = data_npz["actions"].astype(np.int if env.is_discrete else np.float32)
-    lengths = data_npz["lengths"].astype(np.int)
-
     # Create training DataLoader
+    dataset = MDNDataset(path, config.rnn['sequence_len'])
     data_loader = DataLoader(
-        MDNDataset(states, actions, lengths, config.rnn['sequence_len']),
+        dataset,
         batch_size=config.rnn['batch_size'],
         shuffle=True,
         pin_memory=True
     )
 
     # Build model
-    rnn = build_rnn_model(config.rnn, states.shape[3], env.action_space)
+    rnn = build_rnn_model(config.rnn, config.vae['latent_space_dim'], env.action_space)
 
     # If render features enabled...
     if config.allow_render:
@@ -257,9 +252,9 @@ def train_mem(ctx, path, vae_path):
                                         config.general['state_shape'],
                                         vae_path)
         # Prepare data
-        S_eval = states[0, :400, 0]
-        S_next = states[0, 1:401, 0]
-        A_eval = actions[0, :400]
+        S_eval = dataset.dataset['states'][:400, 0]
+        S_next = dataset.dataset['states'][1:401, 0]
+        A_eval = dataset.dataset['actions'][:400]
 
         # Evaluate MDN-RNN at the end of epoch
         def plot_samples(epoch):
@@ -324,6 +319,8 @@ def train_mem(ctx, path, vae_path):
         epochs=config.rnn['epochs'],
         callbacks=callbacks
     )
+
+    dataset.close()
 
 
 @cli.command()
