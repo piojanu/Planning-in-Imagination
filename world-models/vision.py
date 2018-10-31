@@ -177,7 +177,8 @@ def build_vae_model(vae_params, input_shape, model_path=None):
 
     def sample(args):
         mu, logvar = args
-        return mu + K.exp(logvar) * K.random_normal(
+        # NOTE: K.exp(logvar / 2) = var^(1/2) = std. deviation
+        return mu + K.exp(logvar / 2) * K.random_normal(
             shape=(batch_size, vae_params['latent_space_dim']))
 
     z = Lambda(sample, output_shape=(vae_params['latent_space_dim'],))([mu, logvar])

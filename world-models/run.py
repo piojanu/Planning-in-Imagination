@@ -251,12 +251,13 @@ def train_mem(ctx, path, vae_path):
                                         config.general['state_shape'],
                                         vae_path)
         # Prepare data
-        S_eval = np.zeros((config.rnn["rend_n_episodes"], dataset.sequence_len, dataset.latent_dim),
+        n_episodes = min(config.rnn["rend_n_episodes"], len(dataset))
+        S_eval = np.zeros((n_episodes, dataset.sequence_len, dataset.latent_dim),
                           dtype=dataset.dataset['states'].dtype)
         S_next = np.zeros_like(S_eval)
-        A_eval = np.zeros((config.rnn["rend_n_episodes"], dataset.sequence_len, dataset.action_dim),
+        A_eval = np.zeros((n_episodes, dataset.sequence_len, dataset.action_dim),
                           dtype=dataset.dataset['actions'].dtype)
-        for i in range(config.rnn["rend_n_episodes"]):
+        for i in range(n_episodes):
             (states, actions), (next_states,) = dataset[i]
             S_eval[i] = states
             S_next[i] = next_states
@@ -264,7 +265,7 @@ def train_mem(ctx, path, vae_path):
 
         # Evaluate MDN-RNN at the end of epoch
         def plot_samples(_):
-            rnn.model.init_hidden(config.rnn["rend_n_episodes"])
+            rnn.model.init_hidden(n_episodes)
             mu, _, pi = rnn.model(torch.from_numpy(S_eval), torch.from_numpy(A_eval))
 
             seq_half = dataset.sequence_len // 2
@@ -283,20 +284,20 @@ def train_mem(ctx, path, vae_path):
             orig_img = decoder.predict(orig_mu)[:, np.newaxis]
             next_img = decoder.predict(next_mu)[:, np.newaxis]
             pred_img = decoder.predict(pred_mu)
-            pred_img = pred_img.reshape(config.rnn["rend_n_episodes"],
+            pred_img = pred_img.reshape(n_episodes,
                                         config.rnn["rend_n_rollouts"],
                                         *pred_img.shape[1:])
 
             samples = np.concatenate((orig_img, pred_img, next_img), axis=1)
 
             fig = plt.figure(figsize=(
-                config.rnn["rend_n_episodes"],
-                config.rnn["rend_n_rollouts"] + 2))
-            gs = gridspec.GridSpec(config.rnn["rend_n_episodes"],
+                config.rnn["rend_n_rollouts"] + 2,
+                n_episodes))
+            gs = gridspec.GridSpec(n_episodes,
                                    config.rnn["rend_n_rollouts"] + 2,
                                    wspace=0.05, hspace=0.05, figure=fig)
 
-            for i in range(config.rnn["rend_n_episodes"]):
+            for i in range(n_episodes):
                 for j in range(config.rnn["rend_n_rollouts"] + 2):
                     ax = plt.subplot(gs[i, j])
                     plt.axis('off')
