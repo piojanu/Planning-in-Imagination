@@ -144,6 +144,9 @@ Config options:
     "epochs"           : 300,
     "learning_rate"    : 0.01,
     "patience"         : 25,                   -- After this many epochs, if validation loss does not improve, the training is stopped.
+    "render_type"      : "max",                -- Method to get latent vector of next state from MDN output (max or mean).
+    "rend_n_rollouts"  : 10,                   -- Render N simulated steps using memory module. Can't be greater then sequence_len/2.
+    "rend_n_episodes"  : 12,                   -- Render visualization for N episodes.
     "ckpt_path"        : "./dir/memory.ckpt",  -- Path to best model (checkpoint).
     "logs_dir"         : "./logs"              -- Path to directory with logs.
 }

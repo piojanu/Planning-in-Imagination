@@ -230,13 +230,11 @@ def train_mem(ctx, path, vae_path):
     # Build model
     rnn = build_rnn_model(config.rnn, config.vae['latent_space_dim'], env.action_space)
 
-    # If render features enabled...
+    # Evaluate and visualize memory progress
     if config.allow_render:
         if vae_path == 'DEFAULT':
             raise ValueError("To render provide valid path to VAE checkpoint!")
 
-        # ...plot first eight training examples with VAE reconstructions
-        # at the beginning of every epoch
         import matplotlib
         matplotlib.use("Agg")
         import matplotlib.gridspec as gridspec
@@ -253,54 +251,66 @@ def train_mem(ctx, path, vae_path):
                                         config.general['state_shape'],
                                         vae_path)
         # Prepare data
-        S_eval = dataset.dataset['states'][:400, 0]
-        S_next = dataset.dataset['states'][1:401, 0]
-        A_eval = dataset.dataset['actions'][:400]
+        S_eval = np.zeros((config.rnn["rend_n_episodes"], dataset.sequence_len, dataset.latent_dim),
+                          dtype=dataset.dataset['states'].dtype)
+        S_next = np.zeros_like(S_eval)
+        A_eval = np.zeros((config.rnn["rend_n_episodes"], dataset.sequence_len, dataset.action_dim),
+                          dtype=dataset.dataset['actions'].dtype)
+        for i in range(config.rnn["rend_n_episodes"]):
+            (states, actions), (next_states,) = dataset[i]
+            S_eval[i] = states
+            S_next[i] = next_states
+            A_eval[i] = actions
 
         # Evaluate MDN-RNN at the end of epoch
-        def plot_samples(epoch):
-            rnn.model.init_hidden(1)
-            mu, _, pi = rnn.model(torch.from_numpy(S_eval).view(1, 400, -1),
-                                  torch.from_numpy(A_eval).view(1, 400, -1))
+        def plot_samples(_):
+            rnn.model.init_hidden(config.rnn["rend_n_episodes"])
+            mu, _, pi = rnn.model(torch.from_numpy(S_eval), torch.from_numpy(A_eval))
 
-            orig_mu = S_eval[::100]
-            mean_mu = torch.sum(
-                mu * pi, dim=2).detach().numpy().reshape(400, -1)[::100]
-            max_mu = torch.gather(mu, dim=2, index=torch.argmax(
-                pi, dim=2, keepdim=True)).detach().numpy().reshape(400, -1)[::100]
-            next_mu = S_next[::100]
+            seq_half = dataset.sequence_len // 2
+            orig_mu = S_eval[:, seq_half]
+            next_mu = S_next[:, seq_half + config.rnn["rend_n_rollouts"] - 1]
+            if config.rnn["render_type"] == "mean":
+                pred_mu = torch.sum(mu * pi, dim=2).detach().numpy()
+            elif config.rnn["render_type"] == "max":
+                pred_mu = torch.gather(mu, dim=2, index=torch.argmax(
+                    pi, dim=2, keepdim=True)).detach().numpy()
+            else:
+                raise ValueError("Unknown render type")
+            pred_mu = pred_mu[:, seq_half:seq_half + config.rnn["rend_n_rollouts"]].reshape(
+                -1, dataset.latent_dim)
 
-            orig_img = decoder.predict(orig_mu)
-            mean_img = decoder.predict(mean_mu)
-            max_img = decoder.predict(max_mu)
-            next_img = decoder.predict(next_mu)
+            orig_img = decoder.predict(orig_mu)[:, np.newaxis]
+            next_img = decoder.predict(next_mu)[:, np.newaxis]
+            pred_img = decoder.predict(pred_mu)
+            pred_img = pred_img.reshape(config.rnn["rend_n_episodes"],
+                                        config.rnn["rend_n_rollouts"],
+                                        *pred_img.shape[1:])
 
-            samples = np.empty_like(np.concatenate((orig_img, mean_img, max_img, next_img)))
-            samples[0::4] = orig_img
-            samples[1::4] = mean_img
-            samples[2::4] = max_img
-            samples[3::4] = next_img
+            samples = np.concatenate((orig_img, pred_img, next_img), axis=1)
 
-            _ = plt.figure(figsize=(4, 4))
-            gs = gridspec.GridSpec(4, 4)
-            gs.update(wspace=0.05, hspace=0.05)
+            fig = plt.figure(figsize=(
+                config.rnn["rend_n_episodes"],
+                config.rnn["rend_n_rollouts"] + 2))
+            gs = gridspec.GridSpec(config.rnn["rend_n_episodes"],
+                                   config.rnn["rend_n_rollouts"] + 2,
+                                   wspace=0.05, hspace=0.05, figure=fig)
 
-            for i, sample in enumerate(samples):
-                ax = plt.subplot(gs[i])
-                plt.axis('off')
-                ax.set_xticklabels([])
-                ax.set_yticklabels([])
-                ax.set_aspect('equal')
-                plt.imshow(sample.reshape(*config.general['state_shape']))
+            for i in range(config.rnn["rend_n_episodes"]):
+                for j in range(config.rnn["rend_n_rollouts"] + 2):
+                    ax = plt.subplot(gs[i, j])
+                    plt.axis('off')
+                    ax.set_aspect('equal')
+                    plt.imshow(samples[i, j])
 
             # Save figure to logs dir
             plt.savefig(os.path.join(
                 plots_dir,
-                "memory_sample_{}".format(dt.datetime.now().strftime("%d-%mT%H:%M"))
+                "memory_sample_{}".format(dt.datetime.now().strftime("%d-%mT%H:%M:%S"))
             ))
             plt.close()
     else:
-        def plot_samples(epoch):
+        def plot_samples(_):
             pass
 
     # Create checkpoint directory, if it doesn't exist
