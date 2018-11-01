@@ -236,7 +236,9 @@ class MDNDataset(Dataset):
         actions = torch.zeros(self.sequence_len, self.action_dim, dtype=actions_.dtype)
 
         # Sample latent states (this is done to prevent overfitting MDN-RNN to a specific 'z'.)
-        latent = Normal(loc=states_[:, 0], scale=states_[:, 1])
+        mu = states_[:, 0]
+        sigma = torch.exp(states_[:, 1] / 2)
+        latent = Normal(loc=mu, scale=sigma)
         z_samples = latent.sample()
 
         states[:sequence_len] = z_samples[:-offset]
