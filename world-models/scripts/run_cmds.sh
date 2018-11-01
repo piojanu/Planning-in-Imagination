@@ -22,7 +22,7 @@ run_test record_mem -n 1 ${MEMORY_FILE}
 
 run_test train_mem ${MEMORY_FILE}
 
-run_test train_ctrl
+OMP_NUM_THREADS=1 run_test train_ctrl
 
 run_test eval -n 1
 

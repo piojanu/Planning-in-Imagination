@@ -160,9 +160,9 @@ the Controller. The training is performed using
 [Covariance-Matrix Adaptation Evolution Strategy](http://blog.otoro.net/2017/10/29/visual-evolution-strategies/) (CMA-ES),
 which can be easily parallelized on CPU.
 
-To train the Controller, run:
+To train the Controller with disabled OMP parallelism, run:
 
-`python run.py train_ctrl`
+`OMP_NUM_THREADS=1 python run.py train_ctrl`
 
 Config options:
 
@@ -180,7 +180,7 @@ Config options:
 ```
 
 Best model will be saved to and loaded from `ckpt_path`.
-Note: Controller's training is executed only on CPUs.
+Note: Controller's training is executed only on CPUs, it is highly recommended to setup environment variable `OMP_NUM_THREADS=1` to reduce not needed CPU utilization.
 
 ## Evaluation
 After training all the components of our World Model, we can put it all together and evaluate it on the game we chose.
