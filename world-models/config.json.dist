@@ -23,8 +23,8 @@
         "learning_rate"    : 0.01,
         "patience"         : 25,
         "render_type"      : "max",
-	"rend_n_rollouts"  : 10,
-	"rend_n_episodes"  : 12,
+        "rend_n_rollouts"  : 10,
+        "rend_n_episodes"  : 12,
         "ckpt_path"        : "./checkpoints_n_logs/best_memory.ckpt",
         "logs_dir"         : "./checkpoints_n_logs"
     },
