@@ -1,4 +1,5 @@
 #/bin/bash
+export OMP_NUM_THREADS=1
 CKPT_DIR=checkpoints/test
 MAIN_SCRIPT_PATH=../run.py
 CONFIG_FILE=test_config.json
@@ -22,7 +23,7 @@ run_test record_mem -n 1 ${MEMORY_FILE}
 
 run_test train_mem ${MEMORY_FILE}
 
-OMP_NUM_THREADS=1 run_test train_ctrl
+run_test train_ctrl
 
 run_test eval -n 1
 
