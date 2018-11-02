@@ -9,17 +9,17 @@ run_test () {
   python $MAIN_SCRIPT_PATH -c $CONFIG_FILE ${@:1:99} >test_${1}.log 2>error_${1}.log && echo "$1 succeeded" || { cat test_${1}.log && cat error_${1}.log && echo "$1 failed" && exit 1; }
 }
 
-python $MAIN_SCRIPT_PATH record_vae --help
+python $MAIN_SCRIPT_PATH record_data --help
 
 VAE_FILE=${CKPT_DIR}/vae.hdf5
 
-run_test record_vae -n 1 ${VAE_FILE}
+run_test record_data -n 1 ${VAE_FILE}
 
 run_test train_vae ${VAE_FILE}
 
 MEMORY_FILE=${CKPT_DIR}/memory.hdf5
 
-run_test record_mem -n 1 ${MEMORY_FILE}
+run_test convert_data ${VAE_FILE} ${MEMORY_FILE}
 
 run_test train_mem ${MEMORY_FILE}
 

@@ -1,127 +1,18 @@
 import logging as log
-import random
+import math
 
 import keras.backend as K
 import numpy as np
-import os.path
 import h5py
 
-from humblerl import Vision, Callback
+from humblerl import Vision
 from keras.layers import Conv2D, Conv2DTranspose, Dense, Flatten, Input, Lambda, Reshape
 from keras.models import Model
 from keras.optimizers import Adam
+from shutil import copyfile
+from tqdm import tqdm
 
 from utils import get_model_path_if_exists
-
-
-class StoreVaeTransitions(Callback):
-    """Save transitions to HDF5 file in one dataset:
-        * 'states': Keeps transition's state (e.g. image).
-        Datasets are organized in such a way, that you can access transition 'I' by accessing
-        'I'-th position in all three datasets.
-
-        HDF5 file also keeps meta-informations (attributes) as such:
-        * 'N_TRANSITIONS': Datasets size (number of transitions).
-        * 'N_GAMES': From how many games those transitions come from.
-        * 'CHUNK_SIZE': HDF5 file chunk size (batch size should be multiple of it).
-        * 'STATE_SHAPE': Shape of environment's state ('(next_)states' dataset element shape).
-    """
-
-    def __init__(self, state_shape, out_path, shuffle=True, min_transitions=10000, chunk_size=128, dtype=np.uint8):
-        """Save transitions to HDF5 file.
-
-        Args:
-            state_shape (tuple): Shape of environment's state.
-            out_path (str): Path to HDF5 file where transition will be stored.
-            shuffle (bool): If data should be shuffled (in subsets of `min_transitions` number of
-                transitions). (Default: True)
-            min_transitions (int): Minimum size of dataset in transitions number. Also, whenever
-                this amount of transitions is gathered, data is shuffled (if requested) and stored
-                on disk. (Default: 10000)
-            chunk_size (int): Chunk size in transitions. For efficiency reasons, data is saved
-                to file in chunks to limit the disk usage (chunk is smallest unit that get fetched
-                from disk). For best performance set it to training batch size and in e.g. Keras
-                use shuffle='batch'/False. Never use shuffle=True, as random access to hdf5 is
-                slow. (Default: 128)
-            dtype (np.dtype): Data type of states. (Default: np.uint8)
-        """
-
-        self.out_path = out_path
-        self.dataset_size = min_transitions
-        self.shuffle_chunk = shuffle
-        self.min_transitions = min_transitions
-        self.state_dtype = dtype
-
-        # Make sure that path to out file exists
-        dirname = os.path.dirname(out_path)
-        if dirname and not os.path.exists(dirname):
-            os.makedirs(dirname)
-
-        # Create output hdf5 file and fill metadata
-        self.out_file = h5py.File(out_path, "w")
-        self.out_file.attrs["N_TRANSITIONS"] = 0
-        self.out_file.attrs["N_GAMES"] = 0
-        self.out_file.attrs["CHUNK_SIZE"] = chunk_size
-        self.out_file.attrs["STATE_SHAPE"] = state_shape
-
-        # Create dataset for states
-        # NOTE: We save states as np.uint8 dtype because those are RGB pixel values.
-        self.out_states = self.out_file.create_dataset(
-            name="states", dtype=dtype, chunks=(chunk_size, *state_shape),
-            shape=(self.dataset_size, *state_shape), maxshape=(None, *state_shape),
-            compression="lzf")
-
-        self.transition_count = 0
-        self.game_count = 0
-
-        self.states = []
-
-    def on_step_taken(self, step, transition, info):
-        self.states.append(transition.state)
-
-        if transition.is_terminal:
-            self.game_count += 1
-
-        self.transition_count += 1
-        if self.transition_count % self.min_transitions == 0:
-            self._save_chunk()
-
-    def on_loop_end(self, is_aborted):
-        if len(self.states) > 0:
-            self._save_chunk()
-
-        # Close file
-        self.out_file.close()
-
-    def _save_chunk(self):
-        """Save `states`  to HDF5 file. Clear the buffers.
-        Update transition and games count in HDF5 file."""
-
-        # Resize datasets if needed
-        if self.transition_count > self.dataset_size:
-            self.out_states.resize(self.transition_count, axis=0)
-            self.dataset_size = self.transition_count
-
-        n_transitions = len(self.states)
-        start = self.transition_count - n_transitions
-
-        assert n_transitions > 0, "Nothing to save!"
-
-        if self.shuffle_chunk:
-            states = []
-
-            for idx in random.sample(range(n_transitions), n_transitions):
-                states.append(self.states[idx])
-        else:
-            states = self.states
-
-        self.out_states[start:self.transition_count] = \
-            np.array(states, dtype=self.state_dtype)
-
-        self.out_file.attrs["N_TRANSITIONS"] = self.transition_count
-        self.out_file.attrs["N_GAMES"] = self.game_count
-
-        self.states = []
 
 
 class VAEVision(Vision):
@@ -243,3 +134,45 @@ def build_vae_model(vae_params, input_shape, model_path=None):
         log.info("Loaded VAE model weights from: %s", model_path)
 
     return vae, encoder, decoder
+
+
+def convert_data_with_vae(vae_encoder, path_in, path_out, latent_dim):
+    """Use trained VAE encoder to preprocess states in HDF5 dataset. The rest of the
+    HDF5 file is copied without change (actions, rewards, episodes). Such a preprocessed
+    dataset can be used later for Memory training.
+
+    Args:
+        vae_encoder (keras.models.Model): Trained VAE encoder.
+        path_in (str): Path to HDF5 file with gathered transitions.
+        path_out (str): Path to output HDF5 file with preprocessed states.
+        latent_dim (int): VAE's latent state dimensionality.
+    """
+
+    log.info('Copying HDF5 dataset...')
+    copyfile(path_in, path_out)
+
+    with h5py.File(path_in, "r") as hdf_in, h5py.File(path_out, "a") as hdf_out:
+        # New dataset will have preprocessed states, so we can delete the old ones.
+        del hdf_out["states"]
+
+        n_transitions = hdf_in.attrs["N_TRANSITIONS"]
+        chunk_size = hdf_in.attrs["CHUNK_SIZE"]
+        hdf_out.attrs["LATENT_DIM"] = latent_dim
+        # 2 because latent space mean (mu) and logvar are saved
+        hdf_out.attrs["STATE_SHAPE"] = [2, latent_dim]
+        new_states = hdf_out.create_dataset(
+            name="states", dtype=np.float32, chunks=(chunk_size, 2, latent_dim),
+            shape=(n_transitions, 2, latent_dim), maxshape=(None, 2, latent_dim),
+            compression="lzf")
+
+        # Preprocess states from input dataset by using VAE
+        log.info("Preprocessing states with VAE...")
+        n_chunks = math.ceil(n_transitions / chunk_size)
+        pbar = tqdm(range(n_chunks), ascii=True)
+        for i in pbar:
+            beg, end = i * chunk_size, min((i + 1) * chunk_size, n_transitions)
+            # Grab a batch of states and feed it to VAE
+            # NOTE: [:2] <- gets latent space mean (mu) and logvar, then swaps axes from
+            #       [2, batch_size, latent_dim] into [batch_size, 2, latent_dim].
+            states_batch = hdf_in["states"][beg:end]
+            new_states[beg:end] = np.swapaxes(vae_encoder.predict(states_batch / 255.)[:2], 0, 1)
