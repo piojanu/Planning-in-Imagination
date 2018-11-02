@@ -161,6 +161,82 @@ class MDN(nn.Module):
 
         return mu, sigma, pi
 
+    def sample(self, latent, action, hidden=None):
+        """Sample (simulate) next state from Mixture Density Network a.k.a. Gaussian Mixture Model.
+
+        Args:
+            latent (torch.Tensor): Latent vectors to start from.
+                Shape of tensor: batch x sequence x latent dim.
+            action (torch.Tensor): Actions to simulate.
+                Shape of tensor: batch x sequence x action dim.
+            hidden (torch.Tensor): Memory module hidden state. If `None` then current hidden state
+                is taken. (Default: None)
+
+        Return:
+            numpy.ndarray: Latent vector of next state.
+                Shape of array: batch x sequence x latent dim.
+
+        Note:
+            Current hidden state of memory module gets modified in process of simulation!
+        """
+
+        # Simulate transition
+        if hidden:
+            self.hidden = hidden
+        with torch.no_grad():
+            mu, sigma, pi = self.forward(latent, action)
+
+        # Transform tensors to numpy arrays and move "gaussians mixture" dim to the end
+        # NOTE: Arrays will have shape (batch x sequence x latent dim. x num. gaussians)
+        mu = np.transpose(mu.cpu().detach().numpy(), axes=[0, 1, 3, 2])
+        sigma = np.transpose(sigma.cpu().detach().numpy(), axes=[0, 1, 3, 2])
+        pi = np.transpose(pi.cpu().detach().numpy(), axes=[0, 1, 3, 2])
+
+        # Sample parameters of Gaussian distribution(s) from mixture
+        c = pi.cumsum(axis=-1)
+        u = np.random.rand(*c.shape[:-1], 1)
+        choices = np.expand_dims((u < c).argmax(axis=-1), axis=-1)
+
+        # Sample latent vector from Gaussian distribution with mean and std. dev. from above
+        mean = np.take_along_axis(mu, choices, axis=-1)
+        stddev = np.take_along_axis(sigma, choices, axis=-1)
+        samples = mean + stddev * np.random.randn(*mean.shape)
+
+        return np.squeeze(samples, axis=-1)
+
+    def simulate(self, latent, actions, hidden=None):
+        """Simulate environment trajectory.
+
+        Args:
+            latent (torch.Tensor): Latent vector with state(s) to start from.
+                Shape of tensor: batch x 1 (sequence dim.) x latent dim.
+            actions (torch.Tensor): Tensor with actions to take in simulated trajectory.
+                Shape of tensor: batch x sequence x action dim.
+            hidden (torch.Tensor): Memory module hidden state. If `None` then current hidden state
+                is taken. (Default: None)
+
+        Return:
+            np.ndarray: Array of latent vectors of simulated trajectory.
+                Shape of array: batch x sequence x latent dim.
+
+        Note:
+            Current hidden state of memory module gets modified in process of simulation!
+        """
+
+        if hidden:
+            self.hidden = hidden
+
+        states = []
+        for a in range(actions.shape[1]):
+            # NOTE: We use np.newaxis to preserve shape of tensor
+            states.append(self.sample(latent, actions[:, a, np.newaxis, :]))
+            # NOTE: This is a bit arbitrary to set it to float32 which happens to be type of torch
+            #       tensors. It can blow up further in code if we'll choose to change tensors types.
+            latent = torch.from_numpy(states[-1]).float()
+            latent.to(next(self.parameters()).device)
+
+        return np.transpose(np.squeeze(np.array(states), axis=2), axes=[1, 0, 2])
+
     def init_hidden(self, batch_size):
         device = next(self.parameters()).device
 
@@ -196,7 +272,7 @@ def build_rnn_model(rnn_params, latent_dim, action_space, model_path=None):
         target = target.view(-1, sequence_len, 1, latent_dim)
 
         loss = Normal(loc=mu, scale=sigma)
-        loss = torch.exp(loss.log_prob(target))
+        loss = torch.exp(loss.log_prob(target))  # TODO: Is this stable?! Check that.
         loss = torch.sum(loss * pi, dim=2)
         loss = -torch.log(loss + 1e-9)
 
