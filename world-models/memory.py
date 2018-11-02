@@ -55,7 +55,8 @@ class MDNVision(Vision, Callback):
         if torch.cuda.is_available():
             state = state.cuda()
             action = action.cuda()
-        self.mdn_model(state, action)
+        with torch.no_grad():
+            self.mdn_model(state, action)
 
 
 class MDNDataset(Dataset):
@@ -204,6 +205,9 @@ def build_rnn_model(rnn_params, latent_dim, action_space, model_path=None):
     mdn = TorchTrainer(MDN(rnn_params['hidden_units'], latent_dim, action_space,
                            rnn_params['temperature'], rnn_params['n_gaussians']),
                        device_name='cuda' if use_cuda else 'cpu')
+
+    # NOTE: Set MDN-RNN to evaluation mode, TorchTrainer will change that for training
+    mdn.model.eval()
 
     mdn.compile(optimizer=optim.Adam(mdn.model.parameters(), lr=rnn_params['learning_rate']),
                 loss=mdn_loss_function)

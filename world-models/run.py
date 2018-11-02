@@ -188,16 +188,16 @@ def train_vae(ctx, path):
 @click.pass_context
 @click.argument('path_in', type=click.Path(), required=True)
 @click.argument('path_out', type=click.Path(), required=True)
-@click.option('-m', '--model-path', default=None,
+@click.option('-v', '--vae-path', default=None,
               help='Path to VAE ckpt. Taken from .json config if `None` (Default: None)')
-def convert_data(ctx, path_in, path_out, model_path):
+def convert_data(ctx, path_in, path_out, vae_path):
     """Use transitions from record_data and preprocess states for Memory training
     using a trained VAE model. Data is loaded from `PATH_IN` and saved to `PATH_OUT`"""
 
     config = obtain_config(ctx)
 
     # Build VAE model
-    _, encoder, _ = build_vae_model(config.vae, config.general["state_shape"], model_path)
+    _, encoder, _ = build_vae_model(config.vae, config.general["state_shape"], vae_path)
 
     convert_data_with_vae(encoder, path_in, path_out, config.vae['latent_space_dim'])
 
@@ -264,7 +264,8 @@ def train_mem(ctx, path, vae_path):
         # Evaluate MDN-RNN at the end of epoch
         def plot_samples(_):
             rnn.model.init_hidden(n_episodes)
-            mu, _, pi = rnn.model(torch.from_numpy(S_eval), torch.from_numpy(A_eval))
+            with torch.no_grad():
+                mu, _, pi = rnn.model(torch.from_numpy(S_eval), torch.from_numpy(A_eval))
 
             seq_half = dataset.sequence_len // 2
             orig_mu = S_eval[:, seq_half]
