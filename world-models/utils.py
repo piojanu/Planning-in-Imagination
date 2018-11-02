@@ -41,8 +41,8 @@ class Config(object):
 
 
 class StoreTransitions(hrl.Callback):
-    """Save transitions for Memory training to HDF5 file in four datasets:
-        * 'states': States preprocessed by MDNVision.
+    """Save transitions to HDF5 file in four datasets:
+        * 'states': States.
         * 'actions': Actions.
         * 'rewards': Rewards.
         * 'episodes': Indices of each episode (episodes[i] -> start index of episode `i`
@@ -56,7 +56,8 @@ class StoreTransitions(hrl.Callback):
         HDF5 file also keeps meta-informations (attributes) as such:
         * 'N_TRANSITIONS': Datasets size (number of transitions).
         * 'N_GAMES': From how many games those transitions come from.
-        * 'LATENT_DIM': VAE's latent state dimensionality.
+        * 'CHUNK_SIZE': Chunk size.
+        * 'STATE_SHAPE': Shape of state.
         * 'ACTION_DIM': Action's dimensionality (1 for discrete).
     """
 
@@ -66,6 +67,7 @@ class StoreTransitions(hrl.Callback):
 
         Args:
             out_path (str): Path to output hdf5 file.
+            state_shape (tuple): Shape of state.
             action_space (hrl.environments.ActionSpace): Object representing action space,
                 check HumbleRL.
             min_transitions (int): Minimum expected number of transitions in dataset. If more is
@@ -75,6 +77,7 @@ class StoreTransitions(hrl.Callback):
             chunk_size (int): Chunk size in transitions. For efficiency reasons, data is saved
                 to file in chunks to limit the disk usage (chunk is smallest unit that get fetched
                 from disk). For best performance set it to training batch size. (Default: 128)
+            state_dtype (dtype): Type used to save the state  (Default: np.uint8).
         """
 
         self.out_path = out_path
