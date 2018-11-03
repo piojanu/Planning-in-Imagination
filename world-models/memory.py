@@ -161,7 +161,7 @@ class MDN(nn.Module):
 
         return mu, sigma, pi
 
-    def sample(self, latent, action, hidden=None):
+    def sample(self, latent, action):
         """Sample (simulate) next state from Mixture Density Network a.k.a. Gaussian Mixture Model.
 
         Args:
@@ -169,20 +169,13 @@ class MDN(nn.Module):
                 Shape of tensor: batch x sequence x latent dim.
             action (torch.Tensor): Actions to simulate.
                 Shape of tensor: batch x sequence x action dim.
-            hidden (torch.Tensor): Memory module hidden state. If `None` then current hidden state
-                is taken. (Default: None)
 
         Return:
             numpy.ndarray: Latent vector of next state.
                 Shape of array: batch x sequence x latent dim.
-
-        Note:
-            Current hidden state of memory module gets modified in process of simulation!
         """
 
         # Simulate transition
-        if hidden:
-            self.hidden = hidden
         with torch.no_grad():
             mu, sigma, pi = self.forward(latent, action)
 
@@ -204,7 +197,7 @@ class MDN(nn.Module):
 
         return np.squeeze(samples, axis=-1)
 
-    def simulate(self, latent, actions, hidden=None):
+    def simulate(self, latent, actions):
         """Simulate environment trajectory.
 
         Args:
@@ -212,19 +205,11 @@ class MDN(nn.Module):
                 Shape of tensor: batch x 1 (sequence dim.) x latent dim.
             actions (torch.Tensor): Tensor with actions to take in simulated trajectory.
                 Shape of tensor: batch x sequence x action dim.
-            hidden (torch.Tensor): Memory module hidden state. If `None` then current hidden state
-                is taken. (Default: None)
 
         Return:
             np.ndarray: Array of latent vectors of simulated trajectory.
                 Shape of array: batch x sequence x latent dim.
-
-        Note:
-            Current hidden state of memory module gets modified in process of simulation!
         """
-
-        if hidden:
-            self.hidden = hidden
 
         states = []
         for a in range(actions.shape[1]):
