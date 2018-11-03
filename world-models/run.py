@@ -64,6 +64,18 @@ def record_data(ctx, path, n_games, chunk_size, state_dtype):
     store_callback = StoreTransitions(path, config.general['state_shape'], env.action_space,
                                       chunk_size=chunk_size, state_dtype=state_dtype)
 
+    if store_callback.game_count >= n_games:
+        log.warning("Data is already fully present in dataset you specified! If you wish to create"
+                    " a new dataset, please remove the one under this path or specify a different"
+                    " path. If you wish to gather more data, increase the number of games to "
+                    " record with --n-games parameter.")
+        return
+    elif 0 < store_callback.game_count < n_games:
+        diff = n_games - store_callback.game_count
+        log.info("{}/{} games were already recorded in specified dataset. {} more game will be"
+                 " added!".format(store_callback.game_count, n_games, diff))
+        n_games = diff
+
     # Resizes states to `state_shape` with cropping
     vision = hrl.Vision(partial(
         state_processor,
