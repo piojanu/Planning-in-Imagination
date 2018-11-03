@@ -252,55 +252,58 @@ def train_mem(ctx, path, vae_path):
         n_episodes = min(config.rnn["rend_n_episodes"], len(dataset))
         S_eval = np.zeros((n_episodes, dataset.sequence_len, dataset.latent_dim),
                           dtype=dataset.dataset['states'].dtype)
-        S_next = np.zeros_like(S_eval)
         A_eval = np.zeros((n_episodes, dataset.sequence_len, dataset.action_dim),
                           dtype=dataset.dataset['actions'].dtype)
         for i in range(n_episodes):
-            (states, actions), (next_states,) = dataset[i]
+            (states, actions), _ = dataset[i]
             S_eval[i] = states
-            S_next[i] = next_states
             A_eval[i] = actions
 
         # Evaluate MDN-RNN at the end of epoch
         def plot_samples(_):
+            # Initialize memory module in evaluation mode
             rnn.model.init_hidden(n_episodes)
-            with torch.no_grad():
-                mu, _, pi = rnn.model(torch.from_numpy(S_eval), torch.from_numpy(A_eval))
+            rnn.model.eval()
 
+            # Initialize hidden state (warm-up memory module)
             seq_half = dataset.sequence_len // 2
-            orig_mu = S_eval[:, seq_half]
-            next_mu = S_next[:, seq_half + config.rnn["rend_n_rollouts"] - 1]
-            if config.rnn["render_type"] == "mean":
-                pred_mu = torch.sum(mu * pi, dim=2).detach().numpy()
-            elif config.rnn["render_type"] == "max":
-                pred_mu = torch.gather(mu, dim=2, index=torch.argmax(
-                    pi, dim=2, keepdim=True)).detach().numpy()
-            else:
-                raise ValueError("Unknown render type")
-            pred_mu = pred_mu[:, seq_half:seq_half + config.rnn["rend_n_rollouts"]].reshape(
-                -1, dataset.latent_dim)
+            with torch.no_grad():
+                rnn.model(
+                    torch.from_numpy(S_eval[:, :seq_half]).to(next(rnn.model.parameters()).device),
+                    torch.from_numpy(A_eval[:, :seq_half]).to(next(rnn.model.parameters()).device))
+
+            orig_mu = S_eval[:, seq_half, :]
+            pred_mu = rnn.model.simulate(
+                torch.from_numpy(np.expand_dims(orig_mu, axis=1)).to(  # Adds sequence dim.
+                    next(rnn.model.parameters()).device),
+                torch.from_numpy(A_eval[:, seq_half:seq_half + config.rnn["rend_n_rollouts"]]).to(
+                    next(rnn.model.parameters()).device)
+            ).reshape(-1, dataset.latent_dim)
 
             orig_img = decoder.predict(orig_mu)[:, np.newaxis]
-            next_img = decoder.predict(next_mu)[:, np.newaxis]
-            pred_img = decoder.predict(pred_mu)
-            pred_img = pred_img.reshape(n_episodes,
-                                        config.rnn["rend_n_rollouts"],
-                                        *pred_img.shape[1:])
+            pred_img = decoder.predict(pred_mu).reshape(n_episodes,
+                                                        config.rnn["rend_n_rollouts"],
+                                                        *config.general['state_shape'])
 
-            samples = np.concatenate((orig_img, pred_img, next_img), axis=1)
+            samples = np.concatenate((orig_img, pred_img), axis=1)
 
             fig = plt.figure(figsize=(
-                config.rnn["rend_n_rollouts"] + 2,
-                n_episodes))
+                config.rnn["rend_n_rollouts"] + 1,
+                n_episodes + 1))  # Add + 1 to make space for titles
             gs = gridspec.GridSpec(n_episodes,
-                                   config.rnn["rend_n_rollouts"] + 2,
+                                   config.rnn["rend_n_rollouts"] + 1,
                                    wspace=0.05, hspace=0.05, figure=fig)
 
             for i in range(n_episodes):
-                for j in range(config.rnn["rend_n_rollouts"] + 2):
+                for j in range(config.rnn["rend_n_rollouts"] + 1):
                     ax = plt.subplot(gs[i, j])
                     plt.axis('off')
                     ax.set_aspect('equal')
+                    if i == 0:
+                        if j == 0:
+                            ax.set_title("start")
+                        else:
+                            ax.set_title("t + {}".format(j))
                     plt.imshow(samples[i, j])
 
             # Save figure to logs dir
@@ -431,9 +434,9 @@ def eval(ctx, vae_path, mdn_path, cma_path, n_games):
 
     vision = MDNVision(encoder, rnn.model, config.vae['latent_space_dim'],
                        state_processor_fn=partial(
-                           state_processor,
-                           state_shape=config.general['state_shape'],
-                           crop_range=config.general['crop_range']))
+        state_processor,
+        state_shape=config.general['state_shape'],
+        crop_range=config.general['crop_range']))
 
     # Build CMA-ES solver and linear model
     _, mind = build_es_model(config.es,
