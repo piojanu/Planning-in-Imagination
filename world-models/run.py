@@ -14,8 +14,8 @@ import tensorflow
 from controller import build_es_model, Evaluator, ReturnTracker
 from memory import build_rnn_model, MDNDataset, MDNVision
 from utils import Config, HDF5DataGenerator, TqdmStream, state_processor, create_directory, force_cpu
-from utils import limit_gpu_memory_usage, mute_tf_logs_if_needed, StoreTransitions
-from vision import build_vae_model, convert_data_with_vae
+from utils import limit_gpu_memory_usage, mute_tf_logs_if_needed, StoreTransitions, convert_data_with_vae
+from vision import build_vae_model
 
 
 def obtain_config(ctx, use_gpu=True):

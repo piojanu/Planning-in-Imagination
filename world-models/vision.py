@@ -1,16 +1,12 @@
 import logging as log
-import math
 
 import keras.backend as K
 import numpy as np
-import h5py
 
 from humblerl import Vision
 from keras.layers import Conv2D, Conv2DTranspose, Dense, Flatten, Input, Lambda, Reshape
 from keras.models import Model
 from keras.optimizers import Adam
-from shutil import copyfile
-from tqdm import tqdm
 
 from utils import get_model_path_if_exists
 
@@ -134,45 +130,3 @@ def build_vae_model(vae_params, input_shape, model_path=None):
         log.info("Loaded VAE model weights from: %s", model_path)
 
     return vae, encoder, decoder
-
-
-def convert_data_with_vae(vae_encoder, path_in, path_out, latent_dim):
-    """Use trained VAE encoder to preprocess states in HDF5 dataset. The rest of the
-    HDF5 file is copied without change (actions, rewards, episodes). Such a preprocessed
-    dataset can be used later for Memory training.
-
-    Args:
-        vae_encoder (keras.models.Model): Trained VAE encoder.
-        path_in (str): Path to HDF5 file with gathered transitions.
-        path_out (str): Path to output HDF5 file with preprocessed states.
-        latent_dim (int): VAE's latent state dimensionality.
-    """
-
-    log.info('Copying HDF5 dataset...')
-    copyfile(path_in, path_out)
-
-    with h5py.File(path_in, "r") as hdf_in, h5py.File(path_out, "a") as hdf_out:
-        # New dataset will have preprocessed states, so we can delete the old ones.
-        del hdf_out["states"]
-
-        n_transitions = hdf_in.attrs["N_TRANSITIONS"]
-        chunk_size = hdf_in.attrs["CHUNK_SIZE"]
-        hdf_out.attrs["LATENT_DIM"] = latent_dim
-        # 2 because latent space mean (mu) and logvar are saved
-        hdf_out.attrs["STATE_SHAPE"] = [2, latent_dim]
-        new_states = hdf_out.create_dataset(
-            name="states", dtype=np.float32, chunks=(chunk_size, 2, latent_dim),
-            shape=(n_transitions, 2, latent_dim), maxshape=(None, 2, latent_dim),
-            compression="lzf")
-
-        # Preprocess states from input dataset by using VAE
-        log.info("Preprocessing states with VAE...")
-        n_chunks = math.ceil(n_transitions / chunk_size)
-        pbar = tqdm(range(n_chunks), ascii=True)
-        for i in pbar:
-            beg, end = i * chunk_size, min((i + 1) * chunk_size, n_transitions)
-            # Grab a batch of states and feed it to VAE
-            # NOTE: [:2] <- gets latent space mean (mu) and logvar, then swaps axes from
-            #       [2, batch_size, latent_dim] into [batch_size, 2, latent_dim].
-            states_batch = hdf_in["states"][beg:end]
-            new_states[beg:end] = np.swapaxes(vae_encoder.predict(states_batch / 255.)[:2], 0, 1)

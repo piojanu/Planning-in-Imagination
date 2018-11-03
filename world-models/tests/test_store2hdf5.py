@@ -7,8 +7,7 @@ import pytest
 from unittest.mock import MagicMock
 from humblerl import Transition
 from humblerl.environments import Discrete, Continuous
-from utils import StoreTransitions
-from vision import convert_data_with_vae
+from utils import StoreTransitions, convert_data_with_vae
 from keras.models import Model
 
 
