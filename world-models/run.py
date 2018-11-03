@@ -12,10 +12,10 @@ from humblerl.agents import RandomAgent
 from tqdm import tqdm
 import tensorflow
 from controller import build_es_model, Evaluator, ReturnTracker
-from memory import build_rnn_model, MDNDataset, MDNVision, StoreMemTransitions
+from memory import build_rnn_model, MDNDataset, MDNVision
 from utils import Config, HDF5DataGenerator, TqdmStream, state_processor, create_directory, force_cpu
-from utils import limit_gpu_memory_usage, mute_tf_logs_if_needed
-from vision import build_vae_model, VAEVision, StoreVaeTransitions
+from utils import limit_gpu_memory_usage, mute_tf_logs_if_needed, StoreTransitions, convert_data_with_vae
+from vision import build_vae_model
 
 
 def obtain_config(ctx, use_gpu=True):
@@ -53,7 +53,7 @@ def cli(ctx, config_path, debug, quiet, render):
 @click.option('-n', '--n-games', default=10000, help='Number of games to play (Default: 10000)')
 @click.option('-c', '--chunk-size', default=128, help='HDF5 chunk size (Default: 128)')
 @click.option('-t', '--state-dtype', default='u1', help='Numpy data type of state (Default: uint8)')
-def record_vae(ctx, path, n_games, chunk_size, state_dtype):
+def record_data(ctx, path, n_games, chunk_size, state_dtype):
     """Plays chosen game randomly and records transitions to hdf5 file in `PATH`."""
 
     config = obtain_config(ctx)
@@ -61,8 +61,20 @@ def record_vae(ctx, path, n_games, chunk_size, state_dtype):
     # Create Gym environment, random agent and store to hdf5 callback
     env = hrl.create_gym(config.general['game_name'])
     mind = RandomAgent(env)
-    store_callback = StoreVaeTransitions(config.general['state_shape'], path,
-                                         chunk_size=chunk_size, dtype=state_dtype)
+    store_callback = StoreTransitions(path, config.general['state_shape'], env.action_space,
+                                      chunk_size=chunk_size, state_dtype=state_dtype)
+
+    if store_callback.game_count >= n_games:
+        log.warning("Data is already fully present in dataset you specified! If you wish to create"
+                    " a new dataset, please remove the one under this path or specify a different"
+                    " path. If you wish to gather more data, increase the number of games to "
+                    " record with --n-games parameter.")
+        return
+    elif 0 < store_callback.game_count < n_games:
+        diff = n_games - store_callback.game_count
+        log.info("{}/{} games were already recorded in specified dataset. {} more game will be"
+                 " added!".format(store_callback.game_count, n_games, diff))
+        n_games = diff
 
     # Resizes states to `state_shape` with cropping
     vision = hrl.Vision(partial(
@@ -174,34 +186,20 @@ def train_vae(ctx, path):
 
 @cli.command()
 @click.pass_context
-@click.argument('path', type=click.Path(), required=True)
+@click.argument('path_in', type=click.Path(), required=True)
+@click.argument('path_out', type=click.Path(), required=True)
 @click.option('-m', '--model-path', default=None,
               help='Path to VAE ckpt. Taken from .json config if `None` (Default: None)')
-@click.option('-c', '--chunk-size', default=128, help='HDF5 chunk size (Default: 128)')
-@click.option('-n', '--n-games', default=10000, help='Number of games to play (Default: 10000)')
-def record_mem(ctx, path, model_path, chunk_size, n_games):
-    """Plays chosen game randomly and records preprocessed with VAE (loaded from `model_path`
-    or config) states, next_states and actions trajectories to HDF5 file in `PATH`."""
+def convert_data(ctx, path_in, path_out, model_path):
+    """Use transitions from record_data and preprocess states for Memory training
+    using a trained VAE model. Data is loaded from `PATH_IN` and saved to `PATH_OUT`"""
 
     config = obtain_config(ctx)
 
-    # Create Gym environment, random agent and store to hdf5 callback
-    env = hrl.create_gym(config.general['game_name'])
-    mind = RandomAgent(env)
-    store_callback = StoreMemTransitions(path, latent_dim=config.vae['latent_space_dim'],
-                                         action_space=env.action_space, chunk_size=chunk_size)
-
     # Build VAE model
-    vae, encoder, _ = build_vae_model(config.vae, config.general['state_shape'], model_path)
+    _, encoder, _ = build_vae_model(config.vae, config.general["state_shape"], model_path)
 
-    # Resizes states to `state_shape` with cropping and encode to latent space
-    vision = VAEVision(encoder, state_processor_fn=partial(
-        state_processor,
-        state_shape=config.general['state_shape'],
-        crop_range=config.general['crop_range']))
-
-    # Play `N` random games and gather data as it goes
-    hrl.loop(env, mind, vision, n_episodes=n_games, verbose=1, callbacks=[store_callback])
+    convert_data_with_vae(encoder, path_in, path_out, config.vae['latent_space_dim'])
 
 
 @cli.command()

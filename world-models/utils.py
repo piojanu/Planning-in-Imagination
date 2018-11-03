@@ -1,14 +1,18 @@
 import json
-import h5py as h5
+import h5py
 import numpy as np
 import os
 import logging as log
 import tensorflow as tf
+import math
 
 from keras.backend.tensorflow_backend import set_session
 from keras.utils import Sequence
 from skimage.transform import resize
 from tqdm import tqdm
+from shutil import copyfile
+
+import humblerl as hrl
 
 
 class Config(object):
@@ -38,6 +42,207 @@ class Config(object):
         self.allow_render = allow_render
 
 
+class StoreTransitions(hrl.Callback):
+    """Save transitions to HDF5 file in four datasets:
+        * 'states': States.
+        * 'actions': Actions.
+        * 'rewards': Rewards.
+        * 'episodes': Indices of each episode (episodes[i] -> start index of episode `i`
+                      in states and actions datasets).
+
+        Datasets are organized in such a way, that you can locate episode `i` by accessing
+        i-th position in `episodes` to get the `start` index and (i+1)-th position to get
+        the `end` index and then get all of this episode's transitions by accessing
+        `states[start:end]` and `actions[start:end]`.
+
+        HDF5 file also keeps meta-informations (attributes) as such:
+        * 'N_TRANSITIONS': Datasets size (number of transitions).
+        * 'N_GAMES': From how many games those transitions come from.
+        * 'CHUNK_SIZE': Chunk size.
+        * 'STATE_SHAPE': Shape of state.
+        * 'ACTION_DIM': Action's dimensionality (1 for discrete).
+    """
+
+    def __init__(self, out_path, state_shape, action_space, min_transitions=10000, min_episodes=1000, chunk_size=128,
+                 state_dtype=np.uint8):
+        """Initialize memory data storage.
+
+        Args:
+            out_path (str): Path to output hdf5 file.
+            state_shape (tuple): Shape of state.
+            action_space (hrl.environments.ActionSpace): Object representing action space,
+                check HumbleRL.
+            min_transitions (int): Minimum expected number of transitions in dataset. If more is
+                gathered, then hdf5 dataset size is expanded.
+            min_episodes (int): Minimum expected number of episodes in dataset. If more is
+                gathered, then hdf5 dataset size is expanded.
+            chunk_size (int): Chunk size in transitions. For efficiency reasons, data is saved
+                to file in chunks to limit the disk usage (chunk is smallest unit that get fetched
+                from disk). For best performance set it to training batch size. (Default: 128)
+            state_dtype (dtype): Type used to save the state  (Default: np.uint8).
+        """
+
+        self.out_path = out_path
+        self.dataset_size = min_transitions
+        self.min_transitions = min_transitions
+        self.episodes_size = min_episodes
+        self.state_shape = state_shape
+        self.action_dim = action_space.num if isinstance(
+            action_space, hrl.environments.Continuous) else 1
+        self.transition_count = 0
+        self.game_count = 0
+        self.states = []
+        self.actions = []
+        self.rewards = []
+
+        if os.path.exists(out_path):
+            try:
+                self.out_file = h5py.File(out_path, "a")
+                self.out_states = self.out_file["states"]
+                self.out_actions = self.out_file["actions"]
+                self.out_rewards = self.out_file["rewards"]
+                self.out_episodes = self.out_file["episodes"]
+                self.transition_count = self.out_file.attrs["N_TRANSITIONS"]
+                self.game_count = self.out_file.attrs["N_GAMES"]
+                # NOTE: Last entry in `episodes` should point to the end of dataset - if it
+                #       doesn't, it means that data gathering was interrupted mid-game and data
+                #       wasn't properly saved to disk. This is a workaround and should probably
+                #       be handled differently.
+                if self.out_episodes[self.game_count] != self.transition_count:
+                    self.game_count += 1
+                    self.out_episodes[self.game_count] = self.transition_count
+                return
+            except KeyError:
+                # File exists but isn't a proper dataset - we will create it from scratch.
+                self.out_file.close()
+
+        # Make sure that path to out file exists
+        dirname = os.path.dirname(out_path)
+        if dirname and not os.path.exists(dirname):
+            os.makedirs(dirname)
+
+        # Create output hdf5 file and fill metadata
+        self.out_file = h5py.File(out_path, "w")
+        self.out_file.attrs["N_TRANSITIONS"] = 0
+        self.out_file.attrs["N_GAMES"] = 0
+        self.out_file.attrs["CHUNK_SIZE"] = chunk_size
+        self.out_file.attrs["STATE_SHAPE"] = state_shape
+        self.out_file.attrs["ACTION_DIM"] = self.action_dim
+
+        # Create datasets
+        self.out_states = self.out_file.create_dataset(
+            name="states", dtype=state_dtype, chunks=(chunk_size, *state_shape),
+            shape=(self.dataset_size, *state_shape), maxshape=(None, *state_shape),
+            compression="lzf")
+        self.out_actions = self.out_file.create_dataset(
+            name="actions", dtype=action_space.sample().dtype, chunks=(chunk_size, self.action_dim),
+            shape=(self.dataset_size, self.action_dim), maxshape=(None, self.action_dim),
+            compression="lzf")
+        self.out_rewards = self.out_file.create_dataset(
+            name="rewards", dtype=np.float32, chunks=(chunk_size,),
+            shape=(self.dataset_size,), maxshape=(None,),
+            compression="lzf")
+        self.out_episodes = self.out_file.create_dataset(
+            name="episodes", dtype=np.int, chunks=(chunk_size,),
+            shape=(self.episodes_size + 1,), maxshape=(None,))
+
+        self.out_episodes[0] = 0
+
+    def on_step_taken(self, step, transition, info):
+        action = transition.action
+        self.states.append(transition.state)
+        self.actions.append(action if isinstance(action, np.ndarray) else [action])
+        self.rewards.append(transition.reward)
+
+        self.transition_count += 1
+
+        if transition.is_terminal:
+            self.game_count += 1
+            if self.game_count == self.episodes_size:
+                self.episodes_size *= 2
+                self.out_episodes.resize(self.episodes_size, axis=0)
+            self.out_episodes[self.game_count] = self.transition_count
+
+        if self.transition_count % self.min_transitions == 0:
+            self._save_chunk()
+
+    def on_loop_end(self, is_aborted):
+        if len(self.states) > 0:
+            self._save_chunk()
+
+        # Close file
+        self.out_file.close()
+
+    def _save_chunk(self):
+        """Save `states` and `actions` to HDF5 file. Clear the buffers.
+        Update transition and games count in HDF5 file."""
+
+        # Resize datasets if needed
+        if self.transition_count > self.dataset_size:
+            self.out_states.resize(self.transition_count, axis=0)
+            self.out_actions.resize(self.transition_count, axis=0)
+            self.out_rewards.resize(self.transition_count, axis=0)
+            self.dataset_size = self.transition_count
+
+        n_transitions = len(self.states)
+        start = self.transition_count - n_transitions
+
+        assert n_transitions > 0, "Nothing to save!"
+
+        self.out_states[start:self.transition_count] = self.states
+        self.out_actions[start:self.transition_count] = self.actions
+        self.out_rewards[start:self.transition_count] = self.rewards
+
+        self.out_file.attrs["N_TRANSITIONS"] = self.transition_count
+        self.out_file.attrs["N_GAMES"] = self.game_count
+
+        self.states.clear()
+        self.actions.clear()
+        self.rewards.clear()
+
+
+def convert_data_with_vae(vae_encoder, path_in, path_out, latent_dim):
+    """Use trained VAE encoder to preprocess states in HDF5 dataset. The rest of the
+    HDF5 file is copied without change (actions, rewards, episodes). Such a preprocessed
+    dataset can be used later for Memory training.
+
+    Args:
+        vae_encoder (keras.models.Model): Trained VAE encoder.
+        path_in (str): Path to HDF5 file with gathered transitions.
+        path_out (str): Path to output HDF5 file with preprocessed states.
+        latent_dim (int): VAE's latent state dimensionality.
+    """
+
+    log.info('Copying HDF5 dataset...')
+    copyfile(path_in, path_out)
+
+    with h5py.File(path_in, "r") as hdf_in, h5py.File(path_out, "a") as hdf_out:
+        # New dataset will have preprocessed states, so we can delete the old ones.
+        del hdf_out["states"]
+
+        n_transitions = hdf_in.attrs["N_TRANSITIONS"]
+        chunk_size = hdf_in.attrs["CHUNK_SIZE"]
+        hdf_out.attrs["LATENT_DIM"] = latent_dim
+        # 2 because latent space mean (mu) and logvar are saved
+        hdf_out.attrs["STATE_SHAPE"] = [2, latent_dim]
+        new_states = hdf_out.create_dataset(
+            name="states", dtype=np.float32, chunks=(chunk_size, 2, latent_dim),
+            shape=(n_transitions, 2, latent_dim), maxshape=(None, 2, latent_dim),
+            compression="lzf")
+
+        # Preprocess states from input dataset by using VAE
+        log.info("Preprocessing states with VAE...")
+        n_chunks = math.ceil(n_transitions / chunk_size)
+        pbar = tqdm(range(n_chunks), ascii=True)
+        for i in pbar:
+            beg, end = i * chunk_size, min((i + 1) * chunk_size, n_transitions)
+            # Grab a batch of states and feed it to VAE
+            # NOTE: [:2] <- gets latent space mean (mu) and logvar, then swaps axes from
+            #       [2, batch_size, latent_dim] into [batch_size, 2, latent_dim].
+            states_batch = hdf_in["states"][beg:end]
+            new_states[beg:end] = np.swapaxes(vae_encoder.predict(states_batch / 255.)[:2], 0, 1)
+
+
 class HDF5DataGenerator(Sequence):
     """Generates data for Keras model from bug HDF5 files."""
 
@@ -59,7 +264,7 @@ class HDF5DataGenerator(Sequence):
                 no preprocessing is done. (Default: None)
         """
 
-        hfile = h5.File(hdf5_path, 'r')
+        hfile = h5py.File(hdf5_path, 'r')
         self.X = hfile[dataset_X]
         self.y = hfile[dataset_y]
         self.batch_size = batch_size
