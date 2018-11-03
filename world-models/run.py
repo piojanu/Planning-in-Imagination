@@ -190,7 +190,7 @@ def train_vae(ctx, path):
 @click.argument('path_out', type=click.Path(), required=True)
 @click.option('-v', '--vae-path', default=None,
               help='Path to VAE ckpt. Taken from .json config if `None` (Default: None)')
-def convert_data(ctx, path_in, path_out, model_path):
+def convert_data(ctx, path_in, path_out, vae_path):
     """Use transitions from record_data and preprocess states for Memory training
     using a trained VAE model. Data is loaded from `PATH_IN` and saved to `PATH_OUT`"""
 
