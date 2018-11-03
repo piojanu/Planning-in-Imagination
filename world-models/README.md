@@ -107,7 +107,7 @@ Best model will be saved to and loaded from `ckpt_path`.
 
 ### Memory training
 #### Prepare gathered transitions for Memory training
-Using trained Vision system, we can preprocess states gathered by `record_data` and save them in a different HDF5 file
+Using trained Vision module, we can preprocess states gathered by `record_data` and save them in a different HDF5 file
 (other data in HDF5 stays the same, e.g. actions). This new dataset can be later used to train the Memory component.
 
 To convert transitions stored in `data/vae.hdf5` file using VAE model specified in config and save them to 
