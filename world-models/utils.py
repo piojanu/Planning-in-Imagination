@@ -96,21 +96,25 @@ class StoreTransitions(hrl.Callback):
         self.rewards = []
 
         if os.path.exists(out_path):
-            self.out_file = h5py.File(out_path, "a")
-            self.out_states = self.out_file["states"]
-            self.out_actions = self.out_file["actions"]
-            self.out_rewards = self.out_file["rewards"]
-            self.out_episodes = self.out_file["episodes"]
-            self.transition_count = self.out_file.attrs["N_TRANSITIONS"]
-            self.game_count = self.out_file.attrs["N_GAMES"]
-            # NOTE: Last entry in `episodes` should point to the end of dataset - if it
-            #       doesn't, it means that data gathering was interrupted mid-game and data
-            #       wasn't properly saved to disk. This is a workaround and should probably
-            #       be handled differently.
-            if self.out_episodes[self.game_count] != self.transition_count:
-                self.game_count += 1
-                self.out_episodes[self.game_count] = self.transition_count
-            return
+            try:
+                self.out_file = h5py.File(out_path, "a")
+                self.out_states = self.out_file["states"]
+                self.out_actions = self.out_file["actions"]
+                self.out_rewards = self.out_file["rewards"]
+                self.out_episodes = self.out_file["episodes"]
+                self.transition_count = self.out_file.attrs["N_TRANSITIONS"]
+                self.game_count = self.out_file.attrs["N_GAMES"]
+                # NOTE: Last entry in `episodes` should point to the end of dataset - if it
+                #       doesn't, it means that data gathering was interrupted mid-game and data
+                #       wasn't properly saved to disk. This is a workaround and should probably
+                #       be handled differently.
+                if self.out_episodes[self.game_count] != self.transition_count:
+                    self.game_count += 1
+                    self.out_episodes[self.game_count] = self.transition_count
+                return
+            except KeyError:
+                # File exists but isn't a proper dataset - we will create it from scratch.
+                self.out_file.close()
 
         # Make sure that path to out file exists
         dirname = os.path.dirname(out_path)
