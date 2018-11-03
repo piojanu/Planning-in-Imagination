@@ -13,6 +13,15 @@ Clone this repository and install requirements: `pip install -r requirements.txt
 To see script-level help, run: `python run.py --help`.
 Note: By default, logs from TensorFlow are hidden by setting `TF_CPP_MIN_LOG_LEVEL` environment variable to value of 3. To change it, define environment variable `TF_CPP_MIN_LOG_LEVEL`.
 
+Command-line options:
+
+```
+-c, --config-path    - Path to .json config (Default: "config.json")
+--debug/--no-debug   - Enable debug level logging (Default: False)
+--quiet/--no-quiet   - Disable info level logging (Default: False)
+--render/--no-render - Vision/Memory will save example plots, Memory needs to get Vision ckpt path in arguments (Default: False)
+```
+
 ### Config
 Parameters used in training and evaluation are stored in JSON config.
 
@@ -118,7 +127,7 @@ To convert transitions stored in `data/vae.hdf5` file using VAE model specified 
 Command-line options:
 
 ```
--m, --model_path - Path to VAE ckpt. Taken from .json config if `None` (Default: None)'
+-v, --vae_path - Path to VAE ckpt. Taken from .json config if `None` (Default: None)'
 ```
 
 #### Train Memory component
