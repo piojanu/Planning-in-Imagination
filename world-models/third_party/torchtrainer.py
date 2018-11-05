@@ -14,7 +14,21 @@ import torch.nn as nn
 import torch.utils.data
 
 from collections import defaultdict, OrderedDict
+from contextlib import contextmanager
 from tqdm import tqdm
+
+
+@contextmanager
+def evaluate(module):
+    """Switch PyTorch module to evaluation mode and then restore previous mode."""
+
+    is_train = module.training
+    try:
+        module.eval()
+        yield module
+    finally:
+        if is_train:
+            module.train()
 
 
 class Callback(object):

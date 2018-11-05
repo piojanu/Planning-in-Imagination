@@ -9,10 +9,9 @@ import h5py
 import humblerl as hrl
 
 from humblerl import Callback, Vision
-from third_party.torchtrainer import TorchTrainer
+from third_party.torchtrainer import TorchTrainer, evaluate
 from torch.distributions import Normal
 from torch.utils.data import Dataset
-
 from utils import get_model_path_if_exists
 
 
@@ -55,8 +54,8 @@ class MDNVision(Vision, Callback):
         if torch.cuda.is_available():
             state = state.cuda()
             action = action.cuda()
-        with torch.no_grad():
-            self.mdn_model(state, action)
+        with torch.no_grad(), evaluate(self.mdn_model) as net:
+            net(state, action)
 
 
 class MDNDataset(Dataset):
@@ -176,8 +175,8 @@ class MDN(nn.Module):
         """
 
         # Simulate transition
-        with torch.no_grad():
-            mu, sigma, pi = self.forward(latent, action)
+        with torch.no_grad(), evaluate(self) as net:
+            mu, sigma, pi = net(latent, action)
 
         # Transform tensors to numpy arrays and move "gaussians mixture" dim to the end
         # NOTE: Arrays will have shape (batch x sequence x latent dim. x num. gaussians)
@@ -217,8 +216,7 @@ class MDN(nn.Module):
             states.append(self.sample(latent, actions[:, a, np.newaxis, :]))
             # NOTE: This is a bit arbitrary to set it to float32 which happens to be type of torch
             #       tensors. It can blow up further in code if we'll choose to change tensors types.
-            latent = torch.from_numpy(states[-1]).float()
-            latent.to(next(self.parameters()).device)
+            latent = torch.from_numpy(states[-1]).float().to(next(self.parameters()).device)
 
         return np.transpose(np.squeeze(np.array(states), axis=2), axes=[1, 0, 2])
 
@@ -266,9 +264,6 @@ def build_rnn_model(rnn_params, latent_dim, action_space, model_path=None):
     mdn = TorchTrainer(MDN(rnn_params['hidden_units'], latent_dim, action_space,
                            rnn_params['temperature'], rnn_params['n_gaussians']),
                        device_name='cuda' if use_cuda else 'cpu')
-
-    # NOTE: Set MDN-RNN to evaluation mode, TorchTrainer will change that for training
-    mdn.model.eval()
 
     mdn.compile(optimizer=optim.Adam(mdn.model.parameters(), lr=rnn_params['learning_rate']),
                 loss=mdn_loss_function)
