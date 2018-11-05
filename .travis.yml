@@ -7,7 +7,7 @@ install:
   - pip install pycodestyle
   - pip install -r requirements.txt > install.log; cat install.log
 script:
-  - pycodestyle . --exclude=humblerl,alphazero/src/games/ --ignore E501
+  - pycodestyle .
   - pytest
   - (cd alphazero/scripts; ./run_cmds.sh)
   - (cd world-models/scripts; ./run_cmds.sh)
