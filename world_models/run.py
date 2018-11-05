@@ -9,7 +9,7 @@ import os
 import tensorflow
 
 from common_utils import limit_gpu_memory_usage, mute_tf_logs_if_needed, create_directory, force_cpu
-from controller import build_es_model, Evaluator, ReturnTracker
+from controller import build_es_model, build_mind, Evaluator, ReturnTracker
 from functools import partial
 from humblerl.agents import RandomAgent
 from memory import build_rnn_model, MDNDataset, MDNVision
@@ -368,10 +368,11 @@ def train_ctrl(ctx, vae_path, mdn_path):
     action_space = env.action_space
     del env
 
-    # Build CMA-ES solver and linear model
-    solver, _ = build_es_model(config.es,
-                               config.vae['latent_space_dim'] + config.rnn['hidden_units'],
-                               action_space)
+    input_dim = config.vae['latent_space_dim'] + config.rnn['hidden_units']
+    out_dim = action_space.num
+    n_params = (input_dim + 1) * out_dim
+    # Build CMA-ES solver
+    solver = build_es_model(config.es, n_params=n_params)
 
     # Train for N epochs
     pbar = tqdm(range(config.es['epochs']), ascii=True)
@@ -400,8 +401,10 @@ def train_ctrl(ctx, vae_path, mdn_path):
 
         if config.es['ckpt_path']:
             # Save solver in given path
-            solver.save_ckpt(config.es['ckpt_path'])
+            solver.save_ckpt_and_weights(config.es['ckpt_path'], config.es['mind_path_prefix'])
             log.debug("Saved checkpoint in path: %s", config.es['ckpt_path'])
+            log.debug("Saved best weights in path: %s", config.es['mind_path_prefix'] + "_best.cpkt")
+            log.debug("Saved mean weights in path: %s", config.es['mind_path_prefix'] + "_mean.cpkt")
 
 
 @cli.command()
@@ -410,12 +413,12 @@ def train_ctrl(ctx, vae_path, mdn_path):
               help='Path to VAE ckpt. Taken from .json config if `None` (Default: None)')
 @click.option('-m', '--mdn-path', default=None,
               help='Path to MDN-RNN ckpt. Taken from .json config if `None` (Default: None)')
-@click.option('-c', '--cma-path', default=None,
-              help='Path to CMA-ES ckpt. Taken from .json config if `None` (Default: None)')
+@click.option('-c', '--controller-path', default=None,
+              help='Path to Mind weights. Taken from .json config if `None` (Default: None)')
 @click.option('-n', '--n-games', default=3, help='Number of games to play (Default: 3)')
-def eval(ctx, vae_path, mdn_path, cma_path, n_games):
-    """Plays chosen game testing whole pipeline: VAE -> MDN-RNN -> CMA-ES
-    (loaded from `vae_path`, `mdn_path` and `cma-path`)."""
+def eval(ctx, vae_path, mdn_path, controller_path, n_games):
+    """Plays chosen game testing whole pipeline: VAE -> MDN-RNN -> Controller
+    (loaded from `vae_path`, `mdn_path` and `controller_path`)."""
 
     config = obtain_config(ctx)
 
@@ -443,10 +446,10 @@ def eval(ctx, vae_path, mdn_path, cma_path, n_games):
         crop_range=config.general['crop_range']))
 
     # Build CMA-ES solver and linear model
-    _, mind = build_es_model(config.es,
-                             config.vae['latent_space_dim'] + config.rnn['hidden_units'],
-                             env.action_space,
-                             cma_path)
+    mind = build_mind(config.es,
+                      config.vae['latent_space_dim'] + config.rnn['hidden_units'],
+                      env.action_space,
+                      controller_path)
 
     hist = hrl.loop(env, mind, vision,
                     n_episodes=n_games, render_mode=config.allow_render, verbose=1,

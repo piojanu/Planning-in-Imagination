@@ -35,6 +35,7 @@
         "processes"          : -1,
         "l2_decay"           : 0.01,
         "ckpt_path"          : "./checkpoints/best_controller.ckpt",
+        "mind_path_prefix"   : "./checkpoints/mind",
         "logs_dir"           : "./logs"
     }
 }

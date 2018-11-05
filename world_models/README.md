@@ -182,12 +182,13 @@ Config options:
                                                    -- The fitness score is calculated as average score from these games.
     "processes"        : -1,                       -- Number of processes to use, -1 means all processors will be used.
     "l2_decay"         : 0.01,                     -- L2 weight decay rate.
-    "ckpt_path"        : "./ckpt/controller.ckpt", -- Path to best model (checkpoint).
+    "ckpt_path"        : "./ckpt/controller.ckpt", -- Path to best CMA-ES model (checkpoint).
+    "mind_path_prefix" : "./cpkt/mind",            -- Prefix of path to weights for Controller.
     "logs_dir"         : "./logs"                  -- Path to directory with logs.
 }
 ```
 
-Best model will be saved to and loaded from `ckpt_path`.
+Best Controller model will be saved to and loaded from `ckpt_path`. Weight for Mind will be saved to `mind_path_prefix``suffix` files, where the suffix for best solution `_best.ckpt` and the suffix for mean solution is `_mean.ckpt`.
 Note: Controller's training is executed only on CPUs, it is highly recommended to setup environment variable `OMP_NUM_THREADS=1` to reduce not needed CPU utilization.
 
 ## Evaluation
@@ -200,8 +201,8 @@ To do this on CPU, using models specified in config, run:
 Command-line options:
 
 ```
--n, --n_games  - Number of games to play (Default: 3)
--v, --vae_path - Path to VAE ckpt. Taken from .json config if `None` (Default: None)')
--m, --mdn_path - Path to MDN-RNN ckpt. Taken from .json config if `None` (Default: None)')
--c, --cma_path - Path to CMA-ES ckpt. Taken from .json config if `None` (Default: None)')
+-n, --n_games         - Number of games to play (Default: 3)
+-v, --vae_path        - Path to VAE ckpt. Taken from .json config if `None` (Default: None)')
+-m, --mdn_path        - Path to MDN-RNN ckpt. Taken from .json config if `None` (Default: None)')
+-c, --controller_path - Path to Controller weights. Taken `best` version from .json config if `None` (Default: None)')
 ```
