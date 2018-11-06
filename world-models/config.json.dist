@@ -10,8 +10,8 @@
         "epochs"             : 300,
         "learning_rate"      : 0.001,
         "patience"           : 5,
-        "ckpt_path"          : "./checkpoints_n_logs/best_vision.ckpt",
-        "logs_dir"           : "./checkpoints_n_logs"
+        "ckpt_path"          : "./checkpoints/best_vision.ckpt",
+        "logs_dir"           : "./logs"
     },
     "rnn_training": {
         "batch_size"         : 128,
@@ -25,8 +25,8 @@
         "patience"           : 10,
         "rend_n_rollouts"    : 15,
         "rend_n_episodes"    : 16,
-        "ckpt_path"          : "./checkpoints_n_logs/best_memory.ckpt",
-        "logs_dir"           : "./checkpoints_n_logs"
+        "ckpt_path"          : "./checkpoints/best_memory.ckpt",
+        "logs_dir"           : "./logs"
     },
     "es_training": {
         "epochs"             : 300,
@@ -34,7 +34,7 @@
         "n_episodes"         : 5,
         "processes"          : -1,
         "l2_decay"           : 0.01,
-        "ckpt_path"          : "./checkpoints_n_logs/best_controller.ckpt",
-        "logs_dir"           : "./checkpoints_n_logs"
+        "ckpt_path"          : "./checkpoints/best_controller.ckpt",
+        "logs_dir"           : "./logs"
     }
 }
