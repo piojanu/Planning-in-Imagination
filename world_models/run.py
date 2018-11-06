@@ -10,11 +10,12 @@ import tensorflow
 
 from common_utils import limit_gpu_memory_usage, mute_tf_logs_if_needed, create_directory, force_cpu
 from controller import build_es_model, build_mind, Evaluator, ReturnTracker
-from humblerl.agents import ChainVision, RandomAgent
+from humblerl.agents import ChainVision
 from memory import build_rnn_model, MDNDataset, MDNVision
 from third_party.torchtrainer import RandomBatchSampler, evaluate
 from tqdm import tqdm
 from utils import Config, HDF5DataGenerator, TqdmStream, StoreTransitions, convert_data_with_vae
+from utils import create_generating_agent
 from vision import BasicVision, build_vae_model
 
 
@@ -60,7 +61,7 @@ def record_data(ctx, path, n_games, chunk_size, state_dtype):
 
     # Create Gym environment, random agent and store to hdf5 callback
     env = hrl.create_gym(config.general['game_name'])
-    mind = RandomAgent(env)
+    mind = create_generating_agent(config.general['generating_agent'], env)
     store_callback = StoreTransitions(path, config.general['state_shape'],
                                       env.action_space, chunk_size=chunk_size,
                                       state_dtype=state_dtype, reward_dtype=np.float32)
@@ -85,7 +86,8 @@ def record_data(ctx, path, n_games, chunk_size, state_dtype):
     )
 
     # Play `N` random games and gather data as it goes
-    hrl.loop(env, mind, vision, n_episodes=n_games, verbose=1, callbacks=[store_callback])
+    hrl.loop(env, mind, vision, n_episodes=n_games, verbose=1, callbacks=[store_callback],
+             render_mode=config.allow_render)
 
 
 @cli.command()
@@ -157,8 +159,9 @@ def train_vae(ctx, path):
         def plot_samples(epoch, logs):
             pass
 
-    # Create checkpoint directory, if it doesn't exist
+    # Create checkpoint and logging directory, if it doesn't exist
     create_directory(os.path.dirname(config.vae['ckpt_path']))
+    create_directory(os.path.dirname(config.vae['logs_dir']))
 
     # Initialize callbacks
     callbacks = [
@@ -393,7 +396,8 @@ def train_ctrl(ctx, vae_path, mdn_path):
             jobs=population,
             processes=processes,
             n_episodes=config.es['n_episodes'],
-            verbose=0
+            verbose=0,
+            render_mode=config.allow_render
         )
         returns = [np.mean(hist['return']) for hist in hists]
 

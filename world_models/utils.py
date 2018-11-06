@@ -1,6 +1,7 @@
 import logging as log
 import math
 import os
+import random
 from shutil import copyfile
 
 import h5py
@@ -311,3 +312,56 @@ class TqdmStream(object):
     @classmethod
     def flush(_):
         pass
+
+
+def create_generating_agent(generating_agent, env):
+    """Create an agent that will generate data for VAE/MEM training.
+    By default, a random agent is created.
+
+    Args:
+        generating_agent (str): Generating agent to create.
+        env (hrl.Environment):  Game's environment.
+
+    Returns:
+        hrl.Mind: Generating agent.
+    """
+    if generating_agent == 'car_racing':
+        return CarRacingAgent(env)
+    return hrl.agents.RandomAgent(env)
+
+
+class CarRacingAgent(hrl.Mind):
+    """'Random' agent for CarRacing game. Normal random agent doesn't work well,
+    since actions need to be repeated for some steps, for the car to move somewhat
+    sensibly + it needs to accelerate first.
+
+    Adapted from: https://github.com/AppliedDataSciencePartners/WorldModels
+    """
+
+    def __init__(self, env):
+        self.env = env
+        self.current_action = env.action_space.sample()
+
+    def plan(self, state, train_mode, debug_mode):
+        action = self.current_action
+
+        # Accelerate for first 60 steps to get the car moving
+        if self.env.step_counter < 60:
+            action = np.array([0, 1, 0])
+
+        # Change action every 5 steps
+        if self.env.step_counter % 5 == 0:
+            rn = random.randint(0, 9)
+            if rn in [0]:
+                action = np.array([0, 0, 0])
+            if rn in [1, 2, 3, 4]:
+                action = np.array([0, random.random(), 0])
+            if rn in [5, 6, 7]:
+                action = np.array([-random.random(), 0, 0])
+            if rn in [8]:
+                action = np.array([random.random(), 0, 0])
+            if rn in [9]:
+                action = np.array([0, 0, random.random()])
+
+        self.current_action = action
+        return action
