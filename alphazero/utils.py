@@ -2,8 +2,8 @@ import datetime as dt
 import glob
 import os
 import tensorflow as tf
-import json
 
+from common_utils import get_configs
 from env import GameEnv, GameMDP
 from games import *  # This allows to create every game from games
 
@@ -17,14 +17,7 @@ class Config(object):
             debug (boolean): Specify to enable debugging features
         """
 
-        with open(os.path.join(os.path.dirname(__file__), "config.json.dist")) as config_file:
-            default_config = json.loads(config_file.read())
-
-        if os.path.exists(config_path):
-            with open(config_path) as custom_config_file:
-                custom_config = json.loads(custom_config_file.read())
-        else:
-            custom_config = {}
+        default_config, custom_config = get_configs(config_path)
 
         # Merging default and custom configs, for repeating keys, key-value pairs from second dict are taken
         self.nn = {**default_config["neural_net"], **custom_config.get("neural_net", {})}
@@ -104,8 +97,3 @@ def get_checkpoints_for_game(dirname, game_name):
     files.sort(key=lambda x: get_checkpoints_epoch(x))
 
     return files
-
-
-def mute_tf_logs_if_needed():
-    if "TF_CPP_MIN_LOG_LEVEL" not in os.environ:
-        os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"

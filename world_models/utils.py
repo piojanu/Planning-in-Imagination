@@ -1,4 +1,3 @@
-import json
 import h5py
 import numpy as np
 import os
@@ -6,7 +5,7 @@ import logging as log
 import tensorflow as tf
 import math
 
-from keras.backend.tensorflow_backend import set_session
+from common_utils import get_configs
 from keras.utils import Sequence
 from skimage.transform import resize
 from tqdm import tqdm
@@ -24,14 +23,7 @@ class Config(object):
             is_debug (bool): Specify to enable debugging features
             allow_render (bool): Specify to enable render/plot features
         """
-        with open(os.path.join(os.path.dirname(__file__), "config.json.dist")) as config_file:
-            default_config = json.loads(config_file.read())
-
-        if os.path.exists(config_path):
-            with open(config_path) as custom_config_file:
-                custom_config = json.loads(custom_config_file.read())
-        else:
-            custom_config = {}
+        default_config, custom_config = get_configs(config_path)
 
         # Merging default and custom configs, for repeating keys second dict overwrites values
         self.general = {**default_config["general"], **custom_config.get("general", {})}
@@ -359,36 +351,3 @@ def get_model_path_if_exists(path, default_path, model_name):
     elif not os.path.exists(path):
         raise ValueError("{} weights in \"{}\" path doesn't exist!".format(model_name, path))
     return path
-
-
-def limit_gpu_memory_usage():
-    """This function makes that we don't allocate more graphics memory than we need.
-       For TensorFlow, we need to set `alow_growth` flag to True.
-       For PyTorch, this is the default behavior.
-
-    """
-
-    tf_config = tf.ConfigProto()
-    tf_config.gpu_options.allow_growth = True
-    set_session(tf.Session(config=tf_config))
-
-
-def create_directory(dirname):
-    """Create directory recursively, if it doesn't exit
-
-    Args:
-        dirname (str): Name of directory (path, e.g. "path/to/dir/")
-    """
-    if dirname and not os.path.exists(dirname):
-        os.makedirs(dirname)
-
-
-def force_cpu():
-    """Force using CPU"""
-
-    os.environ['CUDA_VISIBLE_DEVICES'] = ''
-
-
-def mute_tf_logs_if_needed():
-    if "TF_CPP_MIN_LOG_LEVEL" not in os.environ:
-        os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"

@@ -1,21 +1,21 @@
 #!/usr/bin/env python3
-import datetime as dt
-import logging as log
-import os
 import click
+import datetime as dt
 import h5py as h5
 import humblerl as hrl
+import logging as log
 import numpy as np
+import os
 import tensorflow
 
+from common_utils import limit_gpu_memory_usage, mute_tf_logs_if_needed, create_directory, force_cpu
+from controller import build_es_model, Evaluator, ReturnTracker
 from functools import partial
 from humblerl.agents import RandomAgent
-from tqdm import tqdm
-from controller import build_es_model, Evaluator, ReturnTracker
 from memory import build_rnn_model, MDNDataset, MDNVision
 from third_party.torchtrainer import evaluate
-from utils import Config, HDF5DataGenerator, TqdmStream, state_processor, create_directory, force_cpu
-from utils import limit_gpu_memory_usage, mute_tf_logs_if_needed, StoreTransitions, convert_data_with_vae
+from tqdm import tqdm
+from utils import Config, HDF5DataGenerator, TqdmStream, state_processor, StoreTransitions, convert_data_with_vae
 from vision import build_vae_model
 
 
