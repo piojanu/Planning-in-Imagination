@@ -324,7 +324,7 @@ class TorchTrainer(object):
         """
 
         # Prepare for evaluation
-        self._prepare(train_mode=False)
+        self._prepare()
 
         # Evaluate on whole dataset
         results_avg = defaultdict(float)
@@ -333,8 +333,9 @@ class TorchTrainer(object):
                 data = [d.to(self.device, non_blocking=True) for d in data]
                 target = [t.to(self.device, non_blocking=True) for t in target]
 
-                with torch.no_grad():
-                    _, results_tmp = self._eval_loss_n_metrics(data, target)
+                with torch.no_grad(), evaluate(self.model) as model:
+                    pred = model(*data)
+                _, results_tmp = self._eval_loss_n_metrics(pred, target)
                 self._average_metrics(results_avg, results_tmp, iter_t)
                 pbar.set_postfix({k: "{:.4f}".format(v) for k, v in results_avg.items()})
 
@@ -409,7 +410,7 @@ class TorchTrainer(object):
         """
 
         # Prepare for training
-        self._prepare(train_mode=True)
+        self._prepare()
 
         # Create callbacks list
         callbacks_list = CallbackList(callbacks or [], trainer=self)
@@ -432,7 +433,8 @@ class TorchTrainer(object):
 
                         self.optim.zero_grad()
 
-                        loss, results_tmp = self._eval_loss_n_metrics(data, target)
+                        pred = self.model(*data)
+                        loss, results_tmp = self._eval_loss_n_metrics(pred, target)
                         self._average_metrics(results_avg, results_tmp, iter_t)
 
                         loss.backward()
@@ -496,11 +498,11 @@ class TorchTrainer(object):
         for key, value in tmp.items():
             avg[key] += (value - avg[key]) / (iter_t + 1)
 
-    def _eval_loss_n_metrics(self, data, target):
+    def _eval_loss_n_metrics(self, pred, target):
         """Evaluate PyTorch module with all metrics.
 
         Args:
-            data (np.ndarray): Batch of data examples.
+            pred (object): NN module output, see `compile` for possible types.
             target (np.ndarray): Batch of true values/targets.
 
         Return:
@@ -509,7 +511,6 @@ class TorchTrainer(object):
         """
 
         results = {}
-        pred = self.model(*data)
 
         if self._is_multi_loss:
             assert isinstance(pred, OrderedDict), \
@@ -578,13 +579,8 @@ class TorchTrainer(object):
             split_point = int((1 - split) * len(data))
             return data[:split_point], data[split_point:]
 
-    def _prepare(self, train_mode=True):
+    def _prepare(self):
         """Prepares Trainer for training/evaluation."""
-
-        if train_mode:
-            self.model.train()
-        else:
-            self.model.eval()
 
         self._early_stop = False
         if not self._is_compiled:

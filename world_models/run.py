@@ -271,9 +271,9 @@ def train_mem(ctx, path, vae_path):
                 with torch.no_grad():
                     net(
                         torch.from_numpy(S_eval[:, :seq_half]).to(
-                            next(rnn.model.parameters()).device),
+                            next(net.parameters()).device),
                         torch.from_numpy(A_eval[:, :seq_half]).to(
-                            next(rnn.model.parameters()).device)
+                            next(net.parameters()).device)
                     )
 
             orig_mu = S_eval[:, seq_half, :]
