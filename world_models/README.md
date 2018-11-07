@@ -107,7 +107,7 @@ Config options:
     "epochs"           : 300,
     "learning_rate"    : 0.001,
     "patience"         : 5,                    -- After this many epochs, if validation loss does not improve, the training is stopped.
-    "ckpt_path"        : "./dir/vision.ckpt",  -- Path to best model (checkpoint).
+    "ckpt_path"        : "./ckpt/vision.ckpt", -- Path to best model (checkpoint).
     "logs_dir"         : "./logs"              -- Path to directory with logs.
 }
 ```
@@ -143,20 +143,20 @@ Config options:
 
 ```
 "rnn_training": {
-    "batch_size"       : 16,
-    "sequence_len"     : 500,                  -- Sequence length to use in RNN. If recorded episode is shorter, it will
-                                               -- be padded with zeros.
-    "hidden_units"     : 256,                  -- Number of neurons in RNN's hidden state.
-    "n_gaussians"      : 5,                    -- Number of Gaussian distributions in mixture.
-    "temperature"      : 1.15,                 -- Temperature parameter, used to control model uncertainty.
-    "epochs"           : 300,
-    "learning_rate"    : 0.01,
-    "patience"         : 25,                   -- After this many epochs, if validation loss does not improve, the training is stopped.
-    "render_type"      : "max",                -- Method to get latent vector of next state from MDN output (max or mean).
-    "rend_n_rollouts"  : 10,                   -- Render N simulated steps using memory module. Can't be greater then sequence_len/2.
-    "rend_n_episodes"  : 12,                   -- Render visualization for N episodes.
-    "ckpt_path"        : "./dir/memory.ckpt",  -- Path to best model (checkpoint).
-    "logs_dir"         : "./logs"              -- Path to directory with logs.
+    "batch_size"         : 128,
+    "sequence_len"       : 1000,                 -- Sequence length to use in RNN. If recorded episode is shorter, it will
+                                                 -- be padded with zeros.
+    "hidden_units"       : 256,                  -- Number of neurons in RNN's hidden state.
+    "n_gaussians"        : 5,                    -- Number of Gaussian distributions in mixture.
+    "temperature"        : 1.0,                  -- Temperature parameter, used to control model uncertainty.
+    "epochs"             : 1000,
+    "learning_rate"      : 0.001,
+    "reward_loss_weight" : 1.0,                  -- Weight factor of reward head loss.
+    "patience"           : 10,                   -- After this many epochs, if validation loss does not improve, the training is stopped.
+    "rend_n_rollouts"    : 10,                   -- Render N simulated steps using memory module. Can't be greater then sequence_len/2.
+    "rend_n_episodes"    : 12,                   -- Render visualization for N episodes.
+    "ckpt_path"          : "./ckpt/memory.ckpt", -- Path to best model (checkpoint).
+    "logs_dir"           : "./logs"              -- Path to directory with logs.
 }
 ```
 
@@ -182,7 +182,7 @@ Config options:
                                                    -- The fitness score is calculated as average score from these games.
     "processes"        : -1,                       -- Number of processes to use, -1 means all processors will be used.
     "l2_decay"         : 0.01,                     -- L2 weight decay rate.
-    "ckpt_path"        : "./dir/controller.ckpt",  -- Path to best model (checkpoint).
+    "ckpt_path"        : "./ckpt/controller.ckpt", -- Path to best model (checkpoint).
     "logs_dir"         : "./logs"                  -- Path to directory with logs.
 }
 ```

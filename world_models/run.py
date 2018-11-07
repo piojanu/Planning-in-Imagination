@@ -4,15 +4,16 @@ import logging as log
 import os
 import click
 import h5py as h5
-import numpy as np
 import humblerl as hrl
+import numpy as np
+import tensorflow
 
 from functools import partial
 from humblerl.agents import RandomAgent
 from tqdm import tqdm
-import tensorflow
 from controller import build_es_model, Evaluator, ReturnTracker
 from memory import build_rnn_model, MDNDataset, MDNVision
+from third_party.torchtrainer import evaluate
 from utils import Config, HDF5DataGenerator, TqdmStream, state_processor, create_directory, force_cpu
 from utils import limit_gpu_memory_usage, mute_tf_logs_if_needed, StoreTransitions, convert_data_with_vae
 from vision import build_vae_model
@@ -197,7 +198,7 @@ def convert_data(ctx, path_in, path_out, vae_path):
     config = obtain_config(ctx)
 
     # Build VAE model
-    _, encoder, _ = build_vae_model(config.vae, config.general["state_shape"], vae_path)
+    _, encoder, _ = build_vae_model(config.vae, config.general['state_shape'], vae_path)
 
     convert_data_with_vae(encoder, path_in, path_out, config.vae['latent_space_dim'])
 
@@ -205,7 +206,7 @@ def convert_data(ctx, path_in, path_out, vae_path):
 @cli.command()
 @click.pass_context
 @click.argument('path', type=click.Path(exists=True), required=True)
-@click.option('-v', '--vae-path', default='DEFAULT',
+@click.option('-v', '--vae-path', default=None,
               help='Path to VAE ckpt. Needed for visualization only when render is enabled.')
 def train_mem(ctx, path, vae_path):
     """Train MDN-RNN model as specified in .json config with data at `PATH`."""
@@ -230,7 +231,7 @@ def train_mem(ctx, path, vae_path):
 
     # Evaluate and visualize memory progress
     if config.allow_render:
-        if vae_path == 'DEFAULT':
+        if vae_path is None:
             raise ValueError("To render provide valid path to VAE checkpoint!")
 
         import matplotlib
@@ -240,7 +241,7 @@ def train_mem(ctx, path, vae_path):
         import torch
 
         # Check if destination dir exists
-        plots_dir = os.path.join(config.vae['logs_dir'], "plots_mdn")
+        plots_dir = os.path.join(config.rnn['logs_dir'], "plots_mdn")
         if not os.path.exists(plots_dir):
             os.makedirs(plots_dir)
 
@@ -261,16 +262,19 @@ def train_mem(ctx, path, vae_path):
 
         # Evaluate MDN-RNN at the end of epoch
         def plot_samples(_):
-            # Initialize memory module in evaluation mode
-            rnn.model.init_hidden(n_episodes)
-            rnn.model.eval()
+            with evaluate(rnn.model) as net:
+                # Initialize memory module
+                net.init_hidden(n_episodes)
 
-            # Initialize hidden state (warm-up memory module)
-            seq_half = dataset.sequence_len // 2
-            with torch.no_grad():
-                rnn.model(
-                    torch.from_numpy(S_eval[:, :seq_half]).to(next(rnn.model.parameters()).device),
-                    torch.from_numpy(A_eval[:, :seq_half]).to(next(rnn.model.parameters()).device))
+                # Initialize hidden state (warm-up memory module)
+                seq_half = dataset.sequence_len // 2
+                with torch.no_grad():
+                    net(
+                        torch.from_numpy(S_eval[:, :seq_half]).to(
+                            next(net.parameters()).device),
+                        torch.from_numpy(A_eval[:, :seq_half]).to(
+                            next(net.parameters()).device)
+                    )
 
             orig_mu = S_eval[:, seq_half, :]
             pred_mu = rnn.model.simulate(
