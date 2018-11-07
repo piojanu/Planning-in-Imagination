@@ -10,4 +10,4 @@ script:
   - pycodestyle .
   - pytest
   - (cd alphazero/scripts; ./run_cmds.sh)
-  - (cd world-models/scripts; ./run_cmds.sh)
+  - (cd world_models/scripts; ./run_cmds.sh)

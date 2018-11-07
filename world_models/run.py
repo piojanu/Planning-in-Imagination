@@ -198,7 +198,7 @@ def convert_data(ctx, path_in, path_out, vae_path):
     config = obtain_config(ctx)
 
     # Build VAE model
-    _, encoder, _ = build_vae_model(config.vae, config.general["state_shape"], vae_path)
+    _, encoder, _ = build_vae_model(config.vae, config.general['state_shape'], vae_path)
 
     convert_data_with_vae(encoder, path_in, path_out, config.vae['latent_space_dim'])
 
@@ -206,7 +206,7 @@ def convert_data(ctx, path_in, path_out, vae_path):
 @cli.command()
 @click.pass_context
 @click.argument('path', type=click.Path(exists=True), required=True)
-@click.option('-v', '--vae-path', default='DEFAULT',
+@click.option('-v', '--vae-path', default=None,
               help='Path to VAE ckpt. Needed for visualization only when render is enabled.')
 def train_mem(ctx, path, vae_path):
     """Train MDN-RNN model as specified in .json config with data at `PATH`."""
@@ -231,7 +231,7 @@ def train_mem(ctx, path, vae_path):
 
     # Evaluate and visualize memory progress
     if config.allow_render:
-        if vae_path == 'DEFAULT':
+        if vae_path is None:
             raise ValueError("To render provide valid path to VAE checkpoint!")
 
         import matplotlib
@@ -241,7 +241,7 @@ def train_mem(ctx, path, vae_path):
         import torch
 
         # Check if destination dir exists
-        plots_dir = os.path.join(config.vae['logs_dir'], "plots_mdn")
+        plots_dir = os.path.join(config.rnn['logs_dir'], "plots_mdn")
         if not os.path.exists(plots_dir):
             os.makedirs(plots_dir)
 
