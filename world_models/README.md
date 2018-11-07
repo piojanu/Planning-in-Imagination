@@ -107,7 +107,7 @@ Config options:
     "epochs"           : 300,
     "learning_rate"    : 0.001,
     "patience"         : 5,                    -- After this many epochs, if validation loss does not improve, the training is stopped.
-    "ckpt_path"        : "./dir/vision.ckpt",  -- Path to best model (checkpoint).
+    "ckpt_path"        : "./ckpt/vision.ckpt", -- Path to best model (checkpoint).
     "logs_dir"         : "./logs"              -- Path to directory with logs.
 }
 ```
@@ -155,7 +155,7 @@ Config options:
     "patience"           : 10,                   -- After this many epochs, if validation loss does not improve, the training is stopped.
     "rend_n_rollouts"    : 10,                   -- Render N simulated steps using memory module. Can't be greater then sequence_len/2.
     "rend_n_episodes"    : 12,                   -- Render visualization for N episodes.
-    "ckpt_path"          : "./dir/memory.ckpt",  -- Path to best model (checkpoint).
+    "ckpt_path"          : "./ckpt/memory.ckpt", -- Path to best model (checkpoint).
     "logs_dir"           : "./logs"              -- Path to directory with logs.
 }
 ```
@@ -182,7 +182,7 @@ Config options:
                                                    -- The fitness score is calculated as average score from these games.
     "processes"        : -1,                       -- Number of processes to use, -1 means all processors will be used.
     "l2_decay"         : 0.01,                     -- L2 weight decay rate.
-    "ckpt_path"        : "./dir/controller.ckpt",  -- Path to best model (checkpoint).
+    "ckpt_path"        : "./ckpt/controller.ckpt", -- Path to best model (checkpoint).
     "logs_dir"         : "./logs"                  -- Path to directory with logs.
 }
 ```

@@ -1,6 +1,6 @@
 #/bin/bash
 CKPT_DIR=checkpoints/test/
-MAIN_SCRIPT_PATH=../src/run.py
+MAIN_SCRIPT_PATH=../run.py
 CONFIG_FILE=test_config.json
 
 run_test () {
