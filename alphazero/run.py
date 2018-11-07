@@ -1,21 +1,21 @@
 #!/usr/bin/env python3
+import click
 import humblerl as hrl
 import logging as log
 import numpy as np
 import utils
-from utils import Config, TensorBoardLogger, mute_tf_logs_if_needed
-import click
-
-from keras.callbacks import EarlyStopping, TensorBoard
-from tabulate import tabulate
 
 from algos.alphazero import Planner
 from algos.board_games import AdversarialMinds, BoardRender, BoardStorage, BoardVision, ELOScoreboard
 from algos.human import HumanPlayer
 from coach import BoardGameBuilder
+from common_utils import mute_tf_logs_if_needed
+from humblerl.callbacks import BasicStats, CSVSaverWrapper
+from keras.callbacks import EarlyStopping, TensorBoard
 from metrics import Tournament
 from nn import build_keras_nn, KerasNet
-from humblerl.callbacks import BasicStats, CSVSaverWrapper
+from tabulate import tabulate
+from utils import Config, TensorBoardLogger
 
 
 @click.group()
