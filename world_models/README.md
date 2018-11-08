@@ -182,8 +182,8 @@ Config options:
                                                    -- The fitness score is calculated as average score from these games.
     "processes"        : -1,                       -- Number of processes to use, -1 means all processors will be used.
     "l2_decay"         : 0.01,                     -- L2 weight decay rate.
-    "ckpt_path"        : "./ckpt/controller.ckpt", -- Path to best CMA-ES model (checkpoint).
-    "mind_path_prefix" : "./cpkt/mind",            -- Prefix of path to weights for Controller.
+    "ckpt_path"        : "./ckpt/controller.ckpt", -- Path to CMA-ES training checkpoint.
+    "mind_path"        : "./cpkt/mind.ckpt",       -- Path to weights of Controller.
     "logs_dir"         : "./logs"                  -- Path to directory with logs.
 }
 ```

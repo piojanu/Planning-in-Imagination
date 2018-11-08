@@ -44,6 +44,7 @@ def create_directory(dirname):
     Args:
         dirname (str): Name of directory (path, e.g. "path/to/dir/")
     """
+
     if dirname and not os.path.exists(dirname):
         os.makedirs(dirname)
 

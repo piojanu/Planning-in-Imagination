@@ -12,6 +12,7 @@ from memory import build_rnn_model, MDNVision
 from utils import state_processor
 from vision import build_vae_model
 
+from common_utils import create_directory
 from utils import get_model_path_if_exists
 
 
@@ -76,12 +77,24 @@ class CMAES:
     def best_param(self):
         return self.es.result[0]  # best evaluated solution
 
-    def save_ckpt_and_weights(self, ckpt_path, weights_path_prefix):
+    def save_es_ckpt_and_mind_weights(self, ckpt_path, mind_path):
+        # Create CMA-ES checkpoint dir if doesn't exist
+        create_directory(os.path.dirname(ckpt_path))
+
+        # Create Mind weights checkpoint dir if doesn't exist
+        mind_dir = os.path.dirname(mind_path)
+        create_directory(mind_dir)
+
+        # Create paths for best and mean Mind weights checkpoints
+        mind_name = os.path.basename(mind_path).split('.')[0]
+        best_path = os.path.join(mind_dir, mind_name + "_best.ckpt")
+        mean_path = os.path.join(mind_dir, mind_name + "_mean.ckpt")
+
         with open(os.path.abspath(ckpt_path), 'wb') as f:
             pickle.dump(self, f)
-        with open(os.path.abspath(weights_path_prefix + "_best.ckpt"), 'wb') as f:
+        with open(os.path.abspath(best_path), 'wb') as f:
             pickle.dump(self.best_param(), f)
-        with open(os.path.abspath(weights_path_prefix + "_mean.ckpt"), 'wb') as f:
+        with open(os.path.abspath(mean_path), 'wb') as f:
             pickle.dump(self.current_param(), f)
 
     @staticmethod
@@ -183,29 +196,22 @@ class ReturnTracker(Callback):
         return {"return": self.ret}
 
 
-def build_mind(es_params, input_dim, action_space, model_path=None):
+def build_mind(es_params, input_dim, action_space, model_path):
     """Builds linear regression controller model.
 
     Args:
         es_params (dict): CMA-ES training parameters from .json config.
         input_dim (int): Should be vision latent space dim. + memory hidden state size.
         action_space (hrl.environments.ActionSpace): Action space, discrete or continuous.
-        model_path (str): Path to Mind weights. Taken from .json config if `None` (Default: None)
+        model_path (str): Path to Mind weights.
 
     Returns:
         LinearModel: HumbleRL 'Mind' with weights loaded from file if available.
     """
 
     mind = LinearModel(input_dim, action_space)
-    default_path = es_params['mind_path_prefix'] + "_best.ckpt"
-    model_path = get_model_path_if_exists(
-        path=model_path, default_path=default_path, model_name="Mind")
-
-    if model_path is not None:
-        mind.set_weights(LinearModel.load_weights(path=model_path))
-        log.info("Loaded Mind weights from: %s", model_path)
-    else:
-        log.info("Mind weights in \"%s\" doesn't exist!, created mind with initial weights", default_path)
+    mind.set_weights(LinearModel.load_weights(path=model_path))
+    log.info("Loaded Mind weights from: %s", model_path)
 
     return mind
 
