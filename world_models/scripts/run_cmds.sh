@@ -25,6 +25,6 @@ run_test train_mem ${MEMORY_FILE}
 
 run_test train_ctrl
 
-run_test eval -n 1
+run_test eval -n 1 -c ./checkpoints/test/controller_weights_best.ckpt
 
 rm -rf checkpoints

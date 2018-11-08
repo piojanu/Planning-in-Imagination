@@ -399,24 +399,22 @@ def train_ctrl(ctx, vae_path, mdn_path):
         # Update solver
         solver.tell(returns)
 
-        if config.es['ckpt_path']:
-            # Save solver in given path
-            solver.save_ckpt_and_weights(config.es['ckpt_path'], config.es['mind_path_prefix'])
-            log.debug("Saved checkpoint in path: %s", config.es['ckpt_path'])
-            log.debug("Saved best weights in path: %s", config.es['mind_path_prefix'] + "_best.cpkt")
-            log.debug("Saved mean weights in path: %s", config.es['mind_path_prefix'] + "_mean.cpkt")
+        # Save solver in given path
+        solver.save_es_ckpt_and_mind_weights(config.es['ckpt_path'], config.es['mind_path'])
+        log.debug("Saved CMA-ES checkpoint in path: %s", config.es['ckpt_path'])
+        log.debug("Saved Mind weights in path: %s", config.es['mind_path'])
 
 
 @cli.command()
 @click.pass_context
+@click.option('-c', '--controller-path', required=True,
+              help='Path to Mind weights.')
 @click.option('-v', '--vae-path', default=None,
               help='Path to VAE ckpt. Taken from .json config if `None` (Default: None)')
 @click.option('-m', '--mdn-path', default=None,
               help='Path to MDN-RNN ckpt. Taken from .json config if `None` (Default: None)')
-@click.option('-c', '--controller-path', default=None,
-              help='Path to Mind weights. Taken from .json config if `None` (Default: None)')
 @click.option('-n', '--n-games', default=3, help='Number of games to play (Default: 3)')
-def eval(ctx, vae_path, mdn_path, controller_path, n_games):
+def eval(ctx, controller_path, vae_path, mdn_path, n_games):
     """Plays chosen game testing whole pipeline: VAE -> MDN-RNN -> Controller
     (loaded from `vae_path`, `mdn_path` and `controller_path`)."""
 
@@ -441,9 +439,9 @@ def eval(ctx, vae_path, mdn_path, controller_path, n_games):
 
     vision = MDNVision(encoder, rnn.model, config.vae['latent_space_dim'],
                        state_processor_fn=partial(
-        state_processor,
-        state_shape=config.general['state_shape'],
-        crop_range=config.general['crop_range']))
+                           state_processor,
+                           state_shape=config.general['state_shape'],
+                           crop_range=config.general['crop_range']))
 
     # Build CMA-ES solver and linear model
     mind = build_mind(config.es,
@@ -454,6 +452,7 @@ def eval(ctx, vae_path, mdn_path, controller_path, n_games):
     hist = hrl.loop(env, mind, vision,
                     n_episodes=n_games, render_mode=config.allow_render, verbose=1,
                     callbacks=[ReturnTracker(), vision])
+
     print("Returns:", *hist['return'])
     print("Avg. return:", np.mean(hist['return']))
 

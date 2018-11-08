@@ -333,7 +333,7 @@ def state_processor(img, state_shape, crop_range):
 
 
 def get_model_path_if_exists(path, default_path, model_name):
-    """Resize states to `state_shape` with cropping of `crop_range`.
+    """Check if path (default_path) exist and choose one.
 
     Args:
         path (string): Specified path to model
@@ -343,6 +343,7 @@ def get_model_path_if_exists(path, default_path, model_name):
     Returns:
         Path to model or None, depends whether first or second path exist
     """
+
     if path is None:
         if os.path.exists(default_path):
             path = default_path
@@ -350,4 +351,5 @@ def get_model_path_if_exists(path, default_path, model_name):
             log.info("%s weights in \"%s\" doesn't exist! Starting tabula rasa.", model_name, path)
     elif not os.path.exists(path):
         raise ValueError("{} weights in \"{}\" path doesn't exist!".format(model_name, path))
+
     return path
