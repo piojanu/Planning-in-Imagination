@@ -63,19 +63,25 @@ class MDNVision(Vision, Callback):
 class MDNDataset(Dataset):
     """Dataset of sequential data to train MDN-RNN."""
 
-    def __init__(self, dataset_path, sequence_len):
+    def __init__(self, dataset_path, sequence_len, terminal_prob=0.5):
         """Initialize MDNDataset.
 
         Args:
+            dataset_path (string): Path to HDF5 dataset file.
             sequence_len (int): Desired output sequence len.
+            terminal_prob (float): Probability of sampling sequence that finishes with
+                terminal state. (Default: 0.5)
 
         Note:
             Arrays should have the same size of the first dimension and their type should be the
             same as desired Tensor type.
         """
 
+        assert 0 < terminal_prob and terminal_prob <= 1.0, "0 < terminal_prob <= 1.0"
+
         self.dataset = self.out_file = h5py.File(dataset_path, "r")
         self.sequence_len = sequence_len
+        self.terminal_prob = terminal_prob
         self.latent_dim = self.dataset.attrs["LATENT_DIM"]
         self.action_dim = self.dataset.attrs["ACTION_DIM"]
 
@@ -94,9 +100,13 @@ class MDNDataset(Dataset):
             sequence_len = episode_length - offset
             log.warning(
                 "Episode %d is too short to form full sequence, data will be zero-padded.", idx)
-        # NOTE: np.random.randint takes EXCLUSIVE upper bound of range to sample from, that's why
-        #       one is added.
-        start = t_start + np.random.randint(episode_length - sequence_len - offset + 1)
+
+        if np.random.rand() < self.terminal_prob:
+            # Take sequence ending with terminal state
+            start = t_start + episode_length - sequence_len - offset
+        else:
+            # NOTE: np.random.randint takes EXCLUSIVE upper bound of range to sample from.
+            start = t_start + np.random.randint(episode_length - sequence_len - offset)
 
         states_ = torch.from_numpy(self.dataset['states'][start:start + sequence_len + offset])
         actions_ = torch.from_numpy(self.dataset['actions'][start:start + sequence_len])

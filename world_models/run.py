@@ -13,7 +13,7 @@ from controller import build_es_model, build_mind, Evaluator, ReturnTracker
 from functools import partial
 from humblerl.agents import RandomAgent
 from memory import build_rnn_model, MDNDataset, MDNVision
-from third_party.torchtrainer import evaluate
+from third_party.torchtrainer import RandomBatchSampler, evaluate
 from tqdm import tqdm
 from utils import Config, HDF5DataGenerator, TqdmStream, state_processor, StoreTransitions, convert_data_with_vae
 from vision import build_vae_model
@@ -181,6 +181,7 @@ def train_vae(ctx, path):
         #        (`workers` = 0).
         workers=0,
         max_queue_size=100,
+        shuffle=True,  # It shuffles whole batches, not items in batches
         callbacks=callbacks
     )
 
@@ -218,11 +219,10 @@ def train_mem(ctx, path, vae_path):
     env = hrl.create_gym(config.general['game_name'])
 
     # Create training DataLoader
-    dataset = MDNDataset(path, config.rnn['sequence_len'])
+    dataset = MDNDataset(path, config.rnn['sequence_len'], config.rnn['terminal_prob'])
     data_loader = DataLoader(
         dataset,
-        batch_size=config.rnn['batch_size'],
-        shuffle=True,
+        batch_sampler=RandomBatchSampler(dataset, config.rnn['batch_size']),
         pin_memory=True
     )
 
