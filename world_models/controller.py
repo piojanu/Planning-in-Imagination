@@ -76,13 +76,17 @@ class CMAES:
     def best_param(self):
         return self.es.result[0]  # best evaluated solution
 
-    def save_ckpt(self, path):
-        with bz2.BZ2File(os.path.abspath(path), 'w') as f:
+    def save_ckpt_and_weights(self, ckpt_path, weights_path_prefix):
+        with open(os.path.abspath(ckpt_path), 'wb') as f:
             pickle.dump(self, f)
+        with open(os.path.abspath(weights_path_prefix + "_best.ckpt"), 'wb') as f:
+            pickle.dump(self.best_param(), f)
+        with open(os.path.abspath(weights_path_prefix + "_mean.ckpt"), 'wb') as f:
+            pickle.dump(self.current_param(), f)
 
     @staticmethod
     def load_ckpt(path):
-        with bz2.BZ2File(os.path.abspath(path), 'r') as f:
+        with open(os.path.abspath(path), 'rb') as f:
             return pickle.load(f)
 
 
@@ -159,6 +163,11 @@ class LinearModel(Mind):
     def n_weights(self):
         return (self.in_dim + 1) * self.out_dim
 
+    @staticmethod
+    def load_weights(path):
+        with open(os.path.abspath(path), 'rb') as f:
+            return pickle.load(f)
+
 
 class ReturnTracker(Callback):
     """Tracks return."""
@@ -174,21 +183,44 @@ class ReturnTracker(Callback):
         return {"return": self.ret}
 
 
-def build_es_model(es_params, input_dim, action_space, model_path=None):
-    """Builds linear regression controller model and CMA-ES solver.
+def build_mind(es_params, input_dim, action_space, model_path=None):
+    """Builds linear regression controller model.
 
     Args:
         es_params (dict): CMA-ES training parameters from .json config.
         input_dim (int): Should be vision latent space dim. + memory hidden state size.
         action_space (hrl.environments.ActionSpace): Action space, discrete or continuous.
+        model_path (str): Path to Mind weights. Taken from .json config if `None` (Default: None)
+
+    Returns:
+        LinearModel: HumbleRL 'Mind' with weights loaded from file if available.
+    """
+
+    mind = LinearModel(input_dim, action_space)
+    default_path = es_params['mind_path_prefix'] + "_best.ckpt"
+    model_path = get_model_path_if_exists(
+        path=model_path, default_path=default_path, model_name="Mind")
+
+    if model_path is not None:
+        mind.set_weights(LinearModel.load_weights(path=model_path))
+        log.info("Loaded Mind weights from: %s", model_path)
+    else:
+        log.info("Mind weights in \"%s\" doesn't exist!, created mind with initial weights", default_path)
+
+    return mind
+
+
+def build_es_model(es_params, n_params, model_path=None):
+    """Builds CMA-ES solver.
+
+    Args:
+        es_params (dict): CMA-ES training parameters from .json config.
+        n_params (int): Number of parameters for CMA-ES.
         model_path (str): Path to CMA-ES ckpt. Taken from .json config if `None` (Default: None)
 
     Returns:
         CMAES: CMA-ES solver ready for training.
-        LinearModel: HumbleRL 'Mind' with weights set to ones from checkpoint if available.
     """
-
-    mind = LinearModel(input_dim, action_space)
 
     model_path = get_model_path_if_exists(
         path=model_path, default_path=es_params['ckpt_path'], model_name="CMA-ES")
@@ -198,10 +230,9 @@ def build_es_model(es_params, input_dim, action_space, model_path=None):
         log.info("Loaded CMA-ES parameters from: %s", model_path)
     else:
         solver = CMAES(
-            mind.n_weights, popsize=es_params['popsize'], weight_decay=es_params['l2_decay'])
+            n_params=n_params, popsize=es_params['popsize'], weight_decay=es_params['l2_decay'])
         log.info("CMA-ES parameters in \"%s\" doesn't exist! "
                  "Created solver with pop. size: %d and l2 decay: %f.",
                  es_params['ckpt_path'], es_params['popsize'], es_params['l2_decay'])
 
-    mind.set_weights(solver.current_param())
-    return solver, mind
+    return solver
