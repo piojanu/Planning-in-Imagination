@@ -18,6 +18,31 @@ from contextlib import contextmanager
 from tqdm import tqdm
 
 
+class RandomBatchSampler(torch.utils.data.Sampler):
+    """Samples batches order randomly, without replacement.
+
+    Arguments:
+        data_source (Dataset): dataset to sample from
+        batch_size (int): Batch size (number of examples)
+
+    Note:
+        Last batch is always composed of dataset tail.
+    """
+
+    def __init__(self, data_source, batch_size):
+        self.data_source = data_source
+        self.batch_size = batch_size
+
+    def __iter__(self):
+        return iter([
+            list(range(x * self.batch_size, (x + 1) * self.batch_size))
+            for x in torch.randperm(self.__len__() - 1).tolist()
+        ] + [list(range((self.__len__() - 1) * self.batch_size, len(self.data_source)))])
+
+    def __len__(self):
+        return (len(self.data_source) + self.batch_size - 1) // self.batch_size
+
+
 @contextmanager
 def evaluate(module):
     """Switch PyTorch module to evaluation mode and then restore previous mode."""
