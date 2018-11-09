@@ -53,8 +53,16 @@ class CMAES:
 
         self.weight_decay = weight_decay
         self.population = None
-
         self.es = cma.CMAEvolutionStrategy(n_params * [0], sigma_init, {'popsize': popsize})
+        self.best_score = -np.inf
+
+    def check_if_better(self, new_best_score):
+        """If new score is better than current then update self best score"""
+
+        do_update = new_best_score > self.best_score
+        if do_update:
+            self.best_score = new_best_score
+        return do_update
 
     def ask(self):
         """Returns a list of parameters for new population."""
