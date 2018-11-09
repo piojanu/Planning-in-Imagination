@@ -7,9 +7,9 @@ import bz2
 import humblerl as hrl
 
 from functools import partial
-from humblerl import Callback, Mind, Worker
+from humblerl import Callback, ChainVision, Mind, Worker
 from memory import build_rnn_model, MDNVision
-from utils import state_processor
+from utils import BasicVision, state_processor
 from vision import build_vae_model
 
 from common_utils import create_directory
@@ -125,11 +125,12 @@ class Evaluator(Worker):
         self.mdn_path = mdn_path
 
         self._env = None
-        self._vision = None
+        self._basic_vision = None
+        self._mdn_vision = None
 
     def initialize(self):
         self._env = hrl.create_gym(self.config.general['game_name'])
-        self._vision = self._vision_factory()
+        self._basic_vision, self._mdn_vision = self._vision_factory()
 
     def mind_factory(self, weights):
         mind = LinearModel(self.state_size, self.action_space)
@@ -138,11 +139,11 @@ class Evaluator(Worker):
 
     @property
     def callbacks(self):
-        return [ReturnTracker(), self.vision]
+        return [ReturnTracker(), self._mdn_vision]
 
     @property
     def vision(self):
-        return self._vision
+        return ChainVision(self._basic_vision, self._mdn_vision)
 
     def _vision_factory(self):
         # Build VAE model and load checkpoint
@@ -156,12 +157,10 @@ class Evaluator(Worker):
                               self.action_space,
                               self.mdn_path)
 
-        # Resizes states to `state_shape` with cropping and encode to latent space + hidden state
-        return MDNVision(encoder, rnn.model, self.config.vae['latent_space_dim'],
-                         state_processor_fn=partial(
-                             state_processor,
-                             state_shape=self.config.general['state_shape'],
-                             crop_range=self.config.general['crop_range']))
+        return (BasicVision(partial(state_processor,
+                                    state_shape=self.config.general['state_shape'],
+                                    crop_range=self.config.general['crop_range'])),
+                MDNVision(encoder, rnn.model, self.config.vae['latent_space_dim']))
 
 
 class LinearModel(Mind):

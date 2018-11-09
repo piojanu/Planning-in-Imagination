@@ -1,19 +1,16 @@
-import h5py
-import numpy as np
-import os
 import logging as log
-import tensorflow as tf
-import torch
 import math
-
-from common_utils import get_configs
-from keras.utils import Sequence
-from skimage.transform import resize
-from torch.utils.data import Sampler
-from tqdm import tqdm
+import os
 from shutil import copyfile
 
+import h5py
 import humblerl as hrl
+import numpy as np
+from keras.utils import Sequence
+from skimage.transform import resize
+from tqdm import tqdm
+
+from common_utils import get_configs
 
 
 class Config(object):
@@ -57,8 +54,8 @@ class StoreTransitions(hrl.Callback):
         * 'ACTION_DIM': Action's dimensionality (1 for discrete).
     """
 
-    def __init__(self, out_path, state_shape, action_space, min_transitions=10000, min_episodes=1000, chunk_size=128,
-                 state_dtype=np.uint8):
+    def __init__(self, out_path, state_shape, action_space, min_transitions=10000, min_episodes=1000,
+                 chunk_size=128, state_dtype=np.uint8, reward_dtype=np.float32):
         """Initialize memory data storage.
 
         Args:
@@ -73,7 +70,8 @@ class StoreTransitions(hrl.Callback):
             chunk_size (int): Chunk size in transitions. For efficiency reasons, data is saved
                 to file in chunks to limit the disk usage (chunk is smallest unit that get fetched
                 from disk). For best performance set it to training batch size. (Default: 128)
-            state_dtype (dtype): Type used to save the state  (Default: np.uint8).
+            state_dtype (numpy.dtype): Type used to store the state (Default: np.uint8).
+            reward_dtype (numpy.dtype): Type used to store the rewards (Default: np.float32).
         """
 
         self.out_path = out_path
@@ -133,7 +131,7 @@ class StoreTransitions(hrl.Callback):
             shape=(self.dataset_size, self.action_dim), maxshape=(None, self.action_dim),
             compression="lzf")
         self.out_rewards = self.out_file.create_dataset(
-            name="rewards", dtype=np.float32, chunks=(chunk_size,),
+            name="rewards", dtype=reward_dtype, chunks=(chunk_size,),
             shape=(self.dataset_size,), maxshape=(None,),
             compression="lzf")
         self.out_episodes = self.out_file.create_dataset(
@@ -316,6 +314,23 @@ class TqdmStream(object):
         pass
 
 
+class BasicVision(hrl.Vision):
+    def __init__(self, state_processor_fn, scale=1):
+        """Initialize vision processors.
+
+        Args:
+            state_processor_fn (function): Function for state processing. It should
+                take raw environment state as an input and return processed state.
+            scale (float): Processed state is scaled by this factor.
+        """
+
+        self.state_processor_fn = state_processor_fn
+        self.scale = scale
+
+    def __call__(self, state, reward=0.):
+        return self.state_processor_fn(state) * self.scale, reward
+
+
 def state_processor(img, state_shape, crop_range):
     """Resize states to `state_shape` with cropping of `crop_range`.
 
@@ -323,6 +338,8 @@ def state_processor(img, state_shape, crop_range):
         img (np.ndarray): Image to crop and resize.
         state_shape (tuple): Output shape. Default: [64, 64, 3]
         crop_range (string): Range to crop as indices of array. Default: "[30:183, 28:131, :]"
+            for Boxing OpenAI Gym environment.
+
     Return:
         np.ndarray: Cropped and reshaped to `state_shape` image.
     """
@@ -330,8 +347,8 @@ def state_processor(img, state_shape, crop_range):
     # Crop image to `crop_range`, removes e.g. score bar
     img = eval("img" + crop_range)
 
-    # Resize to 64x64 and cast to 0..255 values if requested
-    return resize(img, state_shape, mode='constant') * 255
+    # Resize to 64x64 and cast to 0..1 values
+    return resize(img, state_shape, mode='constant')
 
 
 def get_model_path_if_exists(path, default_path, model_name):

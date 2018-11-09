@@ -11,27 +11,6 @@ from keras.optimizers import Adam
 from utils import get_model_path_if_exists
 
 
-class VAEVision(Vision):
-    def __init__(self, model, state_processor_fn):
-        """Initialize vision processors.
-
-        Args:
-            model (keras.Model): Keras VAE encoder.
-            state_processor_fn (function): Function for state processing. It should
-                take raw environment state as an input and return processed state.
-        """
-
-        # NOTE: [0:2] <- it gets latent space mean (mu) and logvar, then concatenate batch dimension
-        #       (batch size is one, after concatenate we get array '2 x latent space dim').
-        # NOTE2: Rewards are clipped to range from -1 to 1. Memory module NN reward head returns also
-        #        values in (-1, 1) range. It uses tanh activation function. See also MDNVision.
-        super(VAEVision, self).__init__(
-            state_processor_fn=lambda state: np.concatenate(
-                model.predict(state_processor_fn(state)[np.newaxis, :] / 255.)[0:2]),
-            reward_processor_fn=lambda reward: np.clip(reward, -1, 1)
-        )
-
-
 def build_vae_model(vae_params, input_shape, model_path=None):
     """Builds VAE encoder, decoder using Keras Model and VAE loss.
 

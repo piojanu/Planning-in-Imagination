@@ -16,7 +16,7 @@ from utils import get_model_path_if_exists
 
 
 class MDNVision(Vision, Callback):
-    def __init__(self, vae_model, mdn_model, latent_dim, state_processor_fn):
+    def __init__(self, vae_model, mdn_model, latent_dim):
         """Initialize vision processors.
 
         Args:
@@ -33,16 +33,13 @@ class MDNVision(Vision, Callback):
         self.vae_model = vae_model
         self.mdn_model = mdn_model
         self.latent_dim = latent_dim
-        self.state_processor_fn = state_processor_fn
 
     def __call__(self, state, reward=0.):
-        # NOTE: Rewards are clipped to range from -1 to 1. Memory module NN reward head returns also
-        #       values in (-1, 1) range. It uses tanh activation function. See also VAEVision.
-        return self.process_state(state), np.clip(reward, -1, 1)
+        return self.process_state(state), reward
 
     def process_state(self, state):
         # NOTE: [0][0] <- it gets first in the batch latent space mean (mu)
-        latent = self.vae_model.predict(self.state_processor_fn(state)[np.newaxis, :])[0][0]
+        latent = self.vae_model.predict(state[np.newaxis, :])[0][0]
         memory = self.mdn_model.hidden[0].cpu().detach().numpy()
 
         return np.concatenate((latent, memory.flatten()))
@@ -79,7 +76,7 @@ class MDNDataset(Dataset):
 
         assert 0 < terminal_prob and terminal_prob <= 1.0, "0 < terminal_prob <= 1.0"
 
-        self.dataset = self.out_file = h5py.File(dataset_path, "r")
+        self.dataset = h5py.File(dataset_path, "r")
         self.sequence_len = sequence_len
         self.terminal_prob = terminal_prob
         self.latent_dim = self.dataset.attrs["LATENT_DIM"]
@@ -178,9 +175,7 @@ class MDN(nn.Module):
 
         mu = self.mu(h).view(-1, sequence_len, self.n_gaussians, self.latent_dim)
 
-        # NOTE: Rewards are clipped to range (-1, 1) range using tanh activation function.
-        #       Both MDNVision and VAEVision also clip rewards to value between -1 and 1 inclusive.
-        reward = torch.tanh(self.reward(h))
+        reward = self.reward(h)
 
         return OrderedDict([("mdn", (mu, sigma, pi)), ("reward", reward)])
 

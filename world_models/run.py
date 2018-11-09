@@ -11,11 +11,11 @@ import tensorflow
 from common_utils import limit_gpu_memory_usage, mute_tf_logs_if_needed, create_directory, force_cpu
 from controller import build_es_model, build_mind, Evaluator, ReturnTracker
 from functools import partial
-from humblerl.agents import RandomAgent
+from humblerl.agents import ChainVision, RandomAgent
 from memory import build_rnn_model, MDNDataset, MDNVision
 from third_party.torchtrainer import RandomBatchSampler, evaluate
 from tqdm import tqdm
-from utils import Config, HDF5DataGenerator, TqdmStream, state_processor, StoreTransitions, convert_data_with_vae
+from utils import Config, HDF5DataGenerator, TqdmStream, BasicVision, state_processor, StoreTransitions, convert_data_with_vae
 from vision import build_vae_model
 
 
@@ -62,8 +62,9 @@ def record_data(ctx, path, n_games, chunk_size, state_dtype):
     # Create Gym environment, random agent and store to hdf5 callback
     env = hrl.create_gym(config.general['game_name'])
     mind = RandomAgent(env)
-    store_callback = StoreTransitions(path, config.general['state_shape'], env.action_space,
-                                      chunk_size=chunk_size, state_dtype=state_dtype)
+    store_callback = StoreTransitions(path, config.general['state_shape'],
+                                      env.action_space, chunk_size=chunk_size,
+                                      state_dtype=state_dtype, reward_dtype=np.float32)
 
     if store_callback.game_count >= n_games:
         log.warning("Data is already fully present in dataset you specified! If you wish to create"
@@ -78,10 +79,12 @@ def record_data(ctx, path, n_games, chunk_size, state_dtype):
         n_games = diff
 
     # Resizes states to `state_shape` with cropping
-    vision = hrl.Vision(partial(
-        state_processor,
-        state_shape=config.general['state_shape'],
-        crop_range=config.general['crop_range']))
+    vision = BasicVision(
+        partial(state_processor,
+                state_shape=config.general['state_shape'],
+                crop_range=config.general['crop_range']),
+        scale=255
+    )
 
     # Play `N` random games and gather data as it goes
     hrl.loop(env, mind, vision, n_episodes=n_games, verbose=1, callbacks=[store_callback])
@@ -402,7 +405,8 @@ def train_ctrl(ctx, vae_path, mdn_path):
         solver.tell(returns)
 
         # Save solver in given path
-        solver.save_es_ckpt_and_mind_weights(config.es['ckpt_path'], config.es['mind_path'], score=best_return)
+        solver.save_es_ckpt_and_mind_weights(
+            config.es['ckpt_path'], config.es['mind_path'], score=best_return)
 
 
 @cli.command()
@@ -437,11 +441,10 @@ def eval(ctx, controller_path, vae_path, mdn_path, n_games):
                           env.action_space,
                           mdn_path)
 
-    vision = MDNVision(encoder, rnn.model, config.vae['latent_space_dim'],
-                       state_processor_fn=partial(
-                           state_processor,
-                           state_shape=config.general['state_shape'],
-                           crop_range=config.general['crop_range']))
+    basic_vision = BasicVision(partial(state_processor,
+                                       state_shape=config.general['state_shape'],
+                                       crop_range=config.general['crop_range']))
+    mdn_vision = MDNVision(encoder, rnn.model, config.vae['latent_space_dim'])
 
     # Build CMA-ES solver and linear model
     mind = build_mind(config.es,
@@ -449,9 +452,9 @@ def eval(ctx, controller_path, vae_path, mdn_path, n_games):
                       env.action_space,
                       controller_path)
 
-    hist = hrl.loop(env, mind, vision,
+    hist = hrl.loop(env, mind, ChainVision(basic_vision, mdn_vision),
                     n_episodes=n_games, render_mode=config.allow_render, verbose=1,
-                    callbacks=[ReturnTracker(), vision])
+                    callbacks=[ReturnTracker(), mdn_vision])
 
     print("Returns:", *hist['return'])
     print("Avg. return:", np.mean(hist['return']))
