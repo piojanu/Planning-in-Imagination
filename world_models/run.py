@@ -400,9 +400,11 @@ def train_ctrl(ctx, vae_path, mdn_path):
         solver.tell(returns)
 
         # Save solver in given path
-        solver.save_es_ckpt_and_mind_weights(config.es['ckpt_path'], config.es['mind_path'])
-        log.debug("Saved CMA-ES checkpoint in path: %s", config.es['ckpt_path'])
-        log.debug("Saved Mind weights in path: %s", config.es['mind_path'])
+        if solver.check_if_better(best_return):
+            log.debug("New best score: %f", best_return)
+            solver.save_es_ckpt_and_mind_weights(config.es['ckpt_path'], config.es['mind_path'])
+            log.debug("Saved CMA-ES checkpoint in path: %s", config.es['ckpt_path'])
+            log.debug("Saved Mind weights in path: %s", config.es['mind_path'])
 
 
 @cli.command()
