@@ -85,7 +85,7 @@ class CMAES:
     def best_param(self):
         return self.es.result[0]  # best evaluated solution
 
-    def save_es_ckpt_and_mind_weights(self, ckpt_path, mind_path):
+    def save_es_ckpt_and_mind_weights(self, ckpt_path, mind_path, score):
         # Create CMA-ES checkpoint dir if doesn't exist
         create_directory(os.path.dirname(ckpt_path))
 
@@ -100,10 +100,15 @@ class CMAES:
 
         with open(os.path.abspath(ckpt_path), 'wb') as f:
             pickle.dump(self, f)
-        with open(os.path.abspath(best_path), 'wb') as f:
-            pickle.dump(self.best_param(), f)
-        with open(os.path.abspath(mean_path), 'wb') as f:
-            pickle.dump(self.current_param(), f)
+        log.debug("Saved CMA-ES checkpoint in path: %s", ckpt_path)
+
+        if self.check_if_better(score):
+            log.info("New best score: %f", score)
+            with open(os.path.abspath(best_path), 'wb') as f:
+                pickle.dump(self.best_param(), f)
+            with open(os.path.abspath(mean_path), 'wb') as f:
+                pickle.dump(self.current_param(), f)
+            log.debug("Saved Mind weights in path: %s", mind_path)
 
     @staticmethod
     def load_ckpt(path):
