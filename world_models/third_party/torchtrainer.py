@@ -8,6 +8,7 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE."""
 
 import os.path
+import csv
 
 import torch
 import torch.nn as nn
@@ -222,6 +223,30 @@ class ModelCheckpoint(Callback):
                     print("\tSaving new best module state at: {}".format(self.path))
                 self._best_value = new_value
                 self.trainer.save_ckpt(self.path)
+
+
+class CSVLogger(Callback):
+    """Saves metrics values to csv file after epoch of training."""
+
+    def __init__(self, filename):
+        """Initialize CSVLogger callback.
+
+        Args:
+            filename (str): Filename where to log.
+        """
+
+        self.filename = filename
+
+    def on_epoch_end(self, epoch, metrics):
+        append_headers = False
+        metrics['epoch'] = epoch
+        if not os.path.exists(self.filename):
+            append_headers = True
+        with open(self.filename, "a") as f:
+            w = csv.DictWriter(f, metrics.keys())
+            if append_headers:
+                w.writeheader()
+            w.writerow(metrics)
 
 
 class MultiDataset(torch.utils.data.Dataset):
