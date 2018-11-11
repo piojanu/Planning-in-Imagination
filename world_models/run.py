@@ -373,9 +373,11 @@ def train_ctrl(ctx, vae_path, mdn_path):
     n_params = (input_dim + 1) * out_dim
     # Build CMA-ES solver
     solver = build_es_model(config.es, n_params=n_params)
+    best_return = solver.best_score
 
     # Train for N epochs
     pbar = tqdm(range(config.es['epochs']), ascii=True)
+    pbar.set_postfix(current=best_return)
     for _ in pbar:
         # Get new population
         population = solver.ask()
@@ -400,11 +402,7 @@ def train_ctrl(ctx, vae_path, mdn_path):
         solver.tell(returns)
 
         # Save solver in given path
-        if solver.check_if_better(best_return):
-            log.info("New best score: %f", best_return)
-            solver.save_es_ckpt_and_mind_weights(config.es['ckpt_path'], config.es['mind_path'])
-            log.debug("Saved CMA-ES checkpoint in path: %s", config.es['ckpt_path'])
-            log.debug("Saved Mind weights in path: %s", config.es['mind_path'])
+        solver.save_es_ckpt_and_mind_weights(config.es['ckpt_path'], config.es['mind_path'], score=best_return)
 
 
 @cli.command()
