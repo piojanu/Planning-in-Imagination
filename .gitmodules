@@ -1,6 +1,0 @@
-[submodule "alphazero/src/third_party/humblerl"]
-	path = alphazero/src/third_party/humblerl
-	url = https://github.com/piojanu/humblerl.git
-[submodule "world_models/third_party/humblerl"]
-	path = world_models/third_party/humblerl
-	url = https://github.com/piojanu/humblerl.git
