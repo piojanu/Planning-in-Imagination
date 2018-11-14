@@ -239,7 +239,7 @@ class CSVLogger(Callback):
 
     def on_epoch_end(self, epoch, metrics):
         append_headers = False
-        metrics['epoch'] = epoch
+        metrics = {'epoch': epoch, **metrics}
         if not os.path.exists(self.filename):
             append_headers = True
         with open(self.filename, "a") as f:
