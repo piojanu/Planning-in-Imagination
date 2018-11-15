@@ -39,7 +39,7 @@ class StoreTransitions(hrl.Callback):
         * 'actions': Actions.
         * 'rewards': Rewards.
         * 'episodes': Indices of each episode (episodes[i] -> start index of episode `i`
-                      in states and actions datasets).
+            in states, actions and rewards datasets).
 
         Datasets are organized in such a way, that you can locate episode `i` by accessing
         i-th position in `episodes` to get the `start` index and (i+1)-th position to get

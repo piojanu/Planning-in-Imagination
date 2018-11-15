@@ -7,7 +7,6 @@ import torch.optim as optim
 import h5py
 import humblerl as hrl
 
-from collections import OrderedDict
 from humblerl import Callback, MDP, Vision
 from third_party.torchtrainer import TorchTrainer, evaluate
 from torch.distributions import Normal
@@ -102,17 +101,15 @@ class MDNDataset(Dataset):
             # Take sequence ending with terminal state
             start = t_start + episode_length - sequence_len - offset
         else:
-            # NOTE: np.random.randint takes EXCLUSIVE upper bound of range to sample from.
+            # NOTE: np.random.randint takes EXCLUSIVE upper bound of range to sample from
             start = t_start + np.random.randint(episode_length - sequence_len - offset)
 
         states_ = torch.from_numpy(self.dataset['states'][start:start + sequence_len + offset])
         actions_ = torch.from_numpy(self.dataset['actions'][start:start + sequence_len])
-        rewards_ = torch.from_numpy(self.dataset['rewards'][start:start + sequence_len])
 
         states = torch.zeros(self.sequence_len, self.latent_dim, dtype=states_.dtype)
         next_states = torch.zeros(self.sequence_len, self.latent_dim, dtype=states_.dtype)
         actions = torch.zeros(self.sequence_len, self.action_dim, dtype=actions_.dtype)
-        rewards = torch.zeros(self.sequence_len, 1, dtype=rewards_.dtype)
 
         # Sample latent states (this is done to prevent overfitting MDN-RNN to a specific 'z'.)
         mu = states_[:, 0]
@@ -123,9 +120,8 @@ class MDNDataset(Dataset):
         states[:sequence_len] = z_samples[:-offset]
         next_states[:sequence_len] = z_samples[offset:]
         actions[:sequence_len] = actions_
-        rewards[:sequence_len, 0] = rewards_
 
-        return [states, actions], [next_states, rewards]
+        return [states, actions], [next_states]
 
     def __len__(self):
         return self.dataset.attrs["N_GAMES"]
@@ -153,6 +149,7 @@ class MDN(nn.Module):
         self.pi = nn.Linear(hidden_units, n_gaussians * latent_dim)
         self.mu = nn.Linear(hidden_units, n_gaussians * latent_dim)
         self.logsigma = nn.Linear(hidden_units, n_gaussians * latent_dim)
+        # NOTE: This is here only for backward compatibility with trained checkpoint
         self.reward = nn.Linear(hidden_units, 1)
 
     def forward(self, latent, action, hidden=None):
@@ -175,9 +172,7 @@ class MDN(nn.Module):
 
         mu = self.mu(h).view(-1, sequence_len, self.n_gaussians, self.latent_dim)
 
-        reward = self.reward(h)
-
-        return OrderedDict([("mdn", (mu, sigma, pi)), ("reward", reward)])
+        return mu, sigma, pi
 
     def sample(self, latent, action, hidden=None):
         """Sample (simulate) next state from Mixture Density Network a.k.a. Gaussian Mixture Model.
@@ -192,7 +187,6 @@ class MDN(nn.Module):
         Return:
             numpy.ndarray: Latent vector of next state.
                 Shape of array: batch x sequence x latent dim.
-            float: Transition reward.
 
         Note:
             You can find next hidden state in this module `hidden` member.
@@ -200,7 +194,7 @@ class MDN(nn.Module):
 
         # Simulate transition
         with torch.no_grad(), evaluate(self) as net:
-            (mu, sigma, pi), reward = net(latent, action, hidden).values()
+            mu, sigma, pi = net(latent, action, hidden)
 
         # Transform tensors to numpy arrays and move "gaussians mixture" dim to the end
         # NOTE: Arrays will have shape (batch x sequence x latent dim. x num. gaussians)
@@ -218,7 +212,7 @@ class MDN(nn.Module):
         stddev = np.take_along_axis(sigma, choices, axis=-1)
         samples = mean + stddev * np.random.randn(*mean.shape)
 
-        return np.squeeze(samples, axis=-1), reward
+        return np.squeeze(samples, axis=-1)
 
     def simulate(self, latent, actions, hidden=None):
         """Simulate environment trajectory.
@@ -241,8 +235,7 @@ class MDN(nn.Module):
         states = []
         for a in range(actions.shape[1]):
             # NOTE: We use np.newaxis to preserve shape of tensor.
-            # NOTE 2: We only take latent vector, reward is discarded (self.sample(...)[0]).
-            states.append(self.sample(latent, actions[:, a, np.newaxis, :], hidden)[0])
+            states.append(self.sample(latent, actions[:, a, np.newaxis, :], hidden))
             # NOTE: This is a bit arbitrary to set it to float32 which happens to be type of torch
             #       tensors. It can blow up further in code if we'll choose to change tensors types.
             latent = torch.from_numpy(states[-1]).float().to(next(self.parameters()).device)
@@ -258,7 +251,7 @@ class MDN(nn.Module):
         )
 
 
-class MDNMDP(MDP):
+class AtariMDP(MDP):
     """MDP using memory module as dynamics model."""
 
     def __init__(self, env, mdn_model):
@@ -289,8 +282,9 @@ class MDNMDP(MDP):
         """
 
         latent, hidden = state
-        next_latent, reward = self.mdn_model.sample(latent, action, hidden)
-        return (next_latent, self.mdn_model.hidden), reward
+        next_latent = self.mdn_model.sample(latent, action, hidden)
+        # TODO: This should predict reward
+        return (next_latent, self.mdn_model.hidden), 0.
 
     def get_init_state(self):
         """Prepare and return initial state.
@@ -386,8 +380,7 @@ def build_rnn_model(rnn_params, latent_dim, action_space, model_path=None):
 
     mdn.compile(
         optimizer=optim.Adam(mdn.model.parameters(), lr=rnn_params['learning_rate']),
-        loss={"mdn": mdn_loss_function, "reward": nn.MSELoss()},
-        loss_weights={"mdn": 1., "reward": rnn_params['reward_loss_weight']}
+        loss=mdn_loss_function
     )
 
     model_path = get_model_path_if_exists(

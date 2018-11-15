@@ -22,7 +22,6 @@
         "temperature"        : 1.0,
         "epochs"             : 1000,
         "learning_rate"      : 0.001,
-        "reward_loss_weight" : 1.0,
         "patience"           : 10,
         "rend_n_rollouts"    : 15,
         "rend_n_episodes"    : 16,
