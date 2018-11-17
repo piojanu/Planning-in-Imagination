@@ -28,6 +28,10 @@
         "ckpt_path"          : "./checkpoints/best_memory.ckpt",
         "logs_dir"           : "./logs"
     },
+    "epn_training": {
+        "exp_replay_size"    : 200000,
+        "gamma"              : 1.0
+    },
     "es_training": {
         "epochs"             : 300,
         "popsize"            : 64,

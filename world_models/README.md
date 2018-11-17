@@ -159,6 +159,14 @@ Config options:
 }
 ```
 
+For memory of Alpha Zero:
+```
+"epn_training": {
+    "exp_replay_size"    : 200000,               -- How many games to keep in experience replay.
+    "gamma"              : 1.0                   -- Discount factor, used to calculate state values.
+}
+```
+
 Best model will be saved to and loaded from `ckpt_path`.
 
 ### Controller training

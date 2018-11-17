@@ -1,17 +1,17 @@
 import logging as log
 
 import numpy as np
+import h5py
+import humblerl as hrl
+from humblerl import Callback, MDP, Vision
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import h5py
-import humblerl as hrl
-
-from humblerl import Callback, MDP, Vision
-from third_party.torchtrainer import TorchTrainer, evaluate
 from torch.distributions import Normal
 from torch.utils.data import Dataset
 from utils import get_model_path_if_exists
+
+from third_party.torchtrainer import TorchTrainer, evaluate
 
 
 class MDNVision(Vision, Callback):
@@ -41,6 +41,11 @@ class MDNVision(Vision, Callback):
         latent = self.vae_model.predict(state[np.newaxis, :])[0][0]
         memory = self.mdn_model.hidden[0].cpu().detach().numpy()
 
+        # NOTE: See HRL `ply`, `on_step_taken` that would update hidden state is called AFTER
+        #       Vision is used to preprocess next_state. So next_state has out-dated hidden state!
+        #       What saves us is the fact, that `state` in next `ply` call will have it updated so,
+        #       Transitions.state has up-to-date latent and hidden state and in all the other places
+        #       exactly it is used, not next state.
         return np.concatenate((latent, memory.flatten()))
 
     def on_episode_start(self, episode, train_mode):
@@ -88,8 +93,6 @@ class MDNDataset(Dataset):
 
         t_start, t_end = self.dataset['episodes'][idx:idx + 2]
         episode_length = t_end - t_start
-        # Sample where to start sequence of length `self.sequence_len` in episode `idx`
-        # '- offset' because "next states" are offset by 'offset'
         if self.sequence_len <= episode_length - offset:
             sequence_len = self.sequence_len
         else:
@@ -97,12 +100,14 @@ class MDNDataset(Dataset):
             log.warning(
                 "Episode %d is too short to form full sequence, data will be zero-padded.", idx)
 
+        # Sample where to start sequence of length `self.sequence_len` in episode `idx`
+        # '- offset' because "next states" are offset by 'offset'
         if np.random.rand() < self.terminal_prob:
             # Take sequence ending with terminal state
             start = t_start + episode_length - sequence_len - offset
         else:
             # NOTE: np.random.randint takes EXCLUSIVE upper bound of range to sample from
-            start = t_start + np.random.randint(episode_length - sequence_len - offset)
+            start = t_start + np.random.randint(max(1, episode_length - sequence_len - offset))
 
         states_ = torch.from_numpy(self.dataset['states'][start:start + sequence_len + offset])
         actions_ = torch.from_numpy(self.dataset['actions'][start:start + sequence_len])
