@@ -96,7 +96,7 @@ def record_data(ctx, path, n_games, chunk_size, state_dtype):
 def train_vae(ctx, path):
     """Train VAE model as specified in .json config with data at `PATH`."""
 
-    from keras.callbacks import EarlyStopping, LambdaCallback, ModelCheckpoint
+    from keras.callbacks import EarlyStopping, LambdaCallback, ModelCheckpoint, CSVLogger
     config = obtain_config(ctx)
 
     # Get dataset length and eight examples to evaluate VAE on
@@ -167,7 +167,8 @@ def train_vae(ctx, path):
         EarlyStopping(patience=config.vae['patience']),
         LambdaCallback(on_epoch_begin=plot_samples),
         ModelCheckpoint(config.vae['ckpt_path'], verbose=1,
-                        save_best_only=True, save_weights_only=True)
+                        save_best_only=True, save_weights_only=True),
+        CSVLogger(filename=os.path.join(config.rnn['logs_dir'], 'train_vae.csv'), append=True)
     ]
 
     # Fit VAE model!
@@ -215,7 +216,7 @@ def convert_data(ctx, path_in, path_out, vae_path):
 def train_mem(ctx, path, vae_path):
     """Train MDN-RNN model as specified in .json config with data at `PATH`."""
 
-    from third_party.torchtrainer import EarlyStopping, LambdaCallback, ModelCheckpoint
+    from third_party.torchtrainer import EarlyStopping, LambdaCallback, ModelCheckpoint, CSVLogger
     from torch.utils.data import DataLoader
     config = obtain_config(ctx)
 
@@ -331,7 +332,8 @@ def train_mem(ctx, path, vae_path):
         EarlyStopping(metric='loss', patience=config.rnn['patience'], verbose=1),
         LambdaCallback(on_batch_begin=lambda _, batch_size: rnn.model.init_hidden(batch_size),
                        on_epoch_begin=plot_samples),
-        ModelCheckpoint(config.rnn['ckpt_path'], metric='loss', save_best=True)
+        ModelCheckpoint(config.rnn['ckpt_path'], metric='loss', save_best=True),
+        CSVLogger(filename=os.path.join(config.rnn['logs_dir'], 'train_mem.csv'))
     ]
 
     # Fit MDN-RNN model!
