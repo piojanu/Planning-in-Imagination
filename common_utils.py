@@ -138,3 +138,26 @@ def force_cpu():
 def mute_tf_logs_if_needed():
     if "TF_CPP_MIN_LOG_LEVEL" not in os.environ:
         os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+
+
+def get_model_path_if_exists(path, default_path, model_name):
+    """Check if path (default_path) exist and choose one.
+
+    Args:
+        path (string): Specified path to model
+        default_path (string): Specified path to model
+        model_name (string): Model name ie. VAE
+
+    Returns:
+        Path to model or None, depends whether first or second path exist
+    """
+
+    if path is None:
+        if os.path.exists(default_path):
+            path = default_path
+        else:
+            log.info("%s weights in \"%s\" doesn't exist! Starting tabula rasa.", model_name, path)
+    elif not os.path.exists(path):
+        raise ValueError("{} weights in \"{}\" path doesn't exist!".format(model_name, path))
+
+    return path

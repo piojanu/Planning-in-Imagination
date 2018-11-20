@@ -3,14 +3,14 @@ import logging as log
 import numpy as np
 import h5py
 import humblerl as hrl
-from humblerl import Callback, MDP, Vision
+from humblerl import Callback, Vision
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.distributions import Normal
 from torch.utils.data import Dataset
-from utils import get_model_path_if_exists
 
+from common_utils import get_model_path_if_exists
 from third_party.torchtrainer import TorchTrainer, evaluate
 
 
@@ -22,8 +22,6 @@ class MDNVision(Vision, Callback):
             vae_model (keras.Model): Keras VAE encoder.
             mdn_model (torch.nn.Module): PyTorch MDN-RNN memory.
             latent_dim (int): Latent space dimensionality.
-            state_processor_fn (function): Function for state processing. It should
-                take raw environment state as an input and return processed state.
 
         Note:
             In order to work, this Vision system must be also passed as callback to 'hrl.loop(...)'!
@@ -254,97 +252,6 @@ class MDN(nn.Module):
             torch.zeros(self.num_layers, batch_size, self.hidden_units, device=device),
             torch.zeros(self.num_layers, batch_size, self.hidden_units, device=device)
         )
-
-
-class AtariMDP(MDP):
-    """MDP using memory module as dynamics model."""
-
-    def __init__(self, env, mdn_model):
-        """Initialize MDP.
-
-        Args:
-            env (hrl.Environment): Environment for which this MDP is.
-            mdn_model (torch.nn.Module): PyTorch MDN-RNN memory.
-
-        Note:
-            MDN-RNN memory module will change its internal hidden state each time `transition` is
-            called. Remember about it.
-        """
-
-        self.env = env
-        self.mdn_model = mdn_model
-
-    def transition(self, state, action):
-        """Perform `action` in `state`. Return outcome.
-
-        Args:
-            state (tuple): MDP's state (observation latent vector, memory hidden state).
-            action (int): MDP's action.
-
-        Returns:
-            state (tuple): MDP's next state (observation latent vector, memory hidden state).
-            float: Reward.
-        """
-
-        latent, hidden = state
-        next_latent = self.mdn_model.sample(latent, action, hidden)
-        # TODO: This should predict reward
-        return (next_latent, self.mdn_model.hidden), 0.
-
-    def get_init_state(self):
-        """Prepare and return initial state.
-
-        It's not needed and left not implemented.
-        """
-
-        # NOTE: It should take env init state, encode it and return in tuple with zero hidden state,
-        #       but it's left not implemented as long as it's not used anywhere.
-        raise NotImplementedError()
-
-    def get_valid_actions(self, state):
-        """Get available actions in `state`.
-
-        Args:
-            state (tuple): MDP's state (observation latent vector, memory hidden state).
-
-        Returns:
-            np.ndarray: Array with enumerated valid actions for given state.
-        """
-
-        assert self.env.is_discrete, "This MDP works only for discrete action space!"
-        # In OpenAI Gym all of the actions are always valid.
-        return self.env.valid_actions
-
-    def is_terminal_state(self, state):
-        """Check if `state` is terminal.
-
-        Args:
-            state (tuple): MDP's state (observation latent vector, memory hidden state).
-
-        Returns:
-            bool: Whether state is terminal or not.
-        """
-
-        # TODO: In the future add some classification in here.
-        return False
-
-    def action_space(self):
-        """Get action space definition.
-
-        Returns:
-            ActionSpace: Action space, discrete or continuous.
-        """
-
-        return self.env.action_space
-
-    def state_space(self):
-        """Get environment state space definition.
-
-        Returns:
-            object: State space representation depends on model.
-        """
-
-        return self.env.state_space
 
 
 def build_rnn_model(rnn_params, latent_dim, action_space, model_path=None):

@@ -315,60 +315,36 @@ class TqdmStream(object):
 
 
 class BasicVision(hrl.Vision):
-    def __init__(self, state_processor_fn, scale=1):
+    def __init__(self, state_shape, crop_range, scale=1):
         """Initialize vision processors.
 
         Args:
-            state_processor_fn (function): Function for state processing. It should
-                take raw environment state as an input and return processed state.
+            state_shape (tuple): Output shape. Default: [64, 64, 3]
+            crop_range (string): Range to crop as indices of array. Default: "[30:183, 28:131, :]"
+                for Boxing OpenAI Gym environment.
             scale (float): Processed state is scaled by this factor.
         """
 
-        self.state_processor_fn = state_processor_fn
+        self.state_shape = state_shape
+        self.crop_range = crop_range
         self.scale = scale
 
     def __call__(self, state, reward=0.):
-        return self.state_processor_fn(state) * self.scale, reward
+        """Resize states to `state_shape` with cropping of `crop_range`.
 
+        Args:
+            state (np.ndarray): Image to crop and resize.
+            reward (float): Reward.
 
-def state_processor(img, state_shape, crop_range):
-    """Resize states to `state_shape` with cropping of `crop_range`.
+        Return:
+            np.ndarray: Cropped and reshaped to `state_shape` image.
+            float: Unchanged reward.
+        """
 
-    Args:
-        img (np.ndarray): Image to crop and resize.
-        state_shape (tuple): Output shape. Default: [64, 64, 3]
-        crop_range (string): Range to crop as indices of array. Default: "[30:183, 28:131, :]"
-            for Boxing OpenAI Gym environment.
+        # Crop image to `crop_range`, removes e.g. score bar
+        img = eval("img" + self.crop_range)
 
-    Return:
-        np.ndarray: Cropped and reshaped to `state_shape` image.
-    """
+        # Resize to 64x64 and cast to 0..1 values
+        img = resize(img, self.state_shape, mode='constant')
 
-    # Crop image to `crop_range`, removes e.g. score bar
-    img = eval("img" + crop_range)
-
-    # Resize to 64x64 and cast to 0..1 values
-    return resize(img, state_shape, mode='constant')
-
-
-def get_model_path_if_exists(path, default_path, model_name):
-    """Check if path (default_path) exist and choose one.
-
-    Args:
-        path (string): Specified path to model
-        default_path (string): Specified path to model
-        model_name (string): Model name ie. VAE
-
-    Returns:
-        Path to model or None, depends whether first or second path exist
-    """
-
-    if path is None:
-        if os.path.exists(default_path):
-            path = default_path
-        else:
-            log.info("%s weights in \"%s\" doesn't exist! Starting tabula rasa.", model_name, path)
-    elif not os.path.exists(path):
-        raise ValueError("{} weights in \"{}\" path doesn't exist!".format(model_name, path))
-
-    return path
+        return img * self.scale, reward

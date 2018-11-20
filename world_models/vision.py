@@ -8,7 +8,7 @@ from keras.layers import Conv2D, Conv2DTranspose, Dense, Flatten, Input, Lambda,
 from keras.models import Model
 from keras.optimizers import Adam
 
-from utils import get_model_path_if_exists
+from common_utils import get_model_path_if_exists
 
 
 def build_vae_model(vae_params, input_shape, model_path=None):

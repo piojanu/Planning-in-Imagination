@@ -10,12 +10,11 @@ import tensorflow
 
 from common_utils import limit_gpu_memory_usage, mute_tf_logs_if_needed, create_directory, force_cpu
 from controller import build_es_model, build_mind, Evaluator, ReturnTracker
-from functools import partial
 from humblerl.agents import ChainVision, RandomAgent
 from memory import build_rnn_model, MDNDataset, MDNVision
 from third_party.torchtrainer import RandomBatchSampler, evaluate
 from tqdm import tqdm
-from utils import Config, HDF5DataGenerator, TqdmStream, BasicVision, state_processor, StoreTransitions, convert_data_with_vae
+from utils import Config, HDF5DataGenerator, TqdmStream, BasicVision, StoreTransitions, convert_data_with_vae
 from vision import build_vae_model
 
 
@@ -80,9 +79,8 @@ def record_data(ctx, path, n_games, chunk_size, state_dtype):
 
     # Resizes states to `state_shape` with cropping
     vision = BasicVision(
-        partial(state_processor,
-                state_shape=config.general['state_shape'],
-                crop_range=config.general['crop_range']),
+        state_shape=config.general['state_shape'],
+        crop_range=config.general['crop_range'],
         scale=255
     )
 
@@ -443,9 +441,8 @@ def eval(ctx, controller_path, vae_path, mdn_path, n_games):
                           env.action_space,
                           mdn_path)
 
-    basic_vision = BasicVision(partial(state_processor,
-                                       state_shape=config.general['state_shape'],
-                                       crop_range=config.general['crop_range']))
+    basic_vision = BasicVision(state_shape=config.general['state_shape'],
+                               crop_range=config.general['crop_range'])
     mdn_vision = MDNVision(encoder, rnn.model, config.vae['latent_space_dim'])
 
     # Build CMA-ES solver and linear model

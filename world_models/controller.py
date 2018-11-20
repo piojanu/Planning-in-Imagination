@@ -3,17 +3,14 @@ import logging as log
 import numpy as np
 import os.path
 import pickle
-import bz2
 import humblerl as hrl
 
-from functools import partial
 from humblerl import Callback, ChainVision, Mind, Worker
 from memory import build_rnn_model, MDNVision
-from utils import BasicVision, state_processor
+from utils import BasicVision
 from vision import build_vae_model
 
-from common_utils import create_directory
-from utils import get_model_path_if_exists
+from common_utils import create_directory, get_model_path_if_exists
 
 
 def compute_ranks(x):
@@ -157,10 +154,10 @@ class Evaluator(Worker):
                               self.action_space,
                               self.mdn_path)
 
-        return (BasicVision(partial(state_processor,
-                                    state_shape=self.config.general['state_shape'],
-                                    crop_range=self.config.general['crop_range'])),
-                MDNVision(encoder, rnn.model, self.config.vae['latent_space_dim']))
+        return (BasicVision(
+            state_shape=self.config.general['state_shape'],
+            crop_range=self.config.general['crop_range']),
+            MDNVision(encoder, rnn.model, self.config.vae['latent_space_dim']))
 
 
 class LinearModel(Mind):
