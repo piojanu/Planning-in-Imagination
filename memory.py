@@ -1,12 +1,21 @@
 import logging as log
 
+from collections import OrderedDict
 import numpy as np
+import humblerl as hrl
+from humblerl import Callback, MDP, Vision
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
 from torch.utils.data import Dataset
+
+from common_utils import get_model_path_if_exists
+from world_models.third_party.torchtrainer import TorchTrainer, evaluate
 
 
 class EPNDataset(Dataset):
-    """Dataset of sequential data to train MDN-RNN."""
+    """Dataset of sequential data to train EPN-RNN."""
 
     def __init__(self, storage, sequence_len, terminal_prob=0.5):
         """Initialize Expert Prediction Network PyTorch dataset.
@@ -68,3 +77,224 @@ class EPNDataset(Dataset):
 
     def __len__(self):
         return len(self.storage.big_bag)
+
+
+class EPN(nn.Module):
+    def __init__(self, hidden_units, latent_dim, action_space, num_layers=1):
+        super(EPN, self).__init__()
+
+        self.hidden_units = hidden_units
+        self.num_layers = num_layers
+
+        self.embedding = nn.Embedding.from_pretrained(torch.eye(action_space.num)) \
+            if isinstance(action_space, hrl.environments.Discrete) else None
+        self.lstm = nn.LSTM(input_size=(latent_dim + action_space.num),
+                            hidden_size=hidden_units,
+                            num_layers=num_layers,
+                            batch_first=True)
+
+        self.next_state = nn.Linear(hidden_units, latent_dim)
+        self.reward = nn.Linear(hidden_units, 1)
+        self.done = nn.Linear(hidden_units, 1)
+        self.pi = nn.Linear(hidden_units, action_space.num)
+        self.value = nn.Linear(hidden_units, 1)
+
+    def forward(self, latent, action, hidden=None):
+        self.lstm.flatten_parameters()
+        if self.embedding:
+            # Use one-hot representation for discrete actions
+            x = torch.cat((latent, self.embedding(action).squeeze(dim=2)), dim=2)
+        else:
+            # Pass raw action vector for continuous actions
+            x = torch.cat((latent, action.float()), dim=2)
+
+        h, self.hidden = self.lstm(x, hidden if hidden else self.hidden)
+
+        next_state = self.next_state(h)
+        reward = torch.tanh(self.reward(h))  # NOTE: For won/lost rewards!
+        done = torch.tanh(self.done(h))
+        pi = self.pi(h)
+        value = torch.tanh(self.value(h))    # NOTE: For won/lost rewards!
+
+        return OrderedDict([('next_state', next_state),
+                            ('reward', reward),
+                            ('done', done),
+                            ('pi', pi),
+                            ('value', value)])
+
+    def simulate(self, latent, actions, hidden=None):
+        """Simulate environment trajectory.
+
+        Args:
+            latent (torch.Tensor): Latent vector with state(s) to start from.
+                Shape of tensor: batch x 1 (sequence dim.) x latent dim.
+            actions (torch.Tensor): Tensor with actions to take in simulated trajectory.
+                Shape of tensor: batch x sequence x action dim.
+            hidden (tuple): Memory module (torch.nn.LSTM) hidden state.
+
+        Return:
+            np.ndarray: Array of latent vectors of simulated trajectory.
+                Shape of array: batch x sequence x latent dim.
+
+        Note:
+            You can find next hidden state in this module `hidden` member.
+        """
+
+        states = []
+        for a in range(actions.shape[1]):
+            # NOTE: We use np.newaxis to preserve shape of tensor.
+            with torch.no_grad(), evaluate(self) as net:
+                latent, _, _, _, _ = net(latent, actions[:, a, np.newaxis, :], hidden).values()
+                states.append(latent.cpu().detach().numpy())
+
+        # TODO: Check if this squeeze is even needed.
+        return np.transpose(np.squeeze(np.array(states), axis=2), axes=[1, 0, 2])
+
+    def init_hidden(self, batch_size):
+        device = next(self.parameters()).device
+
+        self.hidden = (
+            torch.zeros(self.num_layers, batch_size, self.hidden_units, device=device),
+            torch.zeros(self.num_layers, batch_size, self.hidden_units, device=device)
+        )
+
+
+class AtariMDP(MDP):
+    """MDP using memory module as dynamics model."""
+
+    def __init__(self, env, mdn_model):
+        """Initialize MDP.
+
+        Args:
+            env (hrl.Environment): Environment for which this MDP is.
+            mdn_model (torch.nn.Module): PyTorch MDN-RNN memory.
+
+        Note:
+            MDN-RNN memory module will change its internal hidden state each time `transition` is
+            called. Remember about it.
+        """
+
+        self.env = env
+        self.mdn_model = mdn_model
+
+    def transition(self, state, action):
+        """Perform `action` in `state`. Return outcome.
+
+        Args:
+            state (tuple): MDP's state (observation latent vector, memory hidden state).
+            action (int): MDP's action.
+
+        Returns:
+            state (tuple): MDP's next state (observation latent vector, memory hidden state).
+            float: Reward.
+        """
+
+        latent, hidden = state
+        next_latent = self.mdn_model.sample(latent, action, hidden)
+        # TODO: This should predict reward
+        return (next_latent, self.mdn_model.hidden), 0.
+
+    def get_init_state(self):
+        """Prepare and return initial state.
+
+        It's not needed and left not implemented.
+        """
+
+        # NOTE: It should take env init state, encode it and return in tuple with zero hidden state,
+        #       but it's left not implemented as long as it's not used anywhere.
+        raise NotImplementedError()
+
+    def get_valid_actions(self, state):
+        """Get available actions in `state`.
+
+        Args:
+            state (tuple): MDP's state (observation latent vector, memory hidden state).
+
+        Returns:
+            np.ndarray: Array with enumerated valid actions for given state.
+        """
+
+        assert self.env.is_discrete, "This MDP works only for discrete action space!"
+        # In OpenAI Gym all of the actions are always valid.
+        return self.env.valid_actions
+
+    def is_terminal_state(self, state):
+        """Check if `state` is terminal.
+
+        Args:
+            state (tuple): MDP's state (observation latent vector, memory hidden state).
+
+        Returns:
+            bool: Whether state is terminal or not.
+        """
+
+        # TODO: In the future add some classification in here.
+        return False
+
+    def action_space(self):
+        """Get action space definition.
+
+        Returns:
+            ActionSpace: Action space, discrete or continuous.
+        """
+
+        return self.env.action_space
+
+    def state_space(self):
+        """Get environment state space definition.
+
+        Returns:
+            object: State space representation depends on model.
+        """
+
+        return self.env.state_space
+
+
+def build_rnn_model(rnn_params, latent_dim, action_space, model_path=None):
+    """Builds EPN-RNN memory module, which model time dependencies.
+
+    Args:
+        rnn_params (dict): EPN-RNN parameters from .json config.
+        latent_dim (int): Latent space dimensionality.
+        action_space (hrl.environments.ActionSpace): Action space, discrete or continuous.
+        model_path (str): Path to VAE ckpt. Taken from .json config if `None` (Default: None)
+
+    Returns:
+        TorchTrainer: Compiled EPN-RNN model wrapped in TorchTrainer, ready for training.
+    """
+
+    use_cuda = torch.cuda.is_available()
+
+    def masked_reward_loss_function(pred, target):
+        """Mask zero rewards. It assumes 1/0 won/lost rewards!"""
+
+        pred = pred * torch.abs(target)
+        return F.mse_loss(pred, target)
+
+    def cross_entropy_loss_function(pred, target):
+        """Cross entropy that accepts soft targets."""
+
+        return torch.mean(torch.sum(-target * F.log_softmax(pred, dim=-1), dim=-1))
+
+    epn = TorchTrainer(EPN(rnn_params['hidden_units'], latent_dim, action_space),
+                       device_name='cuda' if use_cuda else 'cpu')
+
+    epn.compile(
+        optimizer=optim.Adam(epn.model.parameters(), lr=rnn_params['learning_rate']),
+        loss={
+            'next_state': nn.MSELoss(),
+            'reward': masked_reward_loss_function,
+            'done': nn.MSELoss(),
+            'pi': cross_entropy_loss_function,
+            'value': nn.MSELoss()
+        }
+    )
+
+    model_path = get_model_path_if_exists(
+        path=model_path, default_path=rnn_params['ckpt_path'], model_name="EPN-RNN")
+
+    if model_path is not None:
+        epn.load_ckpt(model_path)
+        log.info("Loaded EPN-RNN model weights from: %s", model_path)
+
+    return epn
