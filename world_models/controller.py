@@ -7,8 +7,7 @@ import humblerl as hrl
 
 from humblerl import Callback, ChainVision, Mind, Worker
 from memory import build_rnn_model, MDNVision
-from utils import BasicVision
-from vision import build_vae_model
+from vision import BasicVision, build_vae_model
 
 from common_utils import create_directory, get_model_path_if_exists
 

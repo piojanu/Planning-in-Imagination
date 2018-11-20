@@ -1,14 +1,48 @@
 import logging as log
 
-import keras.backend as K
-import numpy as np
-
 from humblerl import Vision
+import keras.backend as K
 from keras.layers import Conv2D, Conv2DTranspose, Dense, Flatten, Input, Lambda, Reshape
 from keras.models import Model
 from keras.optimizers import Adam
+from skimage.transform import resize
 
 from common_utils import get_model_path_if_exists
+
+
+class BasicVision(Vision):
+    def __init__(self, state_shape, crop_range, scale=1):
+        """Initialize vision processors.
+
+        Args:
+            state_shape (tuple): Output shape.
+            crop_range (string): Range to crop as indices of array.
+            scale (float): Processed state is scaled by this factor.
+        """
+
+        self.state_shape = state_shape
+        self.crop_range = crop_range
+        self.scale = scale
+
+    def __call__(self, state, reward=0.):
+        """Resize states to `state_shape` with cropping of `crop_range`.
+
+        Args:
+            state (np.ndarray): Image to crop and resize.
+            reward (float): Reward.
+
+        Return:
+            np.ndarray: Cropped and reshaped to `state_shape` image.
+            float: Unchanged reward.
+        """
+
+        # Crop image to `crop_range`, removes e.g. score bar
+        img = eval("state" + self.crop_range)
+
+        # Resize to 64x64 and cast to 0..1 values
+        img = resize(img, self.state_shape, mode='constant')
+
+        return img * self.scale, reward
 
 
 def build_vae_model(vae_params, input_shape, model_path=None):

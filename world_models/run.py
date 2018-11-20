@@ -14,8 +14,8 @@ from humblerl.agents import ChainVision, RandomAgent
 from memory import build_rnn_model, MDNDataset, MDNVision
 from third_party.torchtrainer import RandomBatchSampler, evaluate
 from tqdm import tqdm
-from utils import Config, HDF5DataGenerator, TqdmStream, BasicVision, StoreTransitions, convert_data_with_vae
-from vision import build_vae_model
+from utils import Config, HDF5DataGenerator, TqdmStream, StoreTransitions, convert_data_with_vae
+from vision import BasicVision, build_vae_model
 
 
 def obtain_config(ctx, use_gpu=True):
