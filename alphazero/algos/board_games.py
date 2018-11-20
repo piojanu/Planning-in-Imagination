@@ -1,6 +1,6 @@
 import pandas as pd
 
-from callbacks import Storage
+from common_utils import Storage
 from humblerl import Callback, Mind, Vision
 
 
@@ -99,6 +99,20 @@ class BoardRender(Callback):
 
 class BoardStorage(Storage):
     """Wraps Storage callback to unpack state from board game."""
+
+    def __init__(self, config):
+        """
+        Storage with train examples.
+
+        Args:
+            config (Config): Configuration object with parameters from .json file.
+        """
+
+        super(BoardStorage, self).__init__(
+            out_path=config.storage["save_data_path"],
+            exp_replay_size=config.storage["exp_replay_size"],
+            gamma=config.planner["gamma"]
+        )
 
     def _create_small_package(self, transition):
         return (transition.state[0], transition.reward, self._recent_action_probs)

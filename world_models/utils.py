@@ -1,19 +1,15 @@
-import h5py
-import numpy as np
-import os
 import logging as log
-import tensorflow as tf
-import torch
 import math
-
-from common_utils import get_configs
-from keras.utils import Sequence
-from skimage.transform import resize
-from torch.utils.data import Sampler
-from tqdm import tqdm
+import os
 from shutil import copyfile
 
+import h5py
 import humblerl as hrl
+import numpy as np
+from keras.utils import Sequence
+from tqdm import tqdm
+
+from common_utils import get_configs
 
 
 class Config(object):
@@ -42,7 +38,7 @@ class StoreTransitions(hrl.Callback):
         * 'actions': Actions.
         * 'rewards': Rewards.
         * 'episodes': Indices of each episode (episodes[i] -> start index of episode `i`
-                      in states and actions datasets).
+            in states, actions and rewards datasets).
 
         Datasets are organized in such a way, that you can locate episode `i` by accessing
         i-th position in `episodes` to get the `start` index and (i+1)-th position to get
@@ -57,8 +53,8 @@ class StoreTransitions(hrl.Callback):
         * 'ACTION_DIM': Action's dimensionality (1 for discrete).
     """
 
-    def __init__(self, out_path, state_shape, action_space, min_transitions=10000, min_episodes=1000, chunk_size=128,
-                 state_dtype=np.uint8):
+    def __init__(self, out_path, state_shape, action_space, min_transitions=10000, min_episodes=1000,
+                 chunk_size=128, state_dtype=np.uint8, reward_dtype=np.float32):
         """Initialize memory data storage.
 
         Args:
@@ -73,7 +69,8 @@ class StoreTransitions(hrl.Callback):
             chunk_size (int): Chunk size in transitions. For efficiency reasons, data is saved
                 to file in chunks to limit the disk usage (chunk is smallest unit that get fetched
                 from disk). For best performance set it to training batch size. (Default: 128)
-            state_dtype (dtype): Type used to save the state  (Default: np.uint8).
+            state_dtype (numpy.dtype): Type used to store the state (Default: np.uint8).
+            reward_dtype (numpy.dtype): Type used to store the rewards (Default: np.float32).
         """
 
         self.out_path = out_path
@@ -133,7 +130,7 @@ class StoreTransitions(hrl.Callback):
             shape=(self.dataset_size, self.action_dim), maxshape=(None, self.action_dim),
             compression="lzf")
         self.out_rewards = self.out_file.create_dataset(
-            name="rewards", dtype=np.float32, chunks=(chunk_size,),
+            name="rewards", dtype=reward_dtype, chunks=(chunk_size,),
             shape=(self.dataset_size,), maxshape=(None,),
             compression="lzf")
         self.out_episodes = self.out_file.create_dataset(
@@ -314,44 +311,3 @@ class TqdmStream(object):
     @classmethod
     def flush(_):
         pass
-
-
-def state_processor(img, state_shape, crop_range):
-    """Resize states to `state_shape` with cropping of `crop_range`.
-
-    Args:
-        img (np.ndarray): Image to crop and resize.
-        state_shape (tuple): Output shape. Default: [64, 64, 3]
-        crop_range (string): Range to crop as indices of array. Default: "[30:183, 28:131, :]"
-    Return:
-        np.ndarray: Cropped and reshaped to `state_shape` image.
-    """
-
-    # Crop image to `crop_range`, removes e.g. score bar
-    img = eval("img" + crop_range)
-
-    # Resize to 64x64 and cast to 0..255 values if requested
-    return resize(img, state_shape, mode='constant') * 255
-
-
-def get_model_path_if_exists(path, default_path, model_name):
-    """Check if path (default_path) exist and choose one.
-
-    Args:
-        path (string): Specified path to model
-        default_path (string): Specified path to model
-        model_name (string): Model name ie. VAE
-
-    Returns:
-        Path to model or None, depends whether first or second path exist
-    """
-
-    if path is None:
-        if os.path.exists(default_path):
-            path = default_path
-        else:
-            log.info("%s weights in \"%s\" doesn't exist! Starting tabula rasa.", model_name, path)
-    elif not os.path.exists(path):
-        raise ValueError("{} weights in \"{}\" path doesn't exist!".format(model_name, path))
-
-    return path

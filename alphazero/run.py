@@ -10,7 +10,6 @@ from algos.board_games import AdversarialMinds, BoardRender, BoardStorage, Board
 from algos.human import HumanPlayer
 from coach import BoardGameBuilder
 from common_utils import mute_tf_logs_if_needed
-from humblerl.callbacks import BasicStats, CSVSaverWrapper
 from keras.callbacks import EarlyStopping, TensorBoard
 from metrics import Tournament
 from nn import build_keras_nn, KerasNet

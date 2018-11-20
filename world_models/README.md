@@ -151,12 +151,19 @@ Config options:
     "temperature"        : 1.0,                  -- Temperature parameter, used to control model uncertainty.
     "epochs"             : 1000,
     "learning_rate"      : 0.001,
-    "reward_loss_weight" : 1.0,                  -- Weight factor of reward head loss.
     "patience"           : 10,                   -- After this many epochs, if validation loss does not improve, the training is stopped.
     "rend_n_rollouts"    : 10,                   -- Render N simulated steps using memory module. Can't be greater then sequence_len/2.
     "rend_n_episodes"    : 12,                   -- Render visualization for N episodes.
     "ckpt_path"          : "./ckpt/memory.ckpt", -- Path to best model (checkpoint).
     "logs_dir"           : "./logs"              -- Path to directory with logs.
+}
+```
+
+For memory of Alpha Zero:
+```
+"epn_training": {
+    "exp_replay_size"    : 200000,               -- How many games to keep in experience replay.
+    "gamma"              : 1.0                   -- Discount factor, used to calculate state values.
 }
 ```
 
