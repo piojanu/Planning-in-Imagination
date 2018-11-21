@@ -27,6 +27,7 @@ class ExperienceStorage(Storage):
 
     Each trajectory (list) keeps transitions (tuples) and such consists of in order:
     * State,
+    * Action,
     * Reward,
     * If this is terminal transition flag,
     * Action probabilities estimated by MCTS,

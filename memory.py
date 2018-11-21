@@ -14,23 +14,65 @@ from common_utils import get_model_path_if_exists
 from world_models.third_party.torchtrainer import TorchTrainer, evaluate
 
 
+class EPNVision(Vision, Callback):
+    """Expert Prediction Network vision processors.
+
+    Args:
+        vae_model (keras.Model): Keras VAE encoder.
+        epn_model (torch.nn.Module): PyTorch EPN-RNN memory module.
+
+    Note:
+        In order to work, this Vision system must be also passed as callback to 'hrl.loop(...)'!
+    """
+
+    def __init__(self, vae_model, epn_model):
+        self.vae_model = vae_model
+        self.epn_model = epn_model
+
+    def __call__(self, state, reward=0.):
+        # NOTE: See HRL `ply`, `on_step_taken` that would update hidden state is called AFTER
+        #       Vision is used to preprocess next_state. So next_state has out-dated hidden state!
+        #       What saves us is the fact, that `state` in next `ply` call will have it updated so,
+        #       Transitions.state has up-to-date latent and hidden state and in all the other places
+        #       exactly it is used, not next state.
+        return self.process_state(state), reward
+
+    def process_state(self, state):
+        # NOTE: [0][0] <- it gets first in the batch latent space mean (mu)
+        latent = self.vae_model.predict(state[np.newaxis, :])[0][0]
+        hidden = self.epn_model.hidden
+
+        return (latent, hidden)
+
+    def on_episode_start(self, episode, train_mode):
+        self.epn_model.init_hidden(1)
+
+    def on_step_taken(self, step, transition, info):
+        device = next(self.parameters()).device
+
+        latent = torch.as_tensor(transition.state[0], device=device).view(1, 1, -1)
+        hidden = transition.state[1]
+        action = torch.as_tensor(transition.action, device=device).view(1, 1, -1)
+
+        with torch.no_grad(), evaluate(self.epn_model) as net:
+            net(latent, action, hidden)
+
+
 class EPNDataset(Dataset):
-    """Dataset of sequential data to train EPN-RNN."""
+    """Dataset of sequential data to train EPN-RNN.
+
+    Args:
+        storage (ExperienceStorage): Storage of played trajectories.
+        sequence_len (int): Desired output sequence len.
+        terminal_prob (float): Probability of sampling sequence that finishes with
+            terminal state. (Default: 0.5)
+
+    Note:
+        Arrays should have the same size of the first dimension and their type should be the
+            same as desired Tensor type.
+    """
 
     def __init__(self, storage, sequence_len, terminal_prob=0.5):
-        """Initialize Expert Prediction Network PyTorch dataset.
-
-        Args:
-            storage (ExperienceStorage): Storage of played trajectories.
-            sequence_len (int): Desired output sequence len.
-            terminal_prob (float): Probability of sampling sequence that finishes with
-                terminal state. (Default: 0.5)
-
-        Note:
-            Arrays should have the same size of the first dimension and their type should be the
-            same as desired Tensor type.
-        """
-
         assert 0 < terminal_prob and terminal_prob <= 1.0, "0 < terminal_prob <= 1.0"
 
         self.storage = storage
@@ -121,6 +163,37 @@ class EPN(nn.Module):
                             ('done', done),
                             ('pi', pi),
                             ('value', value)])
+
+    def predict(self, state, action):
+        """Predicts next state, reward, if done and expert pi and value.
+
+        Args:
+            state (tuple): Tuple with env. latent state vector and EPN hidden state
+                (in this order, both torch.Tensor type).
+            action (int): Action to take in provided state.
+
+        Returns:
+            tuple: Tuple with next env. latent state vector and EPN hidden state.
+            float: Transition reward.
+            bool: If transition is terminal.
+            pi: Distribution of expert actions in next state.
+            value: Next state value. In won/lost env. with gamma = 1 it's prob. of winning.
+        """
+
+        device = next(self.parameters()).device
+
+        latent = torch.as_tensor(state[0], device=device).view(1, 1, -1)
+        hidden = state[1]
+        action = torch.tensor(action, device=device).view(1, 1, -1)
+
+        with torch.no_grad(), evaluate(self) as net:
+            next_state, reward, done, pi, value = net(latent, action, hidden).values()
+
+        return ((next_state, self.hidden),
+                torch.squeeze(reward).item(),
+                torch.squeeze(done).item(),
+                torch.softmax(torch.squeeze(pi)).cpu().detach().numpy(),
+                torch.squeeze(value).item())
 
     def simulate(self, latent, actions, hidden=None):
         """Simulate environment trajectory.
