@@ -283,7 +283,7 @@ def train_mem(ctx, path, vae_path):
                 torch.from_numpy(np.expand_dims(orig_mu, axis=1)).to(  # Adds sequence dim.
                     next(rnn.model.parameters()).device),
                 torch.from_numpy(
-                    A_eval[:, seq_half:seq_half + config.rnn["rend_n_rollouts"]*config.rnn["rend_step"]:]).to(
+                    A_eval[:, seq_half:seq_half + config.rnn["rend_n_rollouts"] * config.rnn["rend_step"]:]).to(
                     next(rnn.model.parameters()).device)
             ).reshape(-1, dataset.latent_dim)
 
@@ -309,7 +309,7 @@ def train_mem(ctx, path, vae_path):
                         if j == 0:
                             ax.set_title("start")
                         else:
-                            ax.set_title("t + {}".format(j*config.rnn["rend_step"]))
+                            ax.set_title("t + {}".format(j * config.rnn["rend_step"]))
                     plt.imshow(samples[i, j])
 
             # Save figure to logs dir
