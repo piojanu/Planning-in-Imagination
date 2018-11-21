@@ -205,18 +205,22 @@ def convert_data_with_vae(vae_encoder, path_in, path_out, latent_dim):
         latent_dim (int): VAE's latent state dimensionality.
     """
 
-    log.info('Copying HDF5 dataset...')
-    copyfile(path_in, path_out)
+    with h5py.File(path_in, "r") as hdf_in, h5py.File(path_out, "w") as hdf_out:
+        # Copy datasets and params from input HDF5, excluding the states
+        hdf_in.copy("actions", hdf_out)
+        hdf_in.copy("rewards", hdf_out)
+        hdf_in.copy("episodes", hdf_out)
+        hdf_out.attrs["N_TRANSITIONS"] = hdf_in.attrs["N_TRANSITIONS"]
+        hdf_out.attrs["N_GAMES"] = hdf_in.attrs["N_GAMES"]
+        hdf_out.attrs["CHUNK_SIZE"] = hdf_in.attrs["CHUNK_SIZE"]
+        hdf_out.attrs["ACTION_DIM"] = hdf_in.attrs["ACTION_DIM"]
 
-    with h5py.File(path_in, "r") as hdf_in, h5py.File(path_out, "a") as hdf_out:
-        # New dataset will have preprocessed states, so we can delete the old ones.
-        del hdf_out["states"]
-
-        n_transitions = hdf_in.attrs["N_TRANSITIONS"]
-        chunk_size = hdf_in.attrs["CHUNK_SIZE"]
         hdf_out.attrs["LATENT_DIM"] = latent_dim
         # 2 because latent space mean (mu) and logvar are saved
         hdf_out.attrs["STATE_SHAPE"] = [2, latent_dim]
+
+        n_transitions = hdf_in.attrs["N_TRANSITIONS"]
+        chunk_size = hdf_in.attrs["CHUNK_SIZE"]
         new_states = hdf_out.create_dataset(
             name="states", dtype=np.float32, chunks=(chunk_size, 2, latent_dim),
             shape=(n_transitions, 2, latent_dim), maxshape=(None, 2, latent_dim),
