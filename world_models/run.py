@@ -282,14 +282,14 @@ def train_mem(ctx, path, vae_path):
             pred_mu = rnn.model.simulate(
                 torch.from_numpy(np.expand_dims(orig_mu, axis=1)).to(  # Adds sequence dim.
                     next(rnn.model.parameters()).device),
-                torch.from_numpy(A_eval[:, seq_half:seq_half + config.rnn["rend_n_rollouts"]]).to(
+                torch.from_numpy(
+                    A_eval[:, seq_half:seq_half + config.rnn["rend_n_rollouts"] * config.rnn["rend_step"]:]).to(
                     next(rnn.model.parameters()).device)
             ).reshape(-1, dataset.latent_dim)
 
             orig_img = decoder.predict(orig_mu)[:, np.newaxis]
-            pred_img = decoder.predict(pred_mu).reshape(n_episodes,
-                                                        config.rnn["rend_n_rollouts"],
-                                                        *config.general['state_shape'])
+            pred_img = decoder.predict(pred_mu[::config.rnn["rend_step"]])\
+                .reshape(n_episodes, config.rnn["rend_n_rollouts"], *config.general['state_shape'])
 
             samples = np.concatenate((orig_img, pred_img), axis=1)
 
@@ -309,7 +309,7 @@ def train_mem(ctx, path, vae_path):
                         if j == 0:
                             ax.set_title("start")
                         else:
-                            ax.set_title("t + {}".format(j))
+                            ax.set_title("t + {}".format(j * config.rnn["rend_step"]))
                     plt.imshow(samples[i, j])
 
             # Save figure to logs dir
