@@ -2,7 +2,8 @@
     "general": {
         "game_name"          : "Boxing-v0",
         "state_shape"        : [64, 64, 3],
-        "crop_range"         : "[30:183, 28:131, :]"
+        "crop_range"         : "[30:183, 28:131, :]",
+        "generating_agent"   : "random"
     },
     "vae_training": {
         "batch_size"         : 256,
