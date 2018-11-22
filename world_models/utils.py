@@ -21,6 +21,7 @@ class Config(object):
             is_debug (bool): Specify to enable debugging features
             allow_render (bool): Specify to enable render/plot features
         """
+
         default_config, custom_config = get_configs(config_path)
 
         # Merging default and custom configs, for repeating keys second dict overwrites values
@@ -301,13 +302,3 @@ class HDF5DataGenerator(Sequence):
             X, y = self.preprocess_fn(X, y)
 
         return X, y
-
-
-class TqdmStream(object):
-    @classmethod
-    def write(_, msg):
-        tqdm.write(msg, end='')
-
-    @classmethod
-    def flush(_):
-        pass
