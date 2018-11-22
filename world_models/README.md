@@ -22,6 +22,11 @@ Command-line options:
 --render/--no-render - Vision/Memory will save example plots, Memory needs to get Vision ckpt path in arguments (Default: False)
 ```
 
+**Note**: For some games (e.g. [CarRacing-v0](https://gym.openai.com/envs/CarRacing-v0/)), you need to add `--render` option
+for every command in which the environment is directly interacted with (`record_data`, `train_ctrl`, `eval`) -
+that's because some games need to actually render the window to generate proper frames during `env.step()`
+([CarRacing issue](https://github.com/openai/gym/issues/976)).
+
 ### Config
 Parameters used in training and evaluation are stored in JSON config.
 
@@ -68,6 +73,9 @@ The general parameters are described here, the rest is covered within appropriat
     "crop_range"       : "[30:183, 28:131, :]"   -- What we want to crop from game frame. Since some games have
                                                  -- redundant information (e.g. score, time), we can remove this
                                                  -- information by performing the crop operation for every axis.
+    "generating_agent" : "random"                -- Agent to use for data generation. By default, a random agent is used
+                                                 -- but for same games, e.g. CarRacing-v0, it's not enough to properly
+                                                 -- explore the game. For CarRacing-v0, use "car_racing" agent.
 }
 ```
 
