@@ -10,10 +10,10 @@ import tensorflow
 
 from common_utils import TqdmStream, obtain_config, mute_tf_logs_if_needed, create_directory
 from controller import build_es_model, build_mind, Evaluator, ReturnTracker
-from humblerl.agents import ChainVision, RandomAgent
+from humblerl.agents import ChainVision
 from memory import build_rnn_model, MDNDataset, MDNVision
 from tqdm import tqdm
-from utils import Config, HDF5DataGenerator, StoreTransitions, convert_data_with_vae
+from utils import Config, HDF5DataGenerator, StoreTransitions, convert_data_with_vae, create_generating_agent
 from vision import BasicVision, build_vae_model
 
 
@@ -53,10 +53,11 @@ def record_data(ctx, path, n_games, chunk_size, state_dtype):
 
     # Create Gym environment, random agent and store to hdf5 callback
     env = hrl.create_gym(config.general['game_name'])
-    mind = RandomAgent(env)
+    mind, agent_callbacks = create_generating_agent(config.general['generating_agent'], env)
     store_callback = StoreTransitions(path, config.general['state_shape'],
                                       env.action_space, chunk_size=chunk_size,
                                       state_dtype=state_dtype, reward_dtype=np.float32)
+    callbacks = agent_callbacks + [store_callback]
 
     if store_callback.game_count >= n_games:
         log.warning("Data is already fully present in dataset you specified! If you wish to create"
@@ -78,7 +79,8 @@ def record_data(ctx, path, n_games, chunk_size, state_dtype):
     )
 
     # Play `N` random games and gather data as it goes
-    hrl.loop(env, mind, vision, n_episodes=n_games, verbose=1, callbacks=[store_callback])
+    hrl.loop(env, mind, vision, n_episodes=n_games, verbose=1, callbacks=callbacks,
+             render_mode=config.allow_render)
 
 
 @cli.command()
@@ -150,8 +152,9 @@ def train_vae(ctx, path):
         def plot_samples(epoch, logs):
             pass
 
-    # Create checkpoint directory, if it doesn't exist
+    # Create checkpoint and logging directory, if it doesn't exist
     create_directory(os.path.dirname(config.vae['ckpt_path']))
+    create_directory(os.path.dirname(config.vae['logs_dir']))
 
     # Initialize callbacks
     callbacks = [
@@ -275,14 +278,14 @@ def train_mem(ctx, path, vae_path):
             pred_mu = rnn.model.simulate(
                 torch.from_numpy(np.expand_dims(orig_mu, axis=1)).to(  # Adds sequence dim.
                     next(rnn.model.parameters()).device),
-                torch.from_numpy(A_eval[:, seq_half:seq_half + config.rnn["rend_n_rollouts"]]).to(
+                torch.from_numpy(
+                    A_eval[:, seq_half:seq_half + config.rnn["rend_n_rollouts"] * config.rnn["rend_step"]:]).to(
                     next(rnn.model.parameters()).device)
             ).reshape(-1, dataset.latent_dim)
 
             orig_img = decoder.predict(orig_mu)[:, np.newaxis]
-            pred_img = decoder.predict(pred_mu).reshape(n_episodes,
-                                                        config.rnn["rend_n_rollouts"],
-                                                        *config.general['state_shape'])
+            pred_img = decoder.predict(pred_mu[::config.rnn["rend_step"]])\
+                .reshape(n_episodes, config.rnn["rend_n_rollouts"], *config.general['state_shape'])
 
             samples = np.concatenate((orig_img, pred_img), axis=1)
 
@@ -302,7 +305,7 @@ def train_mem(ctx, path, vae_path):
                         if j == 0:
                             ax.set_title("start")
                         else:
-                            ax.set_title("t + {}".format(j))
+                            ax.set_title("t + {}".format(j * config.rnn["rend_step"]))
                     plt.imshow(samples[i, j])
 
             # Save figure to logs dir
@@ -384,6 +387,7 @@ def train_ctrl(ctx, vae_path, mdn_path):
             jobs=population,
             processes=processes,
             n_episodes=config.es['n_episodes'],
+            render_mode=config.allow_render,
             verbose=0
         )
         returns = [np.mean(hist['return']) for hist in hists]
