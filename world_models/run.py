@@ -61,10 +61,11 @@ def record_data(ctx, path, n_games, chunk_size, state_dtype):
 
     # Create Gym environment, random agent and store to hdf5 callback
     env = hrl.create_gym(config.general['game_name'])
-    mind = create_generating_agent(config.general['generating_agent'], env)
+    mind, agent_callbacks = create_generating_agent(config.general['generating_agent'], env)
     store_callback = StoreTransitions(path, config.general['state_shape'],
                                       env.action_space, chunk_size=chunk_size,
                                       state_dtype=state_dtype, reward_dtype=np.float32)
+    callbacks = agent_callbacks + [store_callback]
 
     if store_callback.game_count >= n_games:
         log.warning("Data is already fully present in dataset you specified! If you wish to create"
@@ -86,7 +87,7 @@ def record_data(ctx, path, n_games, chunk_size, state_dtype):
     )
 
     # Play `N` random games and gather data as it goes
-    hrl.loop(env, mind, vision, n_episodes=n_games, verbose=1, callbacks=[store_callback],
+    hrl.loop(env, mind, vision, n_episodes=n_games, verbose=1, callbacks=callbacks,
              render_mode=config.allow_render)
 
 
@@ -396,8 +397,8 @@ def train_ctrl(ctx, vae_path, mdn_path):
             jobs=population,
             processes=processes,
             n_episodes=config.es['n_episodes'],
-            verbose=0,
-            render_mode=config.allow_render
+            render_mode=config.allow_render,
+            verbose=0
         )
         returns = [np.mean(hist['return']) for hist in hists]
 

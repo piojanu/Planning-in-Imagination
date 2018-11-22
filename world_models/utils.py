@@ -320,7 +320,8 @@ class TqdmStream(object):
 
 def create_generating_agent(generating_agent, env):
     """Create an agent that will generate data for VAE/MEM training.
-    By default, a random agent is created.
+    By default, a random agent is created. Some agents may require additional
+    callbacks to be added to hrl.loop.
 
     Args:
         generating_agent (str): Generating agent to create.
@@ -328,10 +329,24 @@ def create_generating_agent(generating_agent, env):
 
     Returns:
         hrl.Mind: Generating agent.
+        list:     Callbacks that should be added to hrl.loop, empty list by default.
     """
     if generating_agent == 'car_racing':
-        return CarRacingAgent(env)
-    return hrl.agents.RandomAgent(env)
+        agent = CarRacingAgent(env)
+        return agent, [agent.step_counter_callback]
+    return hrl.agents.RandomAgent(env), []
+
+
+class EnvironmentStepCounter(hrl.Callback):
+    """Callback for keeping track of current step in the environment."""
+    def __init__(self):
+        self.step_counter = 0
+
+    def on_episode_start(self, episode, train_mode):
+        self.step_counter = 0
+
+    def on_step_taken(self, step, transition, info):
+        self.step_counter += 1
 
 
 class CarRacingAgent(hrl.Mind):
@@ -345,16 +360,18 @@ class CarRacingAgent(hrl.Mind):
     def __init__(self, env):
         self.env = env
         self.current_action = env.action_space.sample()
+        self.step_counter_callback = EnvironmentStepCounter()
 
     def plan(self, state, train_mode, debug_mode):
         action = self.current_action
+        current_step = self.step_counter_callback.step_counter
 
         # Accelerate for first 60 steps to get the car moving
-        if self.env.step_counter < 60:
+        if current_step < 60:
             action = np.array([0, 1, 0])
 
         # Change action every 5 steps
-        if self.env.step_counter % 5 == 0:
+        if current_step % 5 == 0:
             rn = random.randint(0, 9)
             if rn in [0]:
                 action = np.array([0, 0, 0])
