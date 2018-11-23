@@ -29,6 +29,7 @@
         "logs_dir"           : "./logs"
     },
     "ctrl_play": {
-        "n_episodes"         : 100
+        "n_episodes"         : 100,
+        "done_threshold"     : 0.5
     }
 }
