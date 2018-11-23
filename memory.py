@@ -30,7 +30,7 @@ class EPNVision(Vision, Callback):
         self.epn_model = epn_model
 
     def __call__(self, state, reward=0.):
-        # NOTE: See HRL `ply`, `on_step_taken` that would update hidden state is called AFTER
+        # WARN: See HRL `ply`, `on_step_taken` that would update hidden state is called AFTER
         #       Vision is used to preprocess next_state. So next_state has out-dated hidden state!
         #       What saves us is the fact, that `state` in next `ply` call will have it updated so,
         #       Transitions.state has up-to-date latent and hidden state and in all the other places
@@ -48,11 +48,12 @@ class EPNVision(Vision, Callback):
         self.epn_model.init_hidden(1)
 
     def on_step_taken(self, step, transition, info):
-        device = next(self.parameters()).device
+        device = next(self.epn_model.parameters()).device
 
-        latent = torch.as_tensor(transition.state[0], device=device).view(1, 1, -1)
+        latent = torch.as_tensor(
+            transition.state[0], dtype=torch.float, device=device).view(1, 1, -1)
         hidden = transition.state[1]
-        action = torch.as_tensor(transition.action, device=device).view(1, 1, -1)
+        action = torch.as_tensor(transition.action, dtype=torch.long, device=device).view(1, 1, -1)
 
         with torch.no_grad(), evaluate(self.epn_model) as net:
             net(latent, action, hidden)
@@ -109,10 +110,10 @@ class EPNDataset(Dataset):
         input_actions = torch.unsqueeze(torch.LongTensor(actions[start:start + sequence_len]), 1)
 
         target_states = torch.FloatTensor(states[start + offset:start + sequence_len + offset])
-        target_rewards = torch.FloatTensor(rewards[start:start + sequence_len])
-        target_dones = torch.FloatTensor(done_flags[start:start + sequence_len])
+        target_rewards = torch.FloatTensor(rewards[start:start + sequence_len]).view(-1, 1)
+        target_dones = torch.FloatTensor(done_flags[start:start + sequence_len]).view(-1, 1)
         target_pis = torch.FloatTensor(pis[start:start + sequence_len])
-        target_values = torch.FloatTensor(values[start:start + sequence_len])
+        target_values = torch.FloatTensor(values[start:start + sequence_len]).view(-1, 1)
 
         return ([input_states, input_actions],
                 [target_states, target_rewards, target_dones, target_pis, target_values])

@@ -5,11 +5,11 @@ import os.path
 import pickle
 import humblerl as hrl
 
-from humblerl import Callback, ChainVision, Mind, Worker
+from humblerl import ChainVision, Mind, Worker
 from memory import build_rnn_model, MDNVision
 from vision import BasicVision, build_vae_model
 
-from common_utils import create_directory, get_model_path_if_exists
+from common_utils import ReturnTracker, create_directory, get_model_path_if_exists
 
 
 def compute_ranks(x):
@@ -188,20 +188,6 @@ class LinearModel(Mind):
     def load_weights(path):
         with open(os.path.abspath(path), 'rb') as f:
             return pickle.load(f)
-
-
-class ReturnTracker(Callback):
-    """Tracks return."""
-
-    def on_episode_start(self, episode, train_mode):
-        self.ret = 0
-
-    def on_step_taken(self, step, transition, info):
-        self.ret += transition.reward
-
-    @property
-    def metrics(self):
-        return {"return": self.ret}
 
 
 def build_mind(es_params, input_dim, action_space, model_path):
