@@ -12,23 +12,6 @@ from vision import BasicVision, build_vae_model
 from common_utils import create_directory, get_model_path_if_exists
 
 
-def compute_ranks(x):
-    """Computes fitness ranks in rage: [0, len(x))."""
-    assert x.ndim == 1
-    ranks = np.empty(len(x), dtype=int)
-    ranks[x.argsort()] = np.arange(len(x))
-    return ranks
-
-
-def compute_centered_ranks(x):
-    """Computes ranks and normalize them by the number of samples.
-       Finally scale them to the range [−0.5,0.5]"""
-    y = compute_ranks(x.ravel()).reshape(x.shape).astype(np.float32)
-    y /= (x.size - 1)
-    y -= .5
-    return y
-
-
 def compute_weight_decay(weight_decay, model_param_list):
     model_param_grid = np.array(model_param_list)
     return weight_decay * np.mean(model_param_grid * model_param_grid, axis=1)
@@ -70,8 +53,6 @@ class CMAES:
         if self.weight_decay > 0:
             l2_decay = compute_weight_decay(self.weight_decay, self.population)
             reward_table -= l2_decay
-        # Apply fitness shaping function
-        reward_table = compute_centered_ranks(reward_table)
         # Convert minimizer to maximizer.
         self.es.tell(self.population, (-1 * reward_table).tolist())
 
