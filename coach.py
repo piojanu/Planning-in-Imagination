@@ -57,10 +57,10 @@ class Coach(metaclass=ABCMeta):
         callbacks = callbacks if callbacks else []
 
         hrl.loop(self.env, self.mind, self.vision,
-                 trian_mode=train_mode,
+                 train_mode=train_mode,
                  debug_mode=self.config.is_debug,
                  n_episodes=self.config.ctrl['n_episodes'],
-                 callbacks=[*self.play_callbacks, *callbacks],
+                 callbacks=self.play_callbacks + callbacks,
                  name=desc, verbose=1)
 
         # Store gathered data
@@ -79,11 +79,11 @@ class Coach(metaclass=ABCMeta):
             self.data_loader,
             epochs=self.config.rnn['epochs'],
             initial_epoch=self.global_epoch,
-            callbacks=[*self.train_callbacks, *callbacks],
+            callbacks=self.train_callbacks + callbacks,
         )
 
     @abstractclassmethod
-    def fromConfig(cls, config):
+    def from_config(cls, config):
         pass
 
 
@@ -91,7 +91,7 @@ class RandomCoach(Coach):
     """Random agent coach interface."""
 
     @classmethod
-    def fromConfig(cls, config, vae_path=None, epn_path=None):
+    def from_config(cls, config, vae_path=None, epn_path=None):
         """Create random agent using config.
 
         Args:
