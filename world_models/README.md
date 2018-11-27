@@ -154,6 +154,7 @@ Config options:
     "batch_size"         : 128,
     "sequence_len"       : 1000,                 -- Sequence length to use in RNN. If recorded episode is shorter, it will
                                                  -- be padded with zeros.
+    "terminal_prob"      : 0.2,                  -- Probability that sampled sequence will finish with terminal state.
     "hidden_units"       : 256,                  -- Number of neurons in RNN's hidden state.
     "n_gaussians"        : 5,                    -- Number of Gaussian distributions in mixture.
     "temperature"        : 1.0,                  -- Temperature parameter, used to control model uncertainty.
@@ -165,14 +166,6 @@ Config options:
     "rend_step"          : 4,                    -- Render every Nth frame. rend_step*rend_n_rollouts can't be greater than sequence_len/2
     "ckpt_path"          : "./ckpt/memory.ckpt", -- Path to best model (checkpoint).
     "logs_dir"           : "./logs"              -- Path to directory with logs.
-}
-```
-
-For memory of Alpha Zero:
-```
-"epn_training": {
-    "exp_replay_size"    : 200000,               -- How many games to keep in experience replay.
-    "gamma"              : 1.0                   -- Discount factor, used to calculate state values.
 }
 ```
 

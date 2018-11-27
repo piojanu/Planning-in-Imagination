@@ -42,7 +42,8 @@ class EPNVision(Vision, Callback):
         latent = self.vae_model.predict(state[np.newaxis, :])[0][0]
         hidden = self.epn_model.hidden
 
-        return (latent, hidden)
+        # Agent never get terminal state to decide on. Always return False as done flag of state.
+        return (latent, hidden, False)
 
     def on_episode_start(self, episode, train_mode):
         self.epn_model.init_hidden(1)
@@ -53,7 +54,8 @@ class EPNVision(Vision, Callback):
         latent = torch.as_tensor(
             transition.state[0], dtype=torch.float, device=device).view(1, 1, -1)
         hidden = transition.state[1]
-        action = torch.as_tensor(transition.action, dtype=torch.long, device=device).view(1, 1, -1)
+        action = torch.as_tensor(
+            transition.action, dtype=torch.long, device=device).view(1, 1, -1)
 
         with torch.no_grad(), evaluate(self.epn_model) as net:
             net(latent, action, hidden)
@@ -165,64 +167,33 @@ class EPN(nn.Module):
                             ('pi', pi),
                             ('value', value)])
 
-    def predict(self, state, action):
+    def sample(self, latent, hidden, action):
         """Predicts next state, reward, if done and expert pi and value.
 
         Args:
-            state (tuple): Tuple with env. latent state vector and EPN hidden state
-                (in this order, both torch.Tensor type).
+            latent (np.array): Latent state vector.
+            hidden (torch.Tensor): EPN hidden state.
             action (int): Action to take in provided state.
 
         Returns:
-            tuple: Tuple with next env. latent state vector and EPN hidden state.
+            np.array: Next latent state vector.
+            torch.Tensor: Next EPN hidden state.
             float: Transition reward.
             bool: If transition is terminal.
-            pi: Distribution of expert actions in next state.
-            value: Next state value. In won/lost env. with gamma = 1 it's prob. of winning.
         """
 
         device = next(self.parameters()).device
 
-        latent = torch.as_tensor(state[0], device=device).view(1, 1, -1)
-        hidden = state[1]
-        action = torch.tensor(action, device=device).view(1, 1, -1)
+        latent = torch.as_tensor(latent, dtype=torch.float, device=device).view(1, 1, -1)
+        action = torch.tensor(action, dtype=torch.long, device=device).view(1, 1, -1)
 
         with torch.no_grad(), evaluate(self) as net:
-            next_state, reward, done, pi, value = net(latent, action, hidden).values()
+            next_state, reward, done, _, _ = net(latent, action, hidden).values()
 
-        return ((next_state, self.hidden),
+        return (torch.squeeze(next_state).cpu().detach().numpy(),
+                self.hidden,
                 torch.squeeze(reward).item(),
-                torch.squeeze(done).item(),
-                torch.softmax(torch.squeeze(pi)).cpu().detach().numpy(),
-                torch.squeeze(value).item())
-
-    def simulate(self, latent, actions, hidden=None):
-        """Simulate environment trajectory.
-
-        Args:
-            latent (torch.Tensor): Latent vector with state(s) to start from.
-                Shape of tensor: batch x 1 (sequence dim.) x latent dim.
-            actions (torch.Tensor): Tensor with actions to take in simulated trajectory.
-                Shape of tensor: batch x sequence x action dim.
-            hidden (tuple): Memory module (torch.nn.LSTM) hidden state.
-
-        Return:
-            np.ndarray: Array of latent vectors of simulated trajectory.
-                Shape of array: batch x sequence x latent dim.
-
-        Note:
-            You can find next hidden state in this module `hidden` member.
-        """
-
-        states = []
-        for a in range(actions.shape[1]):
-            # NOTE: We use np.newaxis to preserve shape of tensor.
-            with torch.no_grad(), evaluate(self) as net:
-                latent, _, _, _, _ = net(latent, actions[:, a, np.newaxis, :], hidden).values()
-                states.append(latent.cpu().detach().numpy())
-
-        # TODO: Check if this squeeze is even needed.
-        return np.transpose(np.squeeze(np.array(states), axis=2), axes=[1, 0, 2])
+                torch.squeeze(done).item())
 
     def init_hidden(self, batch_size):
         device = next(self.parameters()).device
@@ -231,6 +202,112 @@ class EPN(nn.Module):
             torch.zeros(self.num_layers, batch_size, self.hidden_units, device=device),
             torch.zeros(self.num_layers, batch_size, self.hidden_units, device=device)
         )
+
+
+class SokobanMDP(MDP):
+    """Simplified Sokoban MDP using memory module as dynamics model.
+
+    Args:
+        env (hrl.Environment): Environment which this MDP model.
+        epn_model (torch.nn.Module): PyTorch EPN-RNN memory.
+
+    Note:
+        EPN-RNN memory module will change its internal hidden state each time `transition` is
+        called. Remember about it.
+    """
+
+    def __init__(self, env, epn_model, done_threshold):
+        self.env = env
+        self.epn_model = epn_model
+        self.done_threshold = done_threshold
+
+    def transition(self, state, action):
+        """Perform `action` in `state`. Return outcome.
+
+        Args:
+            state (tuple): MDP's state (observation latent vector, memory hidden state, if done).
+            action (int): MDP's action.
+
+        Returns:
+            state (tuple): MDP's next state (observation latent vector, memory hidden state, if done).
+            float: Reward.
+        """
+
+        latent, hidden, is_done = state
+        if is_done:
+            return state
+
+        next_latent, next_hidden, reward, is_done_prob = \
+            self.epn_model.sample(latent, hidden, action)
+
+        # Determine if this terminal state
+        is_done = is_done_prob > self.done_threshold
+
+        # If terminal state, then determine if won or lost
+        if is_done:
+            if reward > 0:
+                result = 1
+            else:
+                result = -1
+        else:
+            result = 0
+
+        # TODO: This should predict reward
+        return (next_latent, next_hidden, is_done), result
+
+    def get_init_state(self):
+        """Prepare and return initial state.
+
+        It's not needed and left not implemented.
+        """
+
+        # NOTE: It should take env init state, encode it and return in tuple with zero hidden state,
+        #       but it's left not implemented as long as it's not used anywhere.
+        raise NotImplementedError()
+
+    def get_valid_actions(self, state):
+        """Get available actions in `state`.
+
+        Args:
+            state (tuple): MDP's state (observation latent vector, memory hidden state).
+
+        Returns:
+            np.ndarray: Array with enumerated valid actions for given state.
+        """
+
+        assert self.env.is_discrete, "This MDP works only for discrete action space!"
+        # In OpenAI Gym all of the actions are always valid.
+        return self.env.valid_actions
+
+    def is_terminal_state(self, state):
+        """Check if `state` is terminal.
+
+        Args:
+            state (tuple): MDP's state (observation latent vector, memory hidden state).
+
+        Returns:
+            bool: Whether state is terminal or not.
+        """
+
+        return state[2]
+
+    def action_space(self):
+        """Get action space definition.
+
+        Returns:
+            ActionSpace: Action space, discrete or continuous.
+        """
+
+        return self.env.action_space
+
+    def state_space(self):
+        """Get environment state space definition.
+
+        Returns:
+            object: State space representation depends on model.
+        """
+
+        return self.env.state_space
 
 
 def build_rnn_model(rnn_params, latent_dim, action_space, model_path=None):
