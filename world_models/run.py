@@ -9,7 +9,7 @@ from humblerl.agents import ChainVision
 import numpy as np
 from tqdm import tqdm
 
-from common_utils import TqdmStream, obtain_config, mute_tf_logs_if_needed, create_directory
+from common_utils import MemoryVisualization, TqdmStream, obtain_config, mute_tf_logs_if_needed, create_directory
 from controller import build_es_model, build_mind, Evaluator, ReturnTracker
 from memory import build_rnn_model, MDNDataset, MDNVision
 from utils import Config, StoreTransitions, create_generating_agent
@@ -206,7 +206,7 @@ def convert_data(ctx, path_in, path_out, vae_path):
 @click.pass_context
 @click.argument('path', type=click.Path(exists=True), required=True)
 @click.option('-v', '--vae-path', default=None,
-              help='Path to VAE ckpt. Needed for visualization only when render is enabled.')
+              help='ath to VAE ckpt. Needed for visualization only when render is enabled.')
 def train_mem(ctx, path, vae_path):
     """Train MDN-RNN model as specified in .json config with data at `PATH`."""
 
