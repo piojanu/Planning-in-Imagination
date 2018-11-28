@@ -3,8 +3,10 @@ import os.path
 
 import humblerl as hrl
 from humblerl.agents import ChainVision, RandomAgent
+import numpy as np
 from torch.utils.data import DataLoader
 
+from common_utils import ReturnTracker
 from memory import build_rnn_model, EPNDataset, EPNVision
 from utils import ExperienceStorage
 from world_models.third_party.torchtrainer import EarlyStopping, LambdaCallback, ModelCheckpoint, CSVLogger
@@ -40,7 +42,7 @@ class Coach(metaclass=ABCMeta):
         self.data_loader = None
         self.trainer = None
         self.storage = None
-        self.play_callbacks = []
+        self.play_callbacks = [ReturnTracker()]
         self.train_callbacks = []
         self.global_epoch = 0
         self.best_score = 0
@@ -52,19 +54,24 @@ class Coach(metaclass=ABCMeta):
             desc (str): Progress bar description.
             train_mode (bool): Informs whether this run is in training or evaluation mode.
             callbacks (list): Play phase callbacks for `hrl.loop(...)`.
+
+        Returns:
+            float: Mean score after `n_episodes` from .json config.
         """
 
         callbacks = callbacks if callbacks else []
 
-        hrl.loop(self.env, self.mind, self.vision,
-                 train_mode=train_mode,
-                 debug_mode=self.config.is_debug,
-                 n_episodes=self.config.ctrl['n_episodes'],
-                 callbacks=self.play_callbacks + callbacks,
-                 name=desc, verbose=1)
+        hist = hrl.loop(self.env, self.mind, self.vision,
+                        train_mode=train_mode,
+                        debug_mode=self.config.is_debug,
+                        n_episodes=self.config.ctrl['n_episodes'],
+                        callbacks=self.play_callbacks + callbacks,
+                        name=desc, verbose=1)
 
         # Store gathered data
         self.storage.store()
+
+        return np.mean(hist['return'])
 
     def train(self, callbacks=None):
         """Training phase, improve neural net.

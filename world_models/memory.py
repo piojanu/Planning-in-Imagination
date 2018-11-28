@@ -214,7 +214,7 @@ class MDN(nn.Module):
 
         return np.squeeze(samples, axis=-1)
 
-    def simulate(self, latent, actions, hidden=None):
+    def simulate(self, latent, actions):
         """Simulate environment trajectory.
 
         Args:
@@ -222,7 +222,6 @@ class MDN(nn.Module):
                 Shape of tensor: batch x 1 (sequence dim.) x latent dim.
             actions (torch.Tensor): Tensor with actions to take in simulated trajectory.
                 Shape of tensor: batch x sequence x action dim.
-            hidden (tuple): Memory module (torch.nn.LSTM) hidden state.
 
         Return:
             np.ndarray: Array of latent vectors of simulated trajectory.
@@ -235,11 +234,14 @@ class MDN(nn.Module):
         states = []
         for a in range(actions.shape[1]):
             # NOTE: We use np.newaxis to preserve shape of tensor.
-            states.append(self.sample(latent, actions[:, a, np.newaxis, :], hidden))
+            states.append(self.sample(latent, actions[:, a, np.newaxis, :]))
             # NOTE: This is a bit arbitrary to set it to float32 which happens to be type of torch
             #       tensors. It can blow up further in code if we'll choose to change tensors types.
             latent = torch.from_numpy(states[-1]).float().to(next(self.parameters()).device)
 
+        # NOTE: Squeeze former sequence dim. (which is 1 because we inferred next latent state
+        #       action by action) and reorder batch dim. and list sequence dim. to finally get:
+        #       batch x len(states) (sequence dim.) x latent dim.
         return np.transpose(np.squeeze(np.array(states), axis=2), axes=[1, 0, 2])
 
     def init_hidden(self, batch_size):

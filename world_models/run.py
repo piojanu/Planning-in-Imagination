@@ -240,8 +240,7 @@ def train_mem(ctx, path, vae_path):
 
         # Check if destination dir exists
         plots_dir = os.path.join(config.rnn['logs_dir'], "plots_mdn")
-        if not os.path.exists(plots_dir):
-            os.makedirs(plots_dir)
+        create_directory(plots_dir)
 
         # Build VAE model and load checkpoint
         _, _, decoder = build_vae_model(config.vae,
