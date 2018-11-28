@@ -8,21 +8,13 @@ import numpy as np
 import os
 import tensorflow
 
-from common_utils import limit_gpu_memory_usage, mute_tf_logs_if_needed, create_directory, force_cpu
+from common_utils import TqdmStream, obtain_config, mute_tf_logs_if_needed, create_directory
 from controller import build_es_model, build_mind, Evaluator, ReturnTracker
 from humblerl.agents import ChainVision
 from memory import build_rnn_model, MDNDataset, MDNVision
-from third_party.torchtrainer import RandomBatchSampler, evaluate
 from tqdm import tqdm
-from utils import Config, HDF5DataGenerator, TqdmStream, StoreTransitions, convert_data_with_vae
-from utils import create_generating_agent
+from utils import Config, HDF5DataGenerator, StoreTransitions, convert_data_with_vae, create_generating_agent
 from vision import BasicVision, build_vae_model
-
-
-def obtain_config(ctx, use_gpu=True):
-    if use_gpu:
-        limit_gpu_memory_usage()
-    return ctx.obj
 
 
 @click.group()
@@ -218,7 +210,7 @@ def convert_data(ctx, path_in, path_out, vae_path):
 def train_mem(ctx, path, vae_path):
     """Train MDN-RNN model as specified in .json config with data at `PATH`."""
 
-    from third_party.torchtrainer import EarlyStopping, LambdaCallback, ModelCheckpoint, CSVLogger
+    from third_party.torchtrainer import EarlyStopping, LambdaCallback, ModelCheckpoint, CSVLogger, RandomBatchSampler, evaluate
     from torch.utils.data import DataLoader
     config = obtain_config(ctx)
 
@@ -358,6 +350,7 @@ def train_ctrl(ctx, vae_path, mdn_path):
     """Plays chosen game and trains Controller on preprocessed states with VAE and MDN-RNN
     (loaded from `vae_path` or `mdn_path`)."""
 
+    # We will spawn multiple workers, we don't want them to access GPU
     config = obtain_config(ctx, use_gpu=False)
 
     # Book keeping variables
@@ -366,9 +359,6 @@ def train_ctrl(ctx, vae_path, mdn_path):
     # Gen number of workers to run
     processes = config.es['processes']
     processes = processes if processes > 0 else None
-
-    # We will spawn multiple workers, we don't want them to access GPU
-    force_cpu()
 
     # Get action space size
     env = hrl.create_gym(config.general['game_name'])

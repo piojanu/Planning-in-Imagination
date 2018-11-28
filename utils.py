@@ -10,14 +10,14 @@ class Config(object):
             is_debug (bool): Specify to enable debugging features
             allow_render (bool): Specify to enable render/plot features
         """
+
         default_config, custom_config = get_configs(config_path)
 
         # Merging default and custom configs, for repeating keys second dict overwrites values
         self.general = {**default_config["general"], **custom_config.get("general", {})}
-        self.es = {**default_config["es_training"], **custom_config.get("es_training", {})}
-        self.epn = {**default_config["epn_training"], **custom_config.get("epn_training", {})}
-        self.rnn = {**default_config["rnn_training"], **custom_config.get("rnn_training", {})}
         self.vae = {**default_config["vae_training"], **custom_config.get("vae_training", {})}
+        self.rnn = {**default_config["rnn_training"], **custom_config.get("rnn_training", {})}
+        self.ctrl = {**default_config["ctrl_play"], **custom_config.get("ctrl_play", {})}
         self.is_debug = is_debug
         self.allow_render = allow_render
 
@@ -27,6 +27,7 @@ class ExperienceStorage(Storage):
 
     Each trajectory (list) keeps transitions (tuples) and such consists of in order:
     * State,
+    * Action,
     * Reward,
     * If this is terminal transition flag,
     * Action probabilities estimated by MCTS,
