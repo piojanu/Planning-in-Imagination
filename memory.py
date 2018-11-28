@@ -244,13 +244,9 @@ class SokobanMDP(MDP):
         is_done = is_done_prob > self.done_threshold
 
         # If terminal state, then determine if won or lost
+        result = 0
         if is_done:
-            if reward > 0:
-                result = 1
-            else:
-                result = -1
-        else:
-            result = 0
+            result = 1 if reward > 0 else -1
 
         # TODO: This should predict reward
         return (next_latent, next_hidden, is_done), result

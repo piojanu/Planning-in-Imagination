@@ -18,19 +18,21 @@
         "sequence_len"       : 1000,
         "terminal_prob"      : 0.2,
         "hidden_units"       : 256,
-        "epochs"             : 100,
+        "epochs"             : 30,
         "learning_rate"      : 0.001,
         "patience"           : 10,
         "rend_n_rollouts"    : 15,
         "rend_n_episodes"    : 16,
         "rend_step"          : 4,
-        "exp_replay_size"    : 10000,
         "gamma"              : 1.0,
         "ckpt_path"          : "./checkpoints/best_memory.ckpt",
         "logs_dir"           : "./logs"
     },
     "ctrl_play": {
-        "n_episodes"         : 100,
-        "done_threshold"     : 0.5
+        "n_episodes"         : 128,
+        "min_examples"       : 256,
+        "done_threshold"     : 0.5,
+        "exp_replay_size"    : 10000,
+        "save_data_path"     : "./checkpoints/data.examples"
     }
 }
