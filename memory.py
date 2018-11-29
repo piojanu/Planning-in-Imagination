@@ -43,7 +43,7 @@ class EPNVision(Vision, Callback):
         hidden = self.epn_model.hidden
 
         # Agent never get terminal state to decide on. Always return False as done flag of state.
-        return (latent, hidden, False)
+        return latent, hidden, False
 
     def on_episode_start(self, episode, train_mode):
         self.epn_model.init_hidden(1)
@@ -76,7 +76,7 @@ class EPNDataset(Dataset):
     """
 
     def __init__(self, storage, sequence_len, terminal_prob=0.5):
-        assert 0 < terminal_prob and terminal_prob <= 1.0, "0 < terminal_prob <= 1.0"
+        assert 0 < terminal_prob <= 1.0, "0 < terminal_prob <= 1.0"
 
         self.storage = storage
         self.sequence_len = sequence_len
@@ -128,6 +128,7 @@ class EPN(nn.Module):
     def __init__(self, hidden_units, latent_dim, action_space, num_layers=1):
         super(EPN, self).__init__()
 
+        self.hidden = None
         self.hidden_units = hidden_units
         self.num_layers = num_layers
 
@@ -168,7 +169,7 @@ class EPN(nn.Module):
                             ('value', value)])
 
     def sample(self, latent, hidden, action):
-        """Predicts next state, reward, if done and expert pi and value.
+        """Predicts next state, reward and if done.
 
         Args:
             latent (np.array): Latent state vector.
@@ -237,7 +238,7 @@ class SokobanMDP(MDP):
     """Simplified Sokoban MDP using memory module as dynamics model.
 
     Args:
-        env (hrl.Environment): Environment which this MDP model.
+        env (hrl.Environment): Environment for this MDP model.
         epn_model (torch.nn.Module): PyTorch EPN-RNN memory.
 
     Note:
