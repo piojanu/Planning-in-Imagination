@@ -113,9 +113,9 @@ class MemoryVisualization(TorchCallback):
 
     Args:
         config (Config): Configuration loaded json .from file.
-        vae_path (string): Path to vision module checkpoint.
-        model (torch.nn.Module): PyTorch memory module.
-        dataset (torch.utils.data.Dataset): Dataset to get data from.
+        vae_decoder (keras.models.Model): Vision decoder Keras model.
+        mem_model (torch.nn.Module): PyTorch memory module.
+        dataset (torch.utils.data.Dataset): PyTroch dataset with data from ExperienceStorage.
         dir_name (string): Directory name where plots will be saved. (Default: 'plots')
     """
 
@@ -132,14 +132,14 @@ class MemoryVisualization(TorchCallback):
 
         # Prepare data
         self.n_episodes = min(self.config.rnn['rend_n_episodes'], len(dataset))
-        self.S_eval = np.zeros((self.n_episodes, self.sequence_len, self.latent_dim),
-                               dtype=dataset.dataset['states'].dtype)
-        self.A_eval = np.zeros((self.n_episodes, self.sequence_len, dataset.action_dim),
-                               dtype=dataset.dataset['actions'].dtype)
+        self.eval_states = np.zeros((self.n_episodes, self.sequence_len, self.latent_dim),
+                                    dtype=dataset.dataset['states'].dtype)
+        self.eval_actions = np.zeros((self.n_episodes, self.sequence_len, dataset.action_dim),
+                                     dtype=dataset.dataset['actions'].dtype)
         for i in range(self.n_episodes):
             (states, actions), _ = dataset[i]
-            self.S_eval[i] = states
-            self.A_eval[i] = actions
+            self.eval_states[i] = states
+            self.eval_actions[i] = actions
 
     def on_batch_begin(self, _, batch_size):
         self.model.init_hidden(batch_size)
@@ -153,18 +153,18 @@ class MemoryVisualization(TorchCallback):
             seq_half = self.sequence_len // 2
             with torch.no_grad():
                 net(
-                    torch.from_numpy(self.S_eval[:, :seq_half]).to(
+                    torch.from_numpy(self.eval_states[:, :seq_half]).to(
                         next(net.parameters()).device),
-                    torch.from_numpy(self.A_eval[:, :seq_half]).to(
+                    torch.from_numpy(self.eval_actions[:, :seq_half]).to(
                         next(net.parameters()).device)
                 )
 
-        orig_mu = self.S_eval[:, seq_half, :]
+        orig_mu = self.eval_states[:, seq_half, :]
         pred_mu = self.model.simulate(
             torch.from_numpy(np.expand_dims(orig_mu, axis=1)).to(  # Adds sequence dim.
                 next(self.model.parameters()).device),
             torch.from_numpy(
-                self.A_eval[:, seq_half:seq_half + self.config.rnn["rend_n_rollouts"] * self.config.rnn["rend_step"]:]).to(
+                self.eval_actions[:, seq_half:seq_half + self.config.rnn["rend_n_rollouts"] * self.config.rnn["rend_step"]:]).to(
                 next(self.model.parameters()).device)
         ).reshape(-1, self.latent_dim)
 
