@@ -205,7 +205,7 @@ def convert_data(ctx, path_in, path_out, vae_path):
 @click.pass_context
 @click.argument('path', type=click.Path(exists=True), required=True)
 @click.option('-v', '--vae-path', default=None,
-              help='ath to VAE ckpt. Needed for visualization only when render is enabled.')
+              help='Path to VAE ckpt. Needed for visualization only when render is enabled.')
 def train_mem(ctx, path, vae_path):
     """Train MDN-RNN model as specified in .json config with data at `PATH`."""
 
