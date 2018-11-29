@@ -6,7 +6,7 @@ from humblerl.agents import ChainVision, RandomAgent
 import numpy as np
 from torch.utils.data import DataLoader
 
-from common_utils import ReturnTracker
+from common_utils import ReturnTracker, MemoryVisualization
 from memory import build_rnn_model, EPNDataset, EPNVision
 from utils import ExperienceStorage
 from world_models.third_party.torchtrainer import EarlyStopping, LambdaCallback, ModelCheckpoint, CSVLogger
@@ -90,7 +90,7 @@ class Coach(metaclass=ABCMeta):
         )
 
     @abstractclassmethod
-    def from_config(cls, config):
+    def from_config(cls, config, vae_path=None, epn_path=None):
         pass
 
 
@@ -133,7 +133,7 @@ class RandomCoach(Coach):
         )
 
         # Create vision
-        _, encoder, _ = build_vae_model(
+        _, encoder, decoder = build_vae_model(
             config.vae, config.general['state_shape'], model_path=vae_path)
         coach.trainer = build_rnn_model(
             config.rnn, config.vae['latent_space_dim'], coach.env.action_space, model_path=epn_path)
@@ -158,5 +158,10 @@ class RandomCoach(Coach):
             ModelCheckpoint(config.rnn['ckpt_path'], metric='loss', save_best=True),
             CSVLogger(filename=os.path.join(config.rnn['logs_dir'], 'train_mem.csv'))
         ]
+
+        # Crate memory visualization callback if render allowed
+        if config.allow_render:
+            coach.train_callbacks += [
+                MemoryVisualization(config, decoder, coach.trainer.model, dataset, 'epn_plots')]
 
         return coach

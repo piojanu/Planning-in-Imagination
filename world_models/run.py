@@ -215,6 +215,9 @@ def train_mem(ctx, path, vae_path):
 
     env = hrl.create_gym(config.general['game_name'])
 
+    # Create checkpoint directory, if it doesn't exist
+    create_directory(os.path.dirname(config.rnn['ckpt_path']))
+
     # Create training DataLoader
     dataset = MDNDataset(path, config.rnn['sequence_len'], config.rnn['terminal_prob'])
     data_loader = DataLoader(
@@ -226,7 +229,15 @@ def train_mem(ctx, path, vae_path):
     # Build model
     rnn = build_rnn_model(config.rnn, config.vae['latent_space_dim'], env.action_space)
 
-    # Evaluate and visualize memory progress
+    # Create callbacks
+    callbacks = [
+        EarlyStopping(metric='loss', patience=config.rnn['patience'], verbose=1),
+        LambdaCallback(on_batch_begin=lambda _, batch_size: rnn.model.init_hidden(batch_size)),
+        ModelCheckpoint(config.rnn['ckpt_path'], metric='loss', save_best=True),
+        CSVLogger(filename=os.path.join(config.rnn['logs_dir'], 'train_mem.csv'))
+    ]
+
+    # Evaluate and visualize memory progress if render allowed
     if config.allow_render:
         if vae_path is None:
             raise ValueError("To render provide valid path to VAE checkpoint!")
@@ -236,19 +247,7 @@ def train_mem(ctx, path, vae_path):
                                         config.general['state_shape'],
                                         vae_path)
 
-        callbacks = [MemoryVisualization(config, decoder, rnn.model, dataset, 'mdn_plots')]
-    else:
-        callbacks = []
-
-    # Create checkpoint directory, if it doesn't exist
-    create_directory(os.path.dirname(config.rnn['ckpt_path']))
-
-    # Create callbacks
-    callbacks += [
-        EarlyStopping(metric='loss', patience=config.rnn['patience'], verbose=1),
-        ModelCheckpoint(config.rnn['ckpt_path'], metric='loss', save_best=True),
-        CSVLogger(filename=os.path.join(config.rnn['logs_dir'], 'train_mem.csv'))
-    ]
+        callbacks += [MemoryVisualization(config, decoder, rnn.model, dataset, 'mdn_plots')]
 
     # Fit MDN-RNN model!
     rnn.fit_loader(

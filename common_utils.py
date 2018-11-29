@@ -131,18 +131,18 @@ class MemoryVisualization(TorchCallback):
         create_directory(self.plots_dir)
 
         # Prepare data
+        (states, actions), _ = dataset[0]
         self.n_episodes = min(self.config.rnn['rend_n_episodes'], len(dataset))
-        self.eval_states = np.zeros((self.n_episodes, self.sequence_len, self.latent_dim),
-                                    dtype=dataset.dataset['states'].dtype)
-        self.eval_actions = np.zeros((self.n_episodes, self.sequence_len, dataset.action_dim),
-                                     dtype=dataset.dataset['actions'].dtype)
+        self.eval_states = torch.zeros((self.n_episodes, self.sequence_len, states.shape[1]),
+                                       device=next(self.model.parameters()).device,
+                                       dtype=states.dtype)
+        self.eval_actions = torch.zeros((self.n_episodes, self.sequence_len, actions.shape[1]),
+                                        device=next(self.model.parameters()).device,
+                                        dtype=actions.dtype)
         for i in range(self.n_episodes):
             (states, actions), _ = dataset[i]
             self.eval_states[i] = states
             self.eval_actions[i] = actions
-
-    def on_batch_begin(self, _, batch_size):
-        self.model.init_hidden(batch_size)
 
     def on_epoch_begin(self, _):
         with evaluate(self.model) as net:
@@ -152,25 +152,18 @@ class MemoryVisualization(TorchCallback):
             # Initialize hidden state (warm-up memory module)
             seq_half = self.sequence_len // 2
             with torch.no_grad():
-                net(
-                    torch.from_numpy(self.eval_states[:, :seq_half]).to(
-                        next(net.parameters()).device),
-                    torch.from_numpy(self.eval_actions[:, :seq_half]).to(
-                        next(net.parameters()).device)
-                )
+                net(self.eval_states[:, :seq_half], self.eval_actions[:, :seq_half])
 
         orig_mu = self.eval_states[:, seq_half, :]
         pred_mu = self.model.simulate(
-            torch.from_numpy(np.expand_dims(orig_mu, axis=1)).to(  # Adds sequence dim.
-                next(self.model.parameters()).device),
-            torch.from_numpy(
-                self.eval_actions[:, seq_half:seq_half + self.config.rnn["rend_n_rollouts"] * self.config.rnn["rend_step"]:]).to(
-                next(self.model.parameters()).device)
+            torch.unsqueeze(orig_mu, 1),  # Add sequence dim.
+            self.eval_actions[:, seq_half:seq_half +
+                              self.config.rnn["rend_n_rollouts"] * self.config.rnn["rend_step"], :]
         ).reshape(-1, self.latent_dim)
 
-        orig_img = self.decoder.predict(orig_mu)[:, np.newaxis]
-        pred_img = self.decoder.predict(pred_mu[::self.config.rnn["rend_step"]])\
-            .reshape(self.n_episodes, self.config.rnn["rend_n_rollouts"], *self.config.general['state_shape'])
+        orig_img = self.decoder.predict(orig_mu.cpu().detach().numpy())[:, np.newaxis]
+        pred_img = self.decoder.predict(pred_mu[::self.config.rnn["rend_step"]]).reshape(
+            self.n_episodes, self.config.rnn["rend_n_rollouts"], *self.config.general['state_shape'])
 
         samples = np.concatenate((orig_img, pred_img), axis=1)
 
