@@ -5,7 +5,8 @@ import os.path
 import click
 
 from coach import RandomCoach
-from common_utils import TqdmStream, create_directory, obtain_config, mute_tf_logs_if_needed
+from common_utils import TensorBoardLogger, TqdmStream, create_directory, obtain_config
+from common_utils import mute_tf_logs_if_needed
 from utils import Config
 
 
@@ -52,10 +53,17 @@ def iter_train(ctx, vae_path, epn_path):
     create_directory(os.path.dirname(config.rnn['ckpt_path']))
     create_directory(config.rnn['logs_dir'])
 
+    # Create TensorBoard logger
+    tb_logger = TensorBoardLogger(os.path.join(config.rnn['logs_dir'], 'tensorboard', 'score'))
+
     # Train EPN for inf epochs
+    iteration = 0
     while True:
         # Gather data
-        coach.play()
+        mean_score = coach.play()
+
+        # Log agent's current mean score
+        tb_logger.log_scalar("Mean score", mean_score, iteration)
 
         # Proceed to training only if threshold is fulfilled
         if len(coach.storage.big_bag) < config.ctrl["min_examples"]:
@@ -67,6 +75,8 @@ def iter_train(ctx, vae_path, epn_path):
 
         # Fit EPN-RNN model!
         coach.train()
+
+        iteration += 1
 
 
 if __name__ == '__main__':
