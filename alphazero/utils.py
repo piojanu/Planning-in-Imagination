@@ -9,14 +9,14 @@ from games import *  # This allows to create every game from games
 
 
 class Config(object):
+    """Loads custom configuration, unspecified parameters are taken from default configuration.
+
+    Args:
+        config_path (str): Path to .json file with custom configuration
+        debug (boolean): Specify to enable debugging features
+    """
+
     def __init__(self, config_path, debug=False):
-        """Loads custom configuration, unspecified parameters are taken from default configuration.
-
-        Args:
-            config_path (str): Path to .json file with custom configuration
-            debug (boolean): Specify to enable debugging features
-        """
-
         default_config, custom_config = get_configs(config_path)
 
         # Merging default and custom configs, for repeating keys, key-value pairs from second dict are taken
@@ -44,7 +44,6 @@ class TensorBoardLogger(object):
     """
 
     def __init__(self, log_dir):
-        """Creates a summary writer logging to log_dir."""
         self.writer = tf.summary.FileWriter(log_dir)
 
     def log_scalar(self, tag, value, step):

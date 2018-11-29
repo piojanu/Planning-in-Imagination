@@ -4,13 +4,13 @@ import humblerl as hrl
 
 
 class HumanPlayer(hrl.Mind):
-    """Mind representing an agent controlled by a human player."""
+    """Mind representing an agent controlled by a human player.
+
+    Args:
+        mdp (humblerl.MDP): Game's MDP.
+    """
 
     def __init__(self, mdp):
-        """
-        Args:
-            mdp (humblerl.MDP): Game's MDP.
-        """
         self.mdp = mdp
 
     def plan(self, state, train_mode=True, debug_mode=False):

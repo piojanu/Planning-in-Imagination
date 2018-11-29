@@ -35,18 +35,16 @@ def compute_weight_decay(weight_decay, model_param_list):
 
 
 class CMAES:
-    """Agent using CMA-ES algorithm."""
+    """Agent using CMA-ES algorithm.
+
+    Args:
+        n_params (int)       : Number of model parameters (NN weights).
+        sigma_init (float)   : Initial standard deviation. (Default: 0.1)
+        popsize (int)        : Population size. (Default: 100)
+        weight_decay (float) : L2 weight decay rate. (Default: 0.01)
+    """
 
     def __init__(self, n_params, sigma_init=0.1, popsize=100, weight_decay=0.01):
-        """Initialize CMA-ES agent.
-
-        Args:
-            n_params (int)       : Number of model parameters (NN weights).
-            sigma_init (float)   : Initial standard deviation. (Default: 0.1)
-            popsize (int)        : Population size. (Default: 100)
-            weight_decay (float) : L2 weight decay rate. (Default: 0.01)
-        """
-
         self.weight_decay = weight_decay
         self.population = None
         self.es = cma.CMAEvolutionStrategy(n_params * [0], sigma_init, {'popsize': popsize})

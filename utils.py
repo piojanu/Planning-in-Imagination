@@ -2,15 +2,15 @@ from common_utils import Storage, get_configs
 
 
 class Config(object):
+    """Loads custom configuration, unspecified parameters are taken from default configuration.
+
+    Args:
+        config_path (str): Path to .json file with custom configuration
+        is_debug (bool): Specify to enable debugging features
+        allow_render (bool): Specify to enable render/plot features
+    """
+
     def __init__(self, config_path, is_debug, allow_render):
-        """Loads custom configuration, unspecified parameters are taken from default configuration.
-
-        Args:
-            config_path (str): Path to .json file with custom configuration
-            is_debug (bool): Specify to enable debugging features
-            allow_render (bool): Specify to enable render/plot features
-        """
-
         default_config, custom_config = get_configs(config_path)
 
         # Merging default and custom configs, for repeating keys second dict overwrites values

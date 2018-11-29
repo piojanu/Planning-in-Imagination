@@ -6,20 +6,14 @@ from abc import ABCMeta, abstractmethod
 class Node(object):
     """Represents state in MCTS search tree.
 
+    Args:
+        state (object): The environment state corresponding to this node in the search tree.
+
     Note:
-        Node object is immutable.
+        Node object is immutable. Node is left without exit edges (empty dict) when it's terminal.
     """
 
     def __init__(self, state):
-        """Initialize Node object with state.
-
-        Args:
-            state (object): The environment state corresponding to this node in the search tree.
-
-        Note:
-            Node is left without exit edges (empty dict) when it's terminal.
-        """
-
         self._state = state
         self._edges = None
 
@@ -82,15 +76,13 @@ class Node(object):
 
 
 class Edge(object):
-    """Represents state-actions pair in MCTS search tree."""
+    """Represents state-actions pair in MCTS search tree.
+
+    Args:
+        prior (float): Action probability from prior policy. (Default: 1.)
+    """
 
     def __init__(self, prior=1.):
-        """Initialize Edge object.
-
-        Args:
-            prior (float): Action probability from prior policy. (Default: 1.)
-        """
-
         self._prior = prior
         self._next_node = None
         self._reward = 0

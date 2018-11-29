@@ -15,18 +15,17 @@ from third_party.torchtrainer import TorchTrainer, evaluate
 
 
 class MDNVision(Vision, Callback):
+    """Performs state preprocessing with VAE module and concatenates it with hidden state of MDN module.
+
+    Args:
+        vae_model (keras.Model): Keras VAE encoder.
+        mdn_model (torch.nn.Module): PyTorch MDN-RNN memory.
+        latent_dim (int): Latent space dimensionality.
+
+    Note:
+        In order to work, this Vision system must be also passed as callback to 'hrl.loop(...)'!
+    """
     def __init__(self, vae_model, mdn_model, latent_dim):
-        """Initialize vision processors.
-
-        Args:
-            vae_model (keras.Model): Keras VAE encoder.
-            mdn_model (torch.nn.Module): PyTorch MDN-RNN memory.
-            latent_dim (int): Latent space dimensionality.
-
-        Note:
-            In order to work, this Vision system must be also passed as callback to 'hrl.loop(...)'!
-        """
-
         self.vae_model = vae_model
         self.mdn_model = mdn_model
         self.latent_dim = latent_dim
@@ -60,22 +59,20 @@ class MDNVision(Vision, Callback):
 
 
 class MDNDataset(Dataset):
-    """Dataset of sequential data to train MDN-RNN."""
+    """Dataset of sequential data to train MDN-RNN.
+
+    Args:
+        dataset_path (string): Path to HDF5 dataset file.
+        sequence_len (int): Desired output sequence len.
+        terminal_prob (float): Probability of sampling sequence that finishes with
+            terminal state. (Default: 0.5)
+
+    Note:
+        Arrays should have the same size of the first dimension and their type should be the
+        same as desired Tensor type.
+    """
 
     def __init__(self, dataset_path, sequence_len, terminal_prob=0.5):
-        """Initialize MDNDataset.
-
-        Args:
-            dataset_path (string): Path to HDF5 dataset file.
-            sequence_len (int): Desired output sequence len.
-            terminal_prob (float): Probability of sampling sequence that finishes with
-                terminal state. (Default: 0.5)
-
-        Note:
-            Arrays should have the same size of the first dimension and their type should be the
-            same as desired Tensor type.
-        """
-
         assert 0 < terminal_prob and terminal_prob <= 1.0, "0 < terminal_prob <= 1.0"
 
         self.dataset = h5py.File(dataset_path, "r")
