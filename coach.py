@@ -9,12 +9,13 @@ from torch.utils.data import DataLoader
 from common_utils import ReturnTracker
 from memory import build_rnn_model, EPNDataset, EPNVision
 from utils import ExperienceStorage
-from world_models.third_party.torchtrainer import EarlyStopping, LambdaCallback, ModelCheckpoint, CSVLogger
 from world_models.utils import MemoryVisualization
+from world_models.third_party.torchtrainer import EarlyStopping, LambdaCallback, ModelCheckpoint
+from world_models.third_party.torchtrainer import Callback, CSVLogger, TensorBoardLogger
 from world_models.vision import BasicVision, build_vae_model
 
 
-class Coach(metaclass=ABCMeta):
+class Coach(Callback, metaclass=ABCMeta):
     """Coach interface, all the operations to train and run algorithm.
 
     Args:
@@ -32,6 +33,9 @@ class Coach(metaclass=ABCMeta):
         train_callbacks (list): Train phase callbacks for `TorchTrainer.fit(...)`.
         global_epoch (int): Current epoch of training (play->train->evaluate iteration).
         best_score (float): Current best agent score.
+
+    Note:
+        Do not override play and train callbacks lists! Append new callbacks to them.
     """
 
     def __init__(self, config):
@@ -44,9 +48,9 @@ class Coach(metaclass=ABCMeta):
         self.trainer = None
         self.storage = None
         self.play_callbacks = [ReturnTracker()]
-        self.train_callbacks = []
-        self.global_epoch = 0
-        self.best_score = 0
+        self.train_callbacks = [self]
+        self.global_epoch = None
+        self.best_score = None
 
     def play(self, desc="Gather data", train_mode=True, callbacks=None):
         """Self-play phase, gather data using best nn and save to storage.
@@ -82,13 +86,17 @@ class Coach(metaclass=ABCMeta):
         """
 
         callbacks = callbacks if callbacks else []
+        epochs = self.config.rnn['epochs'] + self.global_epoch
 
         self.trainer.fit_loader(
             self.data_loader,
-            epochs=self.config.rnn['epochs'],
+            epochs=epochs,
             initial_epoch=self.global_epoch,
             callbacks=self.train_callbacks + callbacks,
         )
+
+    def on_epoch_end(self, epoch, _):
+        self.global_epoch = epoch
 
     @abstractclassmethod
     def from_config(cls, config, vae_path=None, epn_path=None):
@@ -133,12 +141,17 @@ class RandomCoach(Coach):
             pin_memory=True
         )
 
-        # Create vision
+        # Create vision and memory modules
         _, encoder, decoder = build_vae_model(
             config.vae, config.general['state_shape'], model_path=vae_path)
         coach.trainer = build_rnn_model(
             config.rnn, config.vae['latent_space_dim'], coach.env.action_space, model_path=epn_path)
 
+        # Initialize metadata
+        coach.global_epoch = 0
+        coach.best_score = 0
+
+        # Create HRL vision
         basic_vision = BasicVision(  # Resizes states to `state_shape` with cropping
             state_shape=config.general['state_shape'],
             crop_range=config.general['crop_range']
@@ -152,12 +165,13 @@ class RandomCoach(Coach):
         coach.play_callbacks.append(epn_vision)
 
         # Create training callbacks
-        coach.train_callbacks = [
+        coach.train_callbacks += [
             EarlyStopping(metric='loss', patience=config.rnn['patience'], verbose=1),
             LambdaCallback(on_batch_begin=lambda _, batch_size:
                            coach.trainer.model.init_hidden(batch_size)),
             ModelCheckpoint(config.rnn['ckpt_path'], metric='loss', save_best=True),
-            CSVLogger(filename=os.path.join(config.rnn['logs_dir'], 'train_mem.csv'))
+            CSVLogger(os.path.join(config.rnn['logs_dir'], 'train_mem.csv')),
+            TensorBoardLogger(os.path.join(config.rnn['logs_dir'], 'tensorboard'))
         ]
 
         # Crate memory visualization callback if render allowed

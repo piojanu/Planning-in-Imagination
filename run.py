@@ -54,7 +54,7 @@ def iter_train(ctx, vae_path, epn_path):
     create_directory(config.rnn['logs_dir'])
 
     # Create TensorBoard logger
-    tb_logger = TensorBoardLogger(os.path.join(config.rnn['logs_dir'], 'tensorboard', 'score'))
+    tb_logger = TensorBoardLogger(os.path.join(config.rnn['logs_dir'], 'tensorboard'))
 
     # Train EPN for inf epochs
     iteration = 0
@@ -62,7 +62,7 @@ def iter_train(ctx, vae_path, epn_path):
         # Gather data
         mean_score = coach.play()
 
-        # Log agent's current mean score
+        # Log agent's current mean tb
         tb_logger.log_scalar("Mean score", mean_score, iteration)
 
         # Proceed to training only if threshold is fulfilled

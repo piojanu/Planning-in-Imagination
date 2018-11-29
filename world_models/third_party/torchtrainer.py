@@ -1,5 +1,5 @@
 """The MIT License
-Copyright 2018 Piotr Januszewski
+Copyright 2018 Piotr Januszewski, Mateusz Jabłoński
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
@@ -22,7 +22,7 @@ from tqdm import tqdm
 class RandomBatchSampler(torch.utils.data.Sampler):
     """Samples batches order randomly, without replacement.
 
-    Arguments:
+    Args:
         data_source (Dataset): dataset to sample from
         batch_size (int): Batch size (number of examples)
 
@@ -73,7 +73,7 @@ class Callback(object):
         `is_aborted` flag is `True` if training was aborted by some exception.
     """
 
-    def on_train_begin(self):
+    def on_train_begin(self, initial_epoch):
         pass
 
     def on_train_end(self, is_aborted):
@@ -100,9 +100,9 @@ class CallbackList(Callback):
         for callback in self.callbacks:
             callback.trainer = trainer
 
-    def on_train_begin(self):
+    def on_train_begin(self, initial_epoch):
         for callback in self.callbacks:
-            callback.on_train_begin()
+            callback.on_train_begin(initial_epoch)
 
     def on_train_end(self, is_aborted):
         for callback in self.callbacks:
@@ -143,7 +143,10 @@ class EarlyStopping(Callback):
         self.verbose = verbose
 
         self._best_value = float('inf')
-        self._last_epoch = 0
+        self._last_epoch = None
+
+    def on_train_begin(self, initial_epoch):
+        self._last_epoch = initial_epoch
 
     def on_epoch_end(self, epoch, metrics):
         if self.metric not in metrics:
@@ -175,7 +178,7 @@ class LambdaCallback(Callback):
                  on_epoch_begin=None, on_epoch_end=None,
                  on_batch_begin=None, on_batch_end=None):
 
-        self.on_train_begin = on_train_begin if on_train_begin is not None else lambda: None
+        self.on_train_begin = on_train_begin if on_train_begin is not None else lambda i: None
         self.on_train_end = on_train_end if on_train_end is not None else lambda a: None
         self.on_epoch_begin = on_epoch_begin if on_epoch_begin is not None else lambda e: None
         self.on_epoch_end = on_epoch_end if on_epoch_end is not None else lambda e, m: None
@@ -187,13 +190,13 @@ class ModelCheckpoint(Callback):
     """Saves PyTorch module weights after epoch of training (if conditions are met).
 
     Args:
-    path (str): Path where to save weights.
-    metrics (str): Metric name to keep track of. (Default: 'val_loss')
-    save_best (bool): If to save only best checkpoints according to given metric.
-        (Default: False)
-    verbose (int): Two levels of verbosity:
-        * 1 - show update information,
-        * 0 - show nothing. (<- Default)
+        path (str): Path where to save weights.
+        metrics (str): Metric name to keep track of. (Default: 'val_loss')
+        save_best (bool): If to save only best checkpoints according to given metric.
+            (Default: False)
+        verbose (int): Two levels of verbosity:
+            * 1 - show update information,
+            * 0 - show nothing. (<- Default)
     """
 
     def __init__(self, path, metric='val_loss', save_best=False, verbose=0):
@@ -225,7 +228,7 @@ class CSVLogger(Callback):
     """Saves metrics values to csv file after epoch of training.
 
     Args:
-        filename (str): Filename where to log.
+        filename (string): Filename where to log.
     """
 
     def __init__(self, filename):
@@ -241,6 +244,34 @@ class CSVLogger(Callback):
             if append_headers:
                 w.writeheader()
             w.writerow(metrics)
+
+
+class TensorBoardLogger(Callback):
+    """Logging in TensorBoard without TensorFlow ops."""
+
+    Summary = None
+    FileWriter = None
+
+    def __init__(self, log_dir):
+        """Creates a summary writer.
+
+        Args:
+            log_dir (string): Directory where to log.
+        """
+
+        if self.Summary is None or self.FileWriter is None:
+            import tensorflow as tf
+            self.Summary = tf.Summary
+            self.FileWriter = tf.summary.FileWriter
+
+        self.writer = self.FileWriter(log_dir)
+
+    def on_epoch_end(self, epoch, metrics):
+        for tag, value in metrics.items():
+            self.writer.add_summary(
+                self.Summary(value=[self.Summary.Value(tag=tag, simple_value=value)]),
+                epoch)
+        self.writer.flush()
 
 
 class MultiDataset(torch.utils.data.Dataset):
@@ -394,7 +425,7 @@ class TorchTrainer(object):
                 Array shape should be 'N x *' where 'N' is number of examples and '*' indicates
                 any number of dimensions. Its type should be the same as desired tensor.
             batch_size (int): Single update data batch size. (Default: 64)
-            epochs (int): How many times iterate over whole dataset. (Default: 1)
+            epochs (int): Final epoch after which training stops. (Default: 1)
             verbose (int): Two levels of verbosity:
                 * 1 - show progress bar, (<- Default)
                 * 0 - show nothing.
@@ -441,7 +472,7 @@ class TorchTrainer(object):
 
         Args:
             data_loader (torch.utils.data.DataLoader): Train data loader.
-            epochs (int): How many times iterate over whole dataset. (Default: 1)
+            epochs (int): Final epoch after which training stops. (Default: 1)
             verbose (int): Two levels of verbosity:
                 * 1 - show progress bar, (<- Default)
                 * 0 - show nothing.
@@ -458,7 +489,7 @@ class TorchTrainer(object):
 
         try:
             # Train for # epochs
-            callbacks_list.on_train_begin()
+            callbacks_list.on_train_begin(initial_epoch)
             for epoch in range(initial_epoch, epochs):
                 callbacks_list.on_epoch_begin(epoch)
 
@@ -501,7 +532,7 @@ class TorchTrainer(object):
         """Save model weights.
 
         Args:
-            path(str): Path where to store weights.
+            path(string): Path where to store weights.
         """
 
         torch.save(self.model.state_dict(), path)
@@ -510,7 +541,7 @@ class TorchTrainer(object):
         """Load model weights.
 
         Args:
-            path(str): Path where to load weights from.
+            path(string): Path where to load weights from.
         """
 
         if os.path.exists(path):
@@ -772,10 +803,11 @@ if __name__ == "__main__":
         validation_data=(X_val.astype(np.float32), y_val.astype(np.long)),
         callbacks=[
             EarlyStopping(verbose=1),
-            ModelCheckpoint("/tmp/best_digits.ckpt", save_best=True, verbose=1)
+            ModelCheckpoint("/tmp/best_digits.ckpt", save_best=True, verbose=1),
+            TensorBoardLogger("/tmp/tensorboard")
         ]
     )
 
     # Evaluate module on test data
-    metrics = net.evaluate(X_test.astype(np.float32), y_test.astype(np.long), verbose=1)
-    print("Final weights loss: {}, accuracy: {}".format(metrics['loss'], metrics['acc']))
+    eval_metrics = net.evaluate(X_test.astype(np.float32), y_test.astype(np.long), verbose=1)
+    print("Final weights loss: {}, accuracy: {}".format(eval_metrics['loss'], eval_metrics['acc']))
