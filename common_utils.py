@@ -157,7 +157,7 @@ class MemoryVisualization(TorchCallback):
         orig_mu = self.eval_states[:, seq_half, :]
         pred_mu = self.model.simulate(
             torch.unsqueeze(orig_mu, 1),  # Add sequence dim.
-            self.eval_actions[:, seq_half:seq_half +
+            self.eval_actions[:, seq_half:seq_half + \
                               self.config.rnn["rend_n_rollouts"] * self.config.rnn["rend_step"], :]
         ).reshape(-1, self.latent_dim)
 
