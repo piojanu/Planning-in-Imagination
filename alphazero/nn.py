@@ -12,17 +12,15 @@ from keras.regularizers import l2
 
 
 class NeuralNet(metaclass=ABCMeta):
-    """Artificial neural mind of planning."""
+    """Artificial neural mind of planning.
+
+    Args:
+        arch (object): Neural network architecture.
+        params (dict): Train/inference hyper-parameters.
+    """
 
     @abstractmethod
     def __init__(self, arch, params):
-        """Compile neural network model.
-
-        Args:
-            arch (object): Neural network architecture.
-            params (dict): Train/inference hyper-parameters.
-        """
-
         pass
 
     @abstractmethod
@@ -75,20 +73,18 @@ class NeuralNet(metaclass=ABCMeta):
 
 
 class KerasNet(NeuralNet):
-    """Artificial neural mind of planning."""
+    """Artificial neural mind of planning.
+
+    Args:
+        model (keras.Model): Neural network architecture.
+        params (dict): Train/inference hyper-parameters. Available:
+          * 'batch_size' (int)  : Training batch size. (Default: 32)
+          * 'epochs' (int)      : Number of epochs to train the model. (Default: 50)
+          * 'save_training_log_path' (string) : where to save nn train logs.
+                                                (Default: "./logs/training.log")
+    """
 
     def __init__(self, model, params):
-        """Compile neural network model in Keras.
-
-        Args:
-            model (keras.Model): Neural network architecture.
-            params (dict): Train/inference hyper-parameters. Available:
-              * 'batch_size' (int)  : Training batch size. (Default: 32)
-              * 'epochs' (int)      : Number of epochs to train the model. (Default: 50)
-              * 'save_training_log_path' (string) : where to save nn train logs.
-                                                    (Default: "./logs/training.log")
-        """
-
         self.model = model
         self.batch_size = params['batch_size']
         self.epochs = params['epochs']

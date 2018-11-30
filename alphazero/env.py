@@ -5,15 +5,13 @@ from humblerl.environments import Discrete
 
 
 class GameMDP(MDP):
-    """Define board game MDP."""
+    """Define board game MDP.
+
+    Args:
+        game (Game): Board game object.
+    """
 
     def __init__(self, game):
-        """Initialize board game MDP.
-
-        Args:
-            game (Game): Board game object.
-        """
-
         self._game = game
         self._first_player = 1
         self._action_space = Discrete(num=game.getActionSize())
@@ -105,18 +103,15 @@ class GameMDP(MDP):
 class GameEnv(Callback, Environment):
     """Environment for board games from https://github.com/suragnair/alpha-zero-general
 
+    Args:
+        game (Game): Board game object.
+
     Note:
         step(...) returns reward from perspective of player one!
         Also to alternate starting player between episodes add this object to loop as callback too.
     """
 
     def __init__(self, game):
-        """Initialize Environment.
-
-        Args:
-            game (Game): Board game object.
-        """
-
         self._game = game
         self._first_player = 1
         self._last_action = -1

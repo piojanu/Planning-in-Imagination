@@ -29,3 +29,36 @@ We want to leverage great planning power of AlphaZero in high-dim. environments 
 * [CONTRIBUTION.md](https://github.com/piojanu/Transfer-Learning-in-RL/blob/master/.github/CONTRIBUTING.md) - contributing guidelines, **mandatory to read and apply!**
 * [LINKS.md](https://github.com/piojanu/Transfer-Learning-in-RL/blob/master/.github/LINKS.md) - useful links to articles, lectures etc. **with short description**.
 
+## Planning in Imagination config and training
+
+### Config
+
+#### Memory component
+
+To train the Memory component, run:
+
+_To be completed..._
+
+Config options:
+
+```
+"rnn_training": {
+    "batch_size"         : 128,
+    "sequence_len"       : 1000,                 -- Sequence length to use in RNN. If recorded episode is shorter, it will
+                                                 -- be padded with zeros.
+    "terminal_prob"      : 0.2,                  -- Probability that sampled sequence will finish with terminal state.
+    "hidden_units"       : 256,                  -- Number of neurons in RNN's hidden state.
+    "epochs"             : 1000,
+    "learning_rate"      : 0.001,
+    "patience"           : 10,                   -- After this many epochs, if validation loss does not improve, the training is stopped.
+    "rend_n_rollouts"    : 10,                   -- Render N simulated steps using memory module. Can't be greater than sequence_len/2.
+    "rend_n_episodes"    : 12,                   -- Render visualization for N episodes.
+    "rend_step"          : 4,                    -- Render every Nth frame. rend_step*rend_n_rollouts can't be greater than sequence_len/2
+    "exp_replay_size"    : 200000,               -- How many games to keep in experience replay.
+    "gamma"              : 1.0                   -- Discount factor, used to calculate state values.
+    "ckpt_path"          : "./ckpt/memory.ckpt", -- Path to best model (checkpoint).
+    "logs_dir"           : "./logs"              -- Path to directory with logs.
+}
+```
+
+Best model will be saved to and loaded from `ckpt_path`.

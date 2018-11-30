@@ -1,26 +1,27 @@
-import json
+from collections import deque
 import logging as log
 import os
-from collections import deque
 from pickle import Pickler, Unpickler
 
+from humblerl import Callback
+import json
+from keras.backend.tensorflow_backend import set_session
 import numpy as np
 import tensorflow as tf
-from humblerl import Callback
-from keras.backend.tensorflow_backend import set_session
+from tqdm import tqdm
 
 
 class Storage(Callback):
+    """Storage train examples.
+
+    Args:
+        out_path (str): Path to output hdf5 file.
+        exp_replay_size (int): How many transitions to keep at max. If this number is exceeded,
+            oldest transition is dropped.
+        gamma (float): Discount factor.
+    """
+
     def __init__(self, out_path, exp_replay_size, gamma):
-        """Storage train examples.
-
-        Args:
-            out_path (str): Path to output hdf5 file.
-            exp_replay_size (int): How many transitions to keep at max. If this number is exceeded,
-                oldest transition is dropped.
-            gamma (float): Discount factor.
-        """
-
         self.small_bag = deque()
         self.big_bag = deque()
 
@@ -85,6 +86,30 @@ class Storage(Callback):
         return (transition.state, transition.reward, self._recent_action_probs)
 
 
+class ReturnTracker(Callback):
+    """Tracks return."""
+
+    def on_episode_start(self, episode, train_mode):
+        self.ret = 0
+
+    def on_step_taken(self, step, transition, info):
+        self.ret += transition.reward
+
+    @property
+    def metrics(self):
+        return {"return": self.ret}
+
+
+class TqdmStream(object):
+    @classmethod
+    def write(_, msg):
+        tqdm.write(msg, end='')
+
+    @classmethod
+    def flush(_):
+        pass
+
+
 def get_configs(config_path):
     """Loads default and custom configs
         Args:
@@ -104,6 +129,15 @@ def get_configs(config_path):
     else:
         custom_config = {}
     return default_config, custom_config
+
+
+def obtain_config(ctx, use_gpu=True):
+    if use_gpu:
+        limit_gpu_memory_usage()
+    else:
+        force_cpu()
+
+    return ctx.obj
 
 
 def limit_gpu_memory_usage():

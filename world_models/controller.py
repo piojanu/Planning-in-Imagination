@@ -5,11 +5,11 @@ import os.path
 import pickle
 import humblerl as hrl
 
-from humblerl import Callback, ChainVision, Mind, Worker
+from humblerl import ChainVision, Mind, Worker
 from memory import build_rnn_model, MDNVision
 from vision import BasicVision, build_vae_model
 
-from common_utils import create_directory, get_model_path_if_exists
+from common_utils import ReturnTracker, create_directory, get_model_path_if_exists
 
 
 def compute_weight_decay(weight_decay, model_param_list):
@@ -18,18 +18,16 @@ def compute_weight_decay(weight_decay, model_param_list):
 
 
 class CMAES:
-    """Agent using CMA-ES algorithm."""
+    """Agent using CMA-ES algorithm.
+
+    Args:
+        n_params (int)       : Number of model parameters (NN weights).
+        sigma_init (float)   : Initial standard deviation. (Default: 0.1)
+        popsize (int)        : Population size. (Default: 100)
+        weight_decay (float) : L2 weight decay rate. (Default: 0.01)
+    """
 
     def __init__(self, n_params, sigma_init=0.1, popsize=100, weight_decay=0.01):
-        """Initialize CMA-ES agent.
-
-        Args:
-            n_params (int)       : Number of model parameters (NN weights).
-            sigma_init (float)   : Initial standard deviation. (Default: 0.1)
-            popsize (int)        : Population size. (Default: 100)
-            weight_decay (float) : L2 weight decay rate. (Default: 0.01)
-        """
-
         self.weight_decay = weight_decay
         self.population = None
         self.es = cma.CMAEvolutionStrategy(n_params * [0], sigma_init, {'popsize': popsize})
@@ -169,20 +167,6 @@ class LinearModel(Mind):
     def load_weights(path):
         with open(os.path.abspath(path), 'rb') as f:
             return pickle.load(f)
-
-
-class ReturnTracker(Callback):
-    """Tracks return."""
-
-    def on_episode_start(self, episode, train_mode):
-        self.ret = 0
-
-    def on_step_taken(self, step, transition, info):
-        self.ret += transition.reward
-
-    @property
-    def metrics(self):
-        return {"return": self.ret}
 
 
 def build_mind(es_params, input_dim, action_space, model_path):
