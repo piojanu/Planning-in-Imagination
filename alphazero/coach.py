@@ -35,8 +35,6 @@ class Coach(object):
     """
 
     def __init__(self):
-        """Initialize AlphaZero coach object."""
-
         self.cfg = None
         self.env = None
         self.vision = None
@@ -128,15 +126,13 @@ class Coach(object):
 
 
 class Builder(metaclass=ABCMeta):
-    """Builds AlphaZero coach components."""
+    """Builds AlphaZero coach components.
+
+    Args:
+        config (Config): Configuration loaded from .json file.
+    """
 
     def __init__(self, config):
-        """Initialize AlphaZero coach.
-
-        Args:
-            config (Config): Configuration loaded from .json file.
-        """
-
         self.cfg = config
         self.coach = None
 

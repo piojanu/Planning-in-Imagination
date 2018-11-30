@@ -5,16 +5,14 @@ from humblerl import Callback, Mind, Vision
 
 
 class AdversarialMinds(Mind, Callback):
-    """Wraps two minds and dispatch work to appropriate one based on player id in state."""
+    """Wraps two minds and dispatch work to appropriate one based on player id in state.
+
+    Args:
+        one (Mind): Mind which will plan for player "1".
+        two (Mind): Mind which will plan for player "-1".
+    """
 
     def __init__(self, one, two):
-        """Initialize board game mind.
-
-        Args:
-            one (Mind): Mind which will plan for player "1".
-            two (Mind): Mind which will plan for player "-1".
-        """
-
         # Index '1' for player one, index '-1' for player two
         self.players = [None, one, two]
 
@@ -49,15 +47,13 @@ class AdversarialMinds(Mind, Callback):
 
 
 class BoardVision(Vision):
-    """Transforms board game state and reward to canonical one."""
+    """Transforms board game state and reward to canonical one.
+
+    Args:
+        game (Game): Board game object.
+    """
 
     def __init__(self, game):
-        """Initialize board game vision.
-
-        Args:
-            game (Game): Board game object.
-        """
-
         self.game = game
 
     def __call__(self, state, reward=0.):
@@ -98,16 +94,13 @@ class BoardRender(Callback):
 
 
 class BoardStorage(Storage):
-    """Wraps Storage callback to unpack state from board game."""
+    """Wraps Storage callback to unpack state from board game.
+
+    Args:
+        config (Config): Configuration object with parameters from .json file.
+    """
 
     def __init__(self, config):
-        """
-        Storage with train examples.
-
-        Args:
-            config (Config): Configuration object with parameters from .json file.
-        """
-
         super(BoardStorage, self).__init__(
             out_path=config.storage["save_data_path"],
             exp_replay_size=config.storage["exp_replay_size"],
@@ -121,6 +114,10 @@ class BoardStorage(Storage):
 class ELOScoreboard(object):
     """Calculates and keeps players ELO statistics.
 
+    Args:
+        players_ids (list): List of players ids (weights file name will be fine).
+        init_elo (float): Initial ELO of each player. (Default: 1000)
+
     Look at https://github.com/rshk/elo for reference
 
     Note:
@@ -128,13 +125,6 @@ class ELOScoreboard(object):
     """
 
     def __init__(self, players_ids, init_elo=1000):
-        """Initialize ELO scoreboard.
-
-        Args:
-            players (list): List of players ids (weights file name will be fine).
-            init_elo (float): Initial ELO of each player. (Default: 1000)
-        """
-
         self.scores = pd.DataFrame(index=players_ids, columns=['elo'])
         self.scores.loc[:] = init_elo
 

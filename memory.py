@@ -72,7 +72,7 @@ class EPNDataset(Dataset):
 
     Note:
         Arrays should have the same size of the first dimension and their type should be the
-            same as desired Tensor type.
+        same as desired Tensor type.
     """
 
     def __init__(self, storage, sequence_len, terminal_prob=0.5):

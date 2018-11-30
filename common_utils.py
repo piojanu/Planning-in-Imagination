@@ -12,16 +12,16 @@ from tqdm import tqdm
 
 
 class Storage(Callback):
+    """Storage train examples.
+
+    Args:
+        out_path (str): Path to output hdf5 file.
+        exp_replay_size (int): How many transitions to keep at max. If this number is exceeded,
+            oldest transition is dropped.
+        gamma (float): Discount factor.
+    """
+
     def __init__(self, out_path, exp_replay_size, gamma):
-        """Storage train examples.
-
-        Args:
-            out_path (str): Path to output hdf5 file.
-            exp_replay_size (int): How many transitions to keep at max. If this number is exceeded,
-                oldest transition is dropped.
-            gamma (float): Discount factor.
-        """
-
         self.small_bag = deque()
         self.big_bag = deque()
 

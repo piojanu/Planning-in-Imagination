@@ -126,20 +126,18 @@ class CallbackList(Callback):
 
 
 class EarlyStopping(Callback):
-    """Stops training if given metrics doesn't improve."""
+    """Stops training if given metrics doesn't improve.
+
+    Args:
+        metric (str): Metric name to keep track of. (Default: 'val_loss')
+        patience (int): After how many epochs without improvement training should stop.
+            (Default: 5)
+        verbose (int): Two levels of verbosity:
+            * 1 - show update information,
+            * 0 - show nothing. (<- Default)
+    """
 
     def __init__(self, metric='val_loss', patience=5, verbose=0):
-        """Initialize EarlyStopping callback.
-
-        Args:
-            metrics (str): Metric name to keep track of. (Default: 'val_loss')
-            patience (int): After how many epochs without improvement training should stop.
-                (Default: 5)
-            verbose (int): Two levels of verbosity:
-                * 1 - show update information,
-                * 0 - show nothing. (<- Default)
-        """
-
         self.metric = metric
         self.patience = patience
         self.verbose = verbose
@@ -186,21 +184,19 @@ class LambdaCallback(Callback):
 
 
 class ModelCheckpoint(Callback):
-    """Saves PyTorch module weights after epoch of training (if conditions are met)."""
+    """Saves PyTorch module weights after epoch of training (if conditions are met).
+
+    Args:
+    path (str): Path where to save weights.
+    metrics (str): Metric name to keep track of. (Default: 'val_loss')
+    save_best (bool): If to save only best checkpoints according to given metric.
+        (Default: False)
+    verbose (int): Two levels of verbosity:
+        * 1 - show update information,
+        * 0 - show nothing. (<- Default)
+    """
 
     def __init__(self, path, metric='val_loss', save_best=False, verbose=0):
-        """Initialize ModelCheckpoint callback.
-
-        Args:
-            path (str): Path where to save weights.
-            metrics (str): Metric name to keep track of. (Default: 'val_loss')
-            save_best (bool): If to save only best checkpoints according to given metric.
-                (Default: False)
-            verbose (int): Two levels of verbosity:
-                * 1 - show update information,
-                * 0 - show nothing. (<- Default)
-        """
-
         self.path = path
         self.metric = metric
         self.save_best = save_best
@@ -226,15 +222,13 @@ class ModelCheckpoint(Callback):
 
 
 class CSVLogger(Callback):
-    """Saves metrics values to csv file after epoch of training."""
+    """Saves metrics values to csv file after epoch of training.
+
+    Args:
+        filename (str): Filename where to log.
+    """
 
     def __init__(self, filename):
-        """Initialize CSVLogger callback.
-
-        Args:
-            filename (str): Filename where to log.
-        """
-
         self.filename = filename
 
     def on_epoch_end(self, epoch, metrics):
@@ -250,21 +244,19 @@ class CSVLogger(Callback):
 
 
 class MultiDataset(torch.utils.data.Dataset):
-    """Multi input/output dataset."""
+    """Multi input/output dataset.
+
+    Args:
+        data (np.ndarray or list): List of arrays 'N x *' where 'N' is number of examples
+            and '*' indicates any number of dimensions.
+        targets (np.ndarray or list): List of arrays 'N x *' where 'N' is number of examples
+            and '*' indicates any number of dimensions.
+
+    Note:
+        Tensors should have the same size of the first dimension
+    """
 
     def __init__(self, data, targets):
-        """Initialize MultiDataset.
-
-        Args:
-            data (np.ndarray or list): List of arrays 'N x *' where 'N' is number of examples
-                and '*' indicates any number of dimensions.
-            target (np.ndarray or list): List of arrays 'N x *' where 'N' is number of examples
-                and '*' indicates any number of dimensions.
-
-        Note:
-            Tensors should have the same size of the first dimension
-        """
-
         if not isinstance(data, (list, tuple)):
             self.data = [torch.from_numpy(data)]
         else:
@@ -283,17 +275,16 @@ class MultiDataset(torch.utils.data.Dataset):
 
 
 class TorchTrainer(object):
-    """High-level toolbox to train, evaluate and infer PyTorch nn.Module."""
+    """High-level toolbox to train, evaluate and infer PyTorch nn.Module.
+
+
+    Args:
+        model (torch.nn.Module): PyTorch neural net module.
+        device_name (str): The desired device of data/target tensors ('cpu' or 'cuda' for GPU).
+            (Default: cpu)
+    """
 
     def __init__(self, model, device_name='cpu'):
-        """Initialize TorchTrainer.
-
-        Args:
-            model (torch.nn.Module): PyTorch neural net module.
-            device_name (str): The desired device of data/target tensors ('cpu' or 'cuda' for GPU).
-                (Default: cpu)
-        """
-
         if not isinstance(model, nn.Module):
             raise ValueError("Model needs to inherit from torch.nn.Module!")
 

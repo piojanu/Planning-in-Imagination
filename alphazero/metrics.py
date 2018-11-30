@@ -21,17 +21,15 @@ class Comparator(metaclass=ABCMeta):
 
 
 class Scoreboard(Callback, Comparator):
-    """Calculates agent average return from one loop (many episodes) run."""
+    """Calculates agent average return from one loop (many episodes) run.
+
+    Args:
+        update_threshold (float): If difference between current agent score and other agent
+            score divided by other agent score is greater then this threshold, then current
+            agent is better then the other one. (Default: 0.0)
+    """
 
     def __init__(self, update_threshold=.0):
-        """Initialize scoreboard object.
-
-        Args:
-            update_threshold (float): If difference between current agent score and other agent
-                score divided by other agent score is greater then this threshold, then current
-                agent is better then the other one. (Default: 0.0)
-        """
-
         self.threshold = update_threshold
 
     def on_loop_start(self):
@@ -73,19 +71,16 @@ class Scoreboard(Callback, Comparator):
 class Tournament(Callback):
     """Calculates winning rates of player one (wannabe) and player two (best) and draws.
 
+    Args:
+        update_threshold (float): If current player win count divided by number of games (draws
+            doesn't count) is greater then this threshold, then current player is better then
+            opponent. (Default: 0.5)
+
     Note:
         This is supposed to be used with board games.
     """
 
     def __init__(self, update_threshold=.5):
-        """Initialize tournament object.
-
-        Args:
-            update_threshold (float): If current player win count divided by number of games (draws
-                doesn't count) is greater then this threshold, then current player is better then
-                opponent. (Default: 0.5)
-        """
-
         self.threshold = update_threshold
 
     def on_loop_start(self):

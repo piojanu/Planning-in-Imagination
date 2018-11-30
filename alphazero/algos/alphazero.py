@@ -8,26 +8,24 @@ from tree.basic import Edge, Node
 
 
 class Planner(Callback, Mind):
-    """AlphaZero search operations and planning logic."""
+    """AlphaZero search operations and planning logic.
+
+    Args:
+        model (humblerl.MDP): Game's MDP.
+        nn (NeuralNet): Artificial neural mind used to evaluate leaf states.
+        params (dict): MCTS search hyper-parameters. Available:
+          * 'c' (float)           : UCT exploration-exploitation trade-off param (Default: 1.)
+          * 'dirichlet_noise'     : Dirichlet noise added to root prior (Default: 0.03)
+          * 'noise_ratio'          : Noise contribution to prior probabilities (Default: 0.25)
+          * 'gamma' (float)       : Discounting factor for value. (Default: 1./no discounting)
+          * 'n_simulations' (int) : Number of simulations to perform before choosing action.
+                                    (Default: 25)
+
+    Note:
+        Add it as callback to humblerl loop to clear tree between episodes in train mode.
+    """
 
     def __init__(self, model, nn, params):
-        """Initialize MCTS object
-
-        Args:
-            model (humblerl.MDP): Game's MDP.
-            nn (NeuralNet): Artificial neural mind used to evaluate leaf states.
-            params (dict): MCTS search hyper-parameters. Available:
-              * 'c' (float)           : UCT exploration-exploitation trade-off param (Default: 1.)
-              * 'dirichlet_noise'     : Dirichlet noise added to root prior (Default: 0.03)
-              * 'noise_ratio'          : Noise contribution to prior probabilities (Default: 0.25)
-              * 'gamma' (float)       : Discounting factor for value. (Default: 1./no discounting)
-              * 'n_simulations' (int) : Number of simulations to perform before choosing action.
-                                        (Default: 25)
-
-        Note:
-            Add it as callback to humblerl loop to clear tree between episodes in train mode.
-        """
-
         self.model = model
         self.nn = nn
 
