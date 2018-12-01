@@ -1,22 +1,14 @@
 from collections import deque
-import datetime as dt
 import json
 import logging as log
 import os
 from pickle import Pickler, Unpickler
 
-from humblerl import Callback as HRLCallback
+from humblerl import Callback
 from keras.backend.tensorflow_backend import set_session
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.gridspec as gridspec
-import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
-import torch
 from tqdm import tqdm
-
-from third_party.torchtrainer import evaluate, Callback as TorchCallback
 
 
 class Storage(Callback):
@@ -94,7 +86,7 @@ class Storage(Callback):
         return (transition.state, transition.reward, self._recent_action_probs)
 
 
-class ReturnTracker(HRLCallback):
+class ReturnTracker(Callback):
     """Tracks return."""
 
     def on_episode_start(self, episode, train_mode):
@@ -106,92 +98,6 @@ class ReturnTracker(HRLCallback):
     @property
     def metrics(self):
         return {"return": self.ret}
-
-
-class MemoryVisualization(TorchCallback):
-    """Render simulated experience of memory module.
-
-    Args:
-        config (Config): Configuration loaded json .from file.
-        vae_decoder (keras.models.Model): Vision decoder Keras model.
-        mem_model (torch.nn.Module): PyTorch memory module.
-        dataset (torch.utils.data.Dataset): PyTroch dataset with data from ExperienceStorage.
-        dir_name (string): Directory name where plots will be saved. (Default: 'plots')
-    """
-
-    def __init__(self, config, vae_decoder, mem_model, dataset, dir_name='plots'):
-        self.config = config
-        self.decoder = vae_decoder
-        self.model = mem_model
-        self.sequence_len = self.config.rnn['sequence_len']
-        self.latent_dim = self.config.vae['latent_space_dim']
-
-        # Check if destination dir exists
-        self.plots_dir = os.path.join(self.config.rnn['logs_dir'], dir_name)
-        create_directory(self.plots_dir)
-
-        # Prepare data
-        (states, actions), _ = dataset[0]
-        self.n_episodes = min(self.config.rnn['rend_n_episodes'], len(dataset))
-        self.eval_states = torch.zeros((self.n_episodes, self.sequence_len, states.shape[1]),
-                                       device=next(self.model.parameters()).device,
-                                       dtype=states.dtype)
-        self.eval_actions = torch.zeros((self.n_episodes, self.sequence_len, actions.shape[1]),
-                                        device=next(self.model.parameters()).device,
-                                        dtype=actions.dtype)
-        for i in range(self.n_episodes):
-            (states, actions), _ = dataset[i]
-            self.eval_states[i] = states
-            self.eval_actions[i] = actions
-
-    def on_epoch_begin(self, _):
-        with evaluate(self.model) as net:
-            # Initialize memory module
-            net.init_hidden(self.n_episodes)
-
-            # Initialize hidden state (warm-up memory module)
-            seq_half = self.sequence_len // 2
-            with torch.no_grad():
-                net(self.eval_states[:, :seq_half], self.eval_actions[:, :seq_half])
-
-        orig_mu = self.eval_states[:, seq_half, :]
-        pred_mu = self.model.simulate(
-            torch.unsqueeze(orig_mu, 1),  # Add sequence dim.
-            self.eval_actions[:, seq_half:seq_half + \
-                              self.config.rnn["rend_n_rollouts"] * self.config.rnn["rend_step"], :]
-        ).reshape(-1, self.latent_dim)
-
-        orig_img = self.decoder.predict(orig_mu.cpu().detach().numpy())[:, np.newaxis]
-        pred_img = self.decoder.predict(pred_mu[::self.config.rnn["rend_step"]]).reshape(
-            self.n_episodes, self.config.rnn["rend_n_rollouts"], *self.config.general['state_shape'])
-
-        samples = np.concatenate((orig_img, pred_img), axis=1)
-
-        fig = plt.figure(figsize=(
-            self.config.rnn["rend_n_rollouts"] + 1,
-            self.n_episodes + 1))  # Add + 1 to make space for titles
-        gs = gridspec.GridSpec(self.n_episodes,
-                               self.config.rnn["rend_n_rollouts"] + 1,
-                               wspace=0.05, hspace=0.05, figure=fig)
-
-        for i in range(self.n_episodes):
-            for j in range(self.config.rnn["rend_n_rollouts"] + 1):
-                ax = plt.subplot(gs[i, j])
-                plt.axis('off')
-                ax.set_aspect('equal')
-                if i == 0:
-                    if j == 0:
-                        ax.set_title("start")
-                    else:
-                        ax.set_title("t + {}".format(j * self.config.rnn["rend_step"]))
-                plt.imshow(samples[i, j])
-
-        # Save figure to logs dir
-        plt.savefig(os.path.join(
-            self.plots_dir,
-            "memory_sample_{}".format(dt.datetime.now().strftime("%d-%mT%H:%M:%S"))
-        ))
-        plt.close()
 
 
 class TqdmStream(object):

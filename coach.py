@@ -6,10 +6,11 @@ from humblerl.agents import ChainVision, RandomAgent
 import numpy as np
 from torch.utils.data import DataLoader
 
-from common_utils import ReturnTracker, MemoryVisualization
+from common_utils import ReturnTracker
 from memory import build_rnn_model, EPNDataset, EPNVision
 from utils import ExperienceStorage
 from world_models.third_party.torchtrainer import EarlyStopping, LambdaCallback, ModelCheckpoint, CSVLogger
+from world_models.utils import MemoryVisualization
 from world_models.vision import BasicVision, build_vae_model
 
 
