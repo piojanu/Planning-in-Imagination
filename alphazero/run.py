@@ -9,12 +9,12 @@ from algos.alphazero import Planner
 from algos.board_games import AdversarialMinds, BoardRender, BoardStorage, BoardVision, ELOScoreboard
 from algos.human import HumanPlayer
 from coach import BoardGameBuilder
-from common_utils import mute_tf_logs_if_needed
+from common_utils import TensorBoardLogger, mute_tf_logs_if_needed
 from keras.callbacks import EarlyStopping, TensorBoard
 from metrics import Tournament
 from nn import build_keras_nn, KerasNet
 from tabulate import tabulate
-from utils import Config, TensorBoardLogger
+from utils import Config
 
 
 @click.group()
