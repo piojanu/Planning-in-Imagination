@@ -1,14 +1,15 @@
+from abc import ABCMeta, abstractmethod
 import logging as log
 import os
 
-from abc import ABCMeta, abstractmethod
-
 from keras.optimizers import SGD
-from keras.callbacks import CSVLogger, EarlyStopping
+from keras.callbacks import CSVLogger
 from keras.backend import image_data_format
-from keras.layers import Activation, add, BatchNormalization, Conv2D, Dense, Flatten, GlobalAveragePooling2D, Input, Reshape
+from keras.layers import Activation, add, BatchNormalization, Conv2D, Dense, Flatten
+from keras.layers import GlobalAveragePooling2D, Input, Reshape
 from keras.models import Model
 from keras.regularizers import l2
+import numpy as np
 
 
 class NeuralNet(metaclass=ABCMeta):
@@ -31,30 +32,32 @@ class NeuralNet(metaclass=ABCMeta):
             state (np.ndarray): State of game to inference on.
 
         Returns:
-            np.ndarray: Inference result, depends on specific model.
+            np.ndarray: pi head inference result.
+            np.ndarray: value head inference result.
         """
 
         pass
 
     @abstractmethod
-    def train(self, data, targets, callbacks=None):
+    def train(self, dataset, callbacks=None):
         """Perform training according to passed parameters in :method:`build` call.
 
         Args:
-            data (np.ndarray): States to train on.
-            targets (np.ndarray): Ground truth targets, depend on specific model.
+            dataset (object): Dataset, type depends on implementation.
+            initial_epoch (int): Epoch at which to start training. (Default: 0)
             callbacks (list): Extra callbacks to pass to keras model fit method. (Default: None)
          """
 
         pass
 
     @abstractmethod
-    def save_checkpoint(self, folder, filename):
+    def save_checkpoint(self, path, filename=None):
         """Saves the current neural network (with its parameters) in folder/filename.
 
         Args:
-            folder (string): Directory for storing checkpoints.
-            filename (string): File name to save nn in, will have date/time appended.
+            path (string): Directory for saving checkpoints to or full path to file
+                           if filename is None.
+            filename (string): File name of saved nn checkpoint. (Default: None)
         """
 
         pass
@@ -100,17 +103,17 @@ class KerasNet(NeuralNet):
             state (np.ndarray): State of game to inference on.
 
         Returns:
-            np.ndarray: Inference result, depends on specific model.
+            np.ndarray: pi head inference result.
+            np.ndarray: value head inference result.
         """
 
         return self.model.predict(state)
 
-    def train(self, data, targets, initial_epoch=0, callbacks=None):
+    def train(self, dataset, initial_epoch=0, callbacks=None):
         """Perform training according to passed parameters in `build` call.
 
         Args:
-            data (np.ndarray): States to train on.
-            targets (np.ndarray): Ground truth targets, depend on specific model.
+            dataset (object): Dataset, type depends on implementation.
             initial_epoch (int): Epoch at which to start training. (Default: 0)
             callbacks (list): Extra callbacks to pass to keras model fit method. (Default: None)
 
@@ -119,11 +122,11 @@ class KerasNet(NeuralNet):
         """
 
         epochs = self.epochs + initial_epoch
+        callbacks = callbacks if callbacks else []
 
-        if callbacks is None:
-            callbacks = []
-
-        self.model.fit(data, targets,
+        boards_input, target_pis, target_values = list(zip(*dataset))
+        self.model.fit(np.array(boards_input),
+                       [np.array(target_pis), np.array(target_values)],
                        batch_size=self.batch_size,
                        epochs=epochs,
                        initial_epoch=initial_epoch,
@@ -131,18 +134,25 @@ class KerasNet(NeuralNet):
 
         return epochs
 
-    def save_checkpoint(self, folder, filename):
+    def save_checkpoint(self, path, filename):
         """Saves the current neural network (with its parameters) in folder/filename.
 
         Args:
-            folder (string): Directory for storing checkpoints.
-            filename (string): File name to save nn in, will have date/time appended.
+            path (string): Directory for saving checkpoints to or full path to file
+                           if filename is None.
+            filename (string): File name of saved nn checkpoint. (Default: None)
         """
 
-        filepath = os.path.join(folder, filename)
-        if not os.path.exists(folder):
-            log.warning("Checkpoint does directory not exist! Creating directory %s", folder)
-            os.mkdir(folder)
+        if filename is None:
+            filepath = path
+            dirpath = os.path.dirname(path)
+        else:
+            filepath = os.path.join(path, filename)
+            dirpath = path
+
+        if not os.path.exists(dirpath):
+            log.warning("Checkpoint directory does not exist! Creating directory %s", folder)
+            os.mkdir(dirpath)
 
         self.model.save_weights(filepath)
 

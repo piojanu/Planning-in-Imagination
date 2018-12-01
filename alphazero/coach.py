@@ -1,5 +1,4 @@
 import logging as log
-import numpy as np
 import os.path
 import humblerl as hrl
 import utils
@@ -69,12 +68,7 @@ class Coach(object):
     def train(self):
         """Training phase, improve neural net."""
 
-        trained_data = self.storage.big_bag
-        boards_input, target_pis, target_values = list(zip(*trained_data))
-
-        self.global_epoch = self.current_nn.train(data=np.array(boards_input),
-                                                  targets=[np.array(target_pis),
-                                                           np.array(target_values)],
+        self.global_epoch = self.current_nn.train(self.storage.big_bag,
                                                   initial_epoch=self.global_epoch,
                                                   callbacks=self.train_callbacks)
 
