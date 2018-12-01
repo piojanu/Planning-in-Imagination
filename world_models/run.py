@@ -9,7 +9,7 @@ from humblerl.agents import ChainVision
 import numpy as np
 from tqdm import tqdm
 
-from common_utils import MemoryVisualization, TqdmStream, obtain_config, mute_tf_logs_if_needed, create_directory
+from common_utils import TqdmStream, obtain_config, mute_tf_logs_if_needed, create_directory
 from controller import build_es_model, build_mind, Evaluator, ReturnTracker
 from memory import build_rnn_model, MDNDataset, MDNVision
 from utils import Config, StoreTransitions, create_generating_agent

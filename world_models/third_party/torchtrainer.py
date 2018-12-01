@@ -247,18 +247,16 @@ class CSVLogger(Callback):
 
 
 class TensorBoardLogger(Callback):
-    """Logging in TensorBoard without TensorFlow ops."""
+    """Logging in TensorBoard without TensorFlow ops.
+
+    Args:
+        log_dir (string): Directory where to log.
+    """
 
     Summary = None
     FileWriter = None
 
     def __init__(self, log_dir):
-        """Creates a summary writer.
-
-        Args:
-            log_dir (string): Directory where to log.
-        """
-
         if self.Summary is None or self.FileWriter is None:
             import tensorflow as tf
             self.Summary = tf.Summary
