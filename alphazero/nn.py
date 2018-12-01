@@ -55,9 +55,9 @@ class NeuralNet(metaclass=ABCMeta):
         """Saves the current neural network (with its parameters) in folder/filename.
 
         Args:
-            path (string): Directory for saving checkpoints to or full path to file
-                           if filename is None.
-            filename (string): File name of saved nn checkpoint. (Default: None)
+            path (str): Directory for saving checkpoints to or full path to file
+                        if filename is None.
+            filename (str): File name of saved nn checkpoint. (Default: None)
         """
 
         pass
@@ -67,9 +67,9 @@ class NeuralNet(metaclass=ABCMeta):
         """Loads parameters of the neural network from folder/filename.
 
         Args:
-            path (string): Directory for loading checkpoints from or full path to file
-                           if filename is None.
-            filename (string): File name of saved nn checkpoint. (Default: None)
+            path (str): Directory for loading checkpoints from or full path to file
+                        if filename is None.
+            filename (str): File name of saved nn checkpoint. (Default: None)
         """
 
         pass
@@ -83,8 +83,8 @@ class KerasNet(NeuralNet):
         params (dict): Train/inference hyper-parameters. Available:
           * 'batch_size' (int)  : Training batch size. (Default: 32)
           * 'epochs' (int)      : Number of epochs to train the model. (Default: 50)
-          * 'save_training_log_path' (string) : where to save nn train logs.
-                                                (Default: "./logs/training.log")
+          * 'save_training_log_path' (str) : where to save nn train logs.
+                                             (Default: "./logs/training.log")
     """
 
     def __init__(self, model, params):
@@ -134,13 +134,13 @@ class KerasNet(NeuralNet):
 
         return epochs
 
-    def save_checkpoint(self, path, filename):
+    def save_checkpoint(self, path, filename=None):
         """Saves the current neural network (with its parameters) in folder/filename.
 
         Args:
-            path (string): Directory for saving checkpoints to or full path to file
-                           if filename is None.
-            filename (string): File name of saved nn checkpoint. (Default: None)
+            path (str): Directory for saving checkpoints to or full path to file
+                        if filename is None.
+            filename (str): File name of saved nn checkpoint. (Default: None)
         """
 
         if filename is None:
@@ -151,7 +151,7 @@ class KerasNet(NeuralNet):
             dirpath = path
 
         if not os.path.exists(dirpath):
-            log.warning("Checkpoint directory does not exist! Creating directory %s", folder)
+            log.warning("Checkpoint directory does not exist! Creating directory %s", dirpath)
             os.mkdir(dirpath)
 
         self.model.save_weights(filepath)
@@ -160,9 +160,9 @@ class KerasNet(NeuralNet):
         """Loads parameters of the neural network from folder/filename.
 
         Args:
-            path (string): Directory for loading checkpoints from or full path to file
-                           if filename is None.
-            filename (string): File name of saved nn checkpoint. (Default: None)
+            path (str): Directory for loading checkpoints from or full path to file
+                        if filename is None.
+            filename (str): File name of saved nn checkpoint. (Default: None)
         """
 
         if filename is None:
@@ -189,7 +189,7 @@ def build_keras_nn(game, params):
                                         "flatten"       - flatten residual tower output.
                                         After 'avgpool' and 'flatten' there is FC layer controlled
                                         with 'dense_size' parameter.
-          * 'loss' (string)           : Loss function name, passed to keras model.compile(...) method.
+          * 'loss' (str)              : Loss function name, passed to keras model.compile(...) method.
                                         (Default: ["categorical_crossentropy", "mean_squared_error"])
           * 'l2_regularizer' (float)  : L2 weight decay rate.
                                         (Default: 0.0001)
