@@ -82,43 +82,33 @@ class Coach(metaclass=ABCMeta):
             callbacks=self.train_callbacks + callbacks,
         )
 
-    @abstractclassmethod
-    def from_config(cls, config):
-        pass
-
 
 class RandomCoach(Coach):
-    """Random agent coach interface."""
+    """Random agent coach interface.
 
-    @classmethod
-    def from_config(cls, config, vae_path=None, epn_path=None):
-        """Create random agent using config.
+    Args:
+        config (Config): Configuration loaded from .json file.
+        vae_path (string): Path to VAE ckpt. Taken from .json config if `None` (Default: None)
+        epn_path (string): Path to EPN ckpt. Taken from .json config if `None` (Default: None)
+    """
 
-        Args:
-            config (Config): Configuration loaded from .json file.
-            vae_path (string): Path to VAE ckpt. Taken from .json config if `None` (Default: None)
-            epn_path (string): Path to EPN ckpt. Taken from .json config if `None` (Default: None)
-
-        Returns:
-            Coach: Built random agent coach.
-        """
-
-        coach = cls(config)
+    def __init__(self, config, vae_path=None, epn_path=None):
+        super(RandomCoach, self).__init__(config)
 
         # Create env and mind
-        coach.env = hrl.create_gym(config.general['game_name'])
-        coach.mind = RandomAgent(coach.env)
+        self.env = hrl.create_gym(config.general['game_name'])
+        self.mind = RandomAgent(self.env)
 
         # Create storage and load data
-        coach.storage = ExperienceStorage(
+        self.storage = ExperienceStorage(
             config.ctrl['save_data_path'], config.ctrl['exp_replay_size'], config.rnn['gamma'])
-        coach.storage.load()
-        coach.play_callbacks.append(coach.storage)
+        self.storage.load()
+        self.play_callbacks.append(self.storage)
 
         # Create training DataLoader
         dataset = EPNDataset(
-            coach.storage, config.rnn['sequence_len'], config.rnn['terminal_prob'])
-        coach.data_loader = DataLoader(
+            self.storage, config.rnn['sequence_len'], config.rnn['terminal_prob'])
+        self.data_loader = DataLoader(
             dataset,
             batch_size=config.rnn['batch_size'],
             shuffle=True,
@@ -128,8 +118,8 @@ class RandomCoach(Coach):
         # Create vision
         _, encoder, _ = build_vae_model(
             config.vae, config.general['state_shape'], model_path=vae_path)
-        coach.trainer = build_rnn_model(
-            config.rnn, config.vae['latent_space_dim'], coach.env.action_space, model_path=epn_path)
+        self.trainer = build_rnn_model(
+            config.rnn, config.vae['latent_space_dim'], self.env.action_space, model_path=epn_path)
 
         basic_vision = BasicVision(  # Resizes states to `state_shape` with cropping
             state_shape=config.general['state_shape'],
@@ -137,19 +127,17 @@ class RandomCoach(Coach):
         )
         epn_vision = EPNVision(
             vae_model=encoder,
-            epn_model=coach.trainer.model
+            epn_model=self.trainer.model
         )
 
-        coach.vision = ChainVision(basic_vision, epn_vision)
-        coach.play_callbacks.append(epn_vision)
+        self.vision = ChainVision(basic_vision, epn_vision)
+        self.play_callbacks.append(epn_vision)
 
         # Create training callbacks
-        coach.train_callbacks = [
+        self.train_callbacks = [
             EarlyStopping(metric='loss', patience=config.rnn['patience'], verbose=1),
             LambdaCallback(on_batch_begin=lambda _, batch_size:
-                           coach.trainer.model.init_hidden(batch_size)),
+                           self.trainer.model.init_hidden(batch_size)),
             ModelCheckpoint(config.rnn['ckpt_path'], metric='loss', save_best=True),
             CSVLogger(filename=os.path.join(config.rnn['logs_dir'], 'train_mem.csv'))
         ]
-
-        return coach
