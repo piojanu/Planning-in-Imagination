@@ -46,7 +46,7 @@ def iter_train(ctx, vae_path, epn_path):
     """
 
     config = obtain_config(ctx)
-    coach = RandomCoach.from_config(config, vae_path, epn_path)
+    coach = RandomCoach(config, vae_path, epn_path)
 
     # Create checkpoint/logs directory, if it doesn't exist
     create_directory(os.path.dirname(config.rnn['ckpt_path']))
