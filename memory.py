@@ -195,6 +195,35 @@ class EPN(nn.Module):
                 torch.squeeze(reward).item(),
                 torch.squeeze(done).item())
 
+    def simulate(self, latent, actions):
+        """Simulate environment trajectory.
+
+        Args:
+            latent (torch.Tensor): Latent vector with state(s) to start from.
+                Shape of tensor: batch x 1 (sequence dim.) x latent dim.
+            actions (torch.Tensor): Tensor with actions to take in simulated trajectory.
+                Shape of tensor: batch x sequence x action dim.
+
+        Return:
+            np.ndarray: Array of latent vectors of simulated trajectory.
+                Shape of array: batch x sequence x latent dim.
+
+        Note:
+            You can find next hidden state in this module `hidden` member.
+        """
+
+        states = []
+        for a in range(actions.shape[1]):
+            with torch.no_grad(), evaluate(self) as net:
+                # NOTE: We use np.newaxis to preserve shape of tensor.
+                latent, _, _, _, _ = net(latent, actions[:, a, np.newaxis, :]).values()
+            states.append(latent.cpu().detach().numpy())
+
+        # NOTE: Squeeze former sequence dim. (which is 1 because we inferred next latent state
+        #       action by action) and reorder batch dim. and list sequence dim. to finally get:
+        #       batch x len(states) (sequence dim.) x latent dim.
+        return np.transpose(np.squeeze(np.array(states), axis=2), axes=[1, 0, 2])
+
     def init_hidden(self, batch_size):
         device = next(self.parameters()).device
 

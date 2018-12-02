@@ -1,7 +1,6 @@
 import datetime as dt
 import glob
 import os
-import tensorflow as tf
 
 from common_utils import get_configs
 from env import GameEnv, GameMDP
@@ -31,34 +30,6 @@ class Config(object):
         self.env = GameEnv(self.game)
         self.mdp = GameMDP(self.game)
         self.debug = debug
-
-
-class TensorBoardLogger(object):
-    """Logging in TensorBoard without TensorFlow ops.
-
-    https://gist.github.com/1f8dfb1b5c82627ae3efcfbbadb9f514.git
-    Simple example on how to log scalars and images to tensorboard without tensor ops.
-
-    License: Copyleft
-    Author: Michael Gygli
-    """
-
-    def __init__(self, log_dir):
-        self.writer = tf.summary.FileWriter(log_dir)
-
-    def log_scalar(self, tag, value, step):
-        """Log a scalar variable.
-
-        Args:
-            tag (basestring): Name of the scalar.
-            value (number): Value to log.
-            step (int): Training iteration.
-        """
-
-        summary = tf.Summary(
-            value=[tf.Summary.Value(tag=tag, simple_value=value)])
-        self.writer.add_summary(summary, step)
-        self.writer.flush()
 
 
 def create_tensorboard_log_dir(logdir, prefix):

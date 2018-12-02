@@ -29,6 +29,7 @@
         "logs_dir"           : "./logs"
     },
     "ctrl_play": {
+        "iterations"         : -1,
         "n_episodes"         : 128,
         "min_examples"       : 256,
         "done_threshold"     : 0.5,

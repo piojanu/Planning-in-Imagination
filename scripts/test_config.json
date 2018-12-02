@@ -1,0 +1,36 @@
+{
+    "general": {
+        "game_name"          : "Boxing-v0",
+        "state_shape"        : [64, 64, 3],
+        "crop_range"         : "[30:183, 28:131, :]"
+    },
+    "vae_training": {
+        "batch_size"         : 16,
+        "latent_space_dim"   : 16,
+        "epochs"             : 2,
+        "learning_rate"      : 0.001,
+        "patience"           : 5,
+        "ckpt_path"          : "./checkpoints/test/best_vision.ckpt",
+        "logs_dir"           : "./checkpoints/test"
+    },
+    "rnn_training": {
+        "batch_size"         : 16,
+        "sequence_len"       : 500,
+        "terminal_prob"      : 0.2,
+        "hidden_units"       : 256,
+        "epochs"             : 10,
+        "learning_rate"      : 0.001,
+        "patience"           : 10,
+        "gamma"              : 1.0,
+        "ckpt_path"          : "./checkpoints/test/best_memory.ckpt",
+        "logs_dir"           : "./checkpoints/test"
+    },
+    "ctrl_play": {
+        "iterations"         : 2,
+        "n_episodes"         : 2,
+        "min_examples"       : 3,
+        "done_threshold"     : 0.5,
+        "exp_replay_size"    : 10000,
+        "save_data_path"     : "./checkpoints/test/data.examples"
+    }
+}
