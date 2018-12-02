@@ -11,3 +11,4 @@ script:
   - pytest
   - (cd alphazero/scripts; ./run_cmds.sh)
   - (cd world_models/scripts; ./run_cmds.sh)
+  - (cd scripts; ./run_cmds.sh)
