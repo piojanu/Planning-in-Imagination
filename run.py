@@ -30,7 +30,7 @@ def cli(ctx, config_path, debug, quiet, render):
     log.basicConfig(level=level, format="[%(levelname)s]: %(message)s", stream=TqdmStream)
 
     # Load configuration from .json file into ctx object
-    ctx.obj = Config(config_path, debug, render)
+    ctx.obj = (Config(config_path, debug, render), RandomCoach)
 
 
 @cli.command()
@@ -44,10 +44,12 @@ def iter_train(ctx, vae_path, epn_path):
 
     Args:
         ctx (click.core.Context): context object.
+        vae_path (string): Path to VAE ckpt. Taken from .json config if `None`. (Default: None)
+        epn_path (string): Path to EPN-RNN ckpt. Taken from .json config if `None`. (Default: None)
     """
 
-    config = obtain_config(ctx)
-    coach = RandomCoach(config, vae_path, epn_path)
+    config, Coach = obtain_config(ctx)
+    coach = Coach(config, vae_path, epn_path, train_mode=True)
 
     # Create checkpoint/logs directory, if it doesn't exist
     create_directory(os.path.dirname(config.rnn['ckpt_path']))
@@ -58,7 +60,7 @@ def iter_train(ctx, vae_path, epn_path):
 
     # Train EPN for inf epochs
     iteration = 0
-    while True:
+    while config.ctrl['iterations'] == -1 or iteration < config.ctrl['iterations']:
         # Gather data
         mean_score = coach.play()
 
@@ -77,6 +79,31 @@ def iter_train(ctx, vae_path, epn_path):
         coach.train()
 
         iteration += 1
+
+
+@cli.command()
+@click.pass_context
+@click.option('-v', '--vae-path', default=None,
+              help='Path to VAE ckpt. Taken from .json config if `None` (Default: None)')
+@click.option('-e', '--epn-path', default=None,
+              help='Path to EPN-RNN ckpt. Taken from .json config if `None` (Default: None)')
+@click.option('-n', '--n-games', default=3, help='Number of games to play (Default: 3)')
+def eval(ctx, vae_path, epn_path, n_games):
+    """Iteratively train Expert Policy Network.
+
+    Args:
+        ctx (click.core.Context): context object.
+        vae_path (string): Path to VAE ckpt. Taken from .json config if `None`. (Default: None)
+        epn_path (string): Path to EPN-RNN ckpt. Taken from .json config if `None`. (Default: None)
+        n_games (int): How many games to play. (Default: 3)
+    """
+
+    config, Coach = obtain_config(ctx)
+    coach = Coach(config, vae_path, epn_path, train_mode=False)
+
+    avg_return = coach.play(desc="Evaluate", n_episodes=n_games)
+
+    print("Avg. return:", avg_return)
 
 
 if __name__ == '__main__':

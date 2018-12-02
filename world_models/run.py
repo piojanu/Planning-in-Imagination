@@ -339,10 +339,6 @@ def eval(ctx, controller_path, vae_path, mdn_path, n_games):
 
     config = obtain_config(ctx)
 
-    # Gen number of workers to run
-    processes = config.es['processes']
-    processes = processes if processes > 0 else None
-
     # Get action space size
     env = hrl.create_gym(config.general['game_name'])
 

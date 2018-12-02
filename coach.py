@@ -20,6 +20,10 @@ class Coach(Callback, metaclass=ABCMeta):
 
     Args:
         config (Config): Configuration loaded from .json file.
+        vae_path (string): Path to VAE ckpt. Taken from .json config if `None` (Default: None)
+        epn_path (string): Path to EPN ckpt. Taken from .json config if `None` (Default: None)
+        train_mode (bool): If Coach is in train mode (can be trained) or in eval mode (can only
+            be played).
 
     Attributes:
         config (Config): Configuration loaded from .json file.
@@ -33,32 +37,94 @@ class Coach(Callback, metaclass=ABCMeta):
         train_callbacks (list): Train phase callbacks for `TorchTrainer.fit(...)`.
         global_epoch (int): Current epoch of training (play->train->evaluate iteration).
         best_score (float): Current best agent score.
+        train_mode (bool): If Coach is in train or eval mode.
 
     Note:
         Do not override play and train callbacks lists! Append new callbacks to them.
     """
 
-    def __init__(self, config):
+    def __init__(self, config, vae_path=None, epn_path=None, train_mode=True):
 
         self.config = config
-        self.env = None
+        self.train_mode = train_mode
         self.mind = None
-        self.vision = None
-        self.data_loader = None
-        self.trainer = None
-        self.storage = None
-        self.play_callbacks = [ReturnTracker()]
-        self.train_callbacks = [self]
-        self.global_epoch = None
-        self.best_score = None
 
-    def play(self, desc="Gather data", train_mode=True, callbacks=None):
+        # Initialize metadata
+        self.global_epoch = 0
+        self.best_score = 0
+
+        # Track agent return, used to calculate mean in `play`
+        self.play_callbacks = [ReturnTracker()]
+
+        # Create env and mind
+        self.env = hrl.create_gym(self.config.general['game_name'])
+
+        # Create vision and memory modules
+        _, encoder, decoder = build_vae_model(
+            self.config.vae, self.config.general['state_shape'], model_path=vae_path)
+        self.trainer = build_rnn_model(
+            self.config.rnn, self.config.vae['latent_space_dim'], self.env.action_space, model_path=epn_path)
+
+        # Create HRL vision
+        basic_vision = BasicVision(  # Resizes states to `state_shape` with cropping
+            state_shape=self.config.general['state_shape'],
+            crop_range=self.config.general['crop_range']
+        )
+        epn_vision = EPNVision(
+            vae_model=encoder,
+            epn_model=self.trainer.model
+        )
+
+        self.vision = ChainVision(basic_vision, epn_vision)
+        self.play_callbacks.append(epn_vision)
+
+        if self.train_mode:
+            # Create storage and load data
+            self.storage = ExperienceStorage(
+                self.config.ctrl['save_data_path'],
+                self.config.ctrl['exp_replay_size'],
+                self.config.rnn['gamma'])
+            self.storage.load()
+            self.play_callbacks.append(self.storage)
+
+            # Create training DataLoader
+            dataset = EPNDataset(
+                self.storage, self.config.rnn['sequence_len'], self.config.rnn['terminal_prob'])
+            self.data_loader = DataLoader(
+                dataset,
+                batch_size=self.config.rnn['batch_size'],
+                shuffle=True,
+                pin_memory=True
+            )
+
+            # Create training callbacks
+            self.train_callbacks = [
+                self,  # Include self to count epochs
+                EarlyStopping(metric='loss', patience=self.config.rnn['patience'], verbose=1),
+                LambdaCallback(on_batch_begin=lambda _, batch_size:
+                               self.trainer.model.init_hidden(batch_size)),
+                ModelCheckpoint(self.config.rnn['ckpt_path'], metric='loss', save_best=True),
+                CSVLogger(os.path.join(self.config.rnn['logs_dir'], 'train_mem.csv')),
+                TensorBoardLogger(os.path.join(self.config.rnn['logs_dir'], 'tensorboard'))
+            ]
+
+            # Crate memory visualization callback if render allowed
+            if self.config.allow_render:
+                self.train_callbacks += [
+                    MemoryVisualization(self.config, decoder, self.trainer.model, dataset, 'epn_plots')]
+        else:  # If in eval mode
+            self.storage = None
+            self.data_loader = None
+            self.train_callbacks = None
+
+    def play(self, desc="Gather data", n_episodes=None, callbacks=None):
         """Self-play phase, gather data using best nn and save to storage.
 
         Args:
             desc (str): Progress bar description.
-            train_mode (bool): Informs whether this run is in training or evaluation mode.
-            callbacks (list): Play phase callbacks for `hrl.loop(...)`.
+            n_episodes (int): How many games to play. If None, then taken from .json config
+                (Default: None)
+            callbacks (list): Play phase callbacks for `hrl.loop(...)`. (Default: None)
 
         Returns:
             float: Mean score after `n_episodes` from .json config.
@@ -67,14 +133,16 @@ class Coach(Callback, metaclass=ABCMeta):
         callbacks = callbacks if callbacks else []
 
         hist = hrl.loop(self.env, self.mind, self.vision,
-                        train_mode=train_mode,
+                        train_mode=self.train_mode,
                         debug_mode=self.config.is_debug,
-                        n_episodes=self.config.ctrl['n_episodes'],
+                        render_mode=self.config.allow_render and not self.train_mode,
+                        n_episodes=n_episodes if n_episodes else self.config.ctrl['n_episodes'],
                         callbacks=self.play_callbacks + callbacks,
-                        name=desc, verbose=1)
+                        name=desc, verbose=1 if self.train_mode else 2)
 
-        # Store gathered data
-        self.storage.store()
+        if self.train_mode:
+            # Store gathered data
+            self.storage.store()
 
         return np.mean(hist['return'])
 
@@ -84,6 +152,8 @@ class Coach(Callback, metaclass=ABCMeta):
         Args:
             callbacks (list): Train phase callbacks for `TorchTrainer.fit(...)`.
         """
+
+        assert self.train_mode, "Coach is in eval mode!"
 
         callbacks = callbacks if callbacks else []
         epochs = self.config.rnn['epochs'] + self.global_epoch
@@ -100,71 +170,16 @@ class Coach(Callback, metaclass=ABCMeta):
 
 
 class RandomCoach(Coach):
-    """Random agent coach interface.
+    """Random agent's coach, keeps all the operations to train and run algorithm.
 
     Args:
         config (Config): Configuration loaded from .json file.
         vae_path (string): Path to VAE ckpt. Taken from .json config if `None` (Default: None)
         epn_path (string): Path to EPN ckpt. Taken from .json config if `None` (Default: None)
+        train_mode (bool): If Coach is in train mode (can be trained) or in eval mode (can be
+            only played).
     """
 
-    def __init__(self, config, vae_path=None, epn_path=None):
-        super(RandomCoach, self).__init__(config)
-
-        # Create env and mind
-        self.env = hrl.create_gym(config.general['game_name'])
+    def __init__(self, config, vae_path=None, epn_path=None, train_mode=True):
+        super(RandomCoach, self).__init__(config, vae_path, epn_path, train_mode)
         self.mind = RandomAgent(self.env)
-
-        # Create storage and load data
-        self.storage = ExperienceStorage(
-            config.ctrl['save_data_path'], config.ctrl['exp_replay_size'], config.rnn['gamma'])
-        self.storage.load()
-        self.play_callbacks.append(self.storage)
-
-        # Create training DataLoader
-        dataset = EPNDataset(
-            self.storage, config.rnn['sequence_len'], config.rnn['terminal_prob'])
-        self.data_loader = DataLoader(
-            dataset,
-            batch_size=config.rnn['batch_size'],
-            shuffle=True,
-            pin_memory=True
-        )
-
-        # Create vision and memory modules
-        _, encoder, decoder = build_vae_model(
-            config.vae, config.general['state_shape'], model_path=vae_path)
-        self.trainer = build_rnn_model(
-            config.rnn, config.vae['latent_space_dim'], self.env.action_space, model_path=epn_path)
-
-        # Initialize metadata
-        self.global_epoch = 0
-        self.best_score = 0
-
-        # Create HRL vision
-        basic_vision = BasicVision(  # Resizes states to `state_shape` with cropping
-            state_shape=config.general['state_shape'],
-            crop_range=config.general['crop_range']
-        )
-        epn_vision = EPNVision(
-            vae_model=encoder,
-            epn_model=self.trainer.model
-        )
-
-        self.vision = ChainVision(basic_vision, epn_vision)
-        self.play_callbacks.append(epn_vision)
-
-        # Create training callbacks
-        self.train_callbacks += [
-            EarlyStopping(metric='loss', patience=config.rnn['patience'], verbose=1),
-            LambdaCallback(on_batch_begin=lambda _, batch_size:
-                           self.trainer.model.init_hidden(batch_size)),
-            ModelCheckpoint(config.rnn['ckpt_path'], metric='loss', save_best=True),
-            CSVLogger(os.path.join(config.rnn['logs_dir'], 'train_mem.csv')),
-            TensorBoardLogger(os.path.join(config.rnn['logs_dir'], 'tensorboard'))
-        ]
-
-        # Crate memory visualization callback if render allowed
-        if config.allow_render:
-            self.train_callbacks += [
-                MemoryVisualization(config, decoder, self.trainer.model, dataset, 'epn_plots')]
