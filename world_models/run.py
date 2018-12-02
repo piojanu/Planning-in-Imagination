@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
+import logging as log
+import os
+
 import click
-import datetime as dt
 import h5py as h5
 import humblerl as hrl
-import logging as log
+from humblerl.agents import ChainVision
 import numpy as np
-import os
-import tensorflow
+from tqdm import tqdm
 
 from common_utils import TqdmStream, obtain_config, mute_tf_logs_if_needed, create_directory
 from controller import build_es_model, build_mind, Evaluator, ReturnTracker
-from humblerl.agents import ChainVision
 from memory import build_rnn_model, MDNDataset, MDNVision
-from tqdm import tqdm
-from utils import Config, HDF5DataGenerator, StoreTransitions, convert_data_with_vae, create_generating_agent
+from utils import Config, StoreTransitions, create_generating_agent
+from utils import HDF5DataGenerator, convert_data_with_vae, MemoryVisualization
 from vision import BasicVision, build_vae_model
 
 
@@ -206,7 +206,7 @@ def convert_data(ctx, path_in, path_out, vae_path):
 @click.pass_context
 @click.argument('path', type=click.Path(exists=True), required=True)
 @click.option('-v', '--vae-path', default=None,
-              help='Path to VAE ckpt. Needed for visualization only when render is enabled.')
+              help='ath to VAE ckpt. Needed for visualization only when render is enabled.')
 def train_mem(ctx, path, vae_path):
     """Train MDN-RNN model as specified in .json config with data at `PATH`."""
 
@@ -215,6 +215,9 @@ def train_mem(ctx, path, vae_path):
     config = obtain_config(ctx)
 
     env = hrl.create_gym(config.general['game_name'])
+
+    # Create checkpoint directory, if it doesn't exist
+    create_directory(os.path.dirname(config.rnn['ckpt_path']))
 
     # Create training DataLoader
     dataset = MDNDataset(path, config.rnn['sequence_len'], config.rnn['terminal_prob'])
@@ -227,108 +230,25 @@ def train_mem(ctx, path, vae_path):
     # Build model
     rnn = build_rnn_model(config.rnn, config.vae['latent_space_dim'], env.action_space)
 
-    # Evaluate and visualize memory progress
+    # Create callbacks
+    callbacks = [
+        EarlyStopping(metric='loss', patience=config.rnn['patience'], verbose=1),
+        LambdaCallback(on_batch_begin=lambda _, batch_size: rnn.model.init_hidden(batch_size)),
+        ModelCheckpoint(config.rnn['ckpt_path'], metric='loss', save_best=True),
+        CSVLogger(filename=os.path.join(config.rnn['logs_dir'], 'train_mem.csv'))
+    ]
+
+    # Evaluate and visualize memory progress if render allowed
     if config.allow_render:
         if vae_path is None:
             raise ValueError("To render provide valid path to VAE checkpoint!")
-
-        import matplotlib
-        matplotlib.use("Agg")
-        import matplotlib.gridspec as gridspec
-        import matplotlib.pyplot as plt
-        import torch
-
-        # Check if destination dir exists
-        plots_dir = os.path.join(config.rnn['logs_dir'], "plots_mdn")
-        if not os.path.exists(plots_dir):
-            os.makedirs(plots_dir)
 
         # Build VAE model and load checkpoint
         _, _, decoder = build_vae_model(config.vae,
                                         config.general['state_shape'],
                                         vae_path)
-        # Prepare data
-        n_episodes = min(config.rnn["rend_n_episodes"], len(dataset))
-        S_eval = np.zeros((n_episodes, dataset.sequence_len, dataset.latent_dim),
-                          dtype=dataset.dataset['states'].dtype)
-        A_eval = np.zeros((n_episodes, dataset.sequence_len, dataset.action_dim),
-                          dtype=dataset.dataset['actions'].dtype)
-        for i in range(n_episodes):
-            (states, actions), _ = dataset[i]
-            S_eval[i] = states
-            A_eval[i] = actions
 
-        # Evaluate MDN-RNN at the end of epoch
-        def plot_samples(_):
-            with evaluate(rnn.model) as net:
-                # Initialize memory module
-                net.init_hidden(n_episodes)
-
-                # Initialize hidden state (warm-up memory module)
-                seq_half = dataset.sequence_len // 2
-                with torch.no_grad():
-                    net(
-                        torch.from_numpy(S_eval[:, :seq_half]).to(
-                            next(net.parameters()).device),
-                        torch.from_numpy(A_eval[:, :seq_half]).to(
-                            next(net.parameters()).device)
-                    )
-
-            orig_mu = S_eval[:, seq_half, :]
-            pred_mu = rnn.model.simulate(
-                torch.from_numpy(np.expand_dims(orig_mu, axis=1)).to(  # Adds sequence dim.
-                    next(rnn.model.parameters()).device),
-                torch.from_numpy(
-                    A_eval[:, seq_half:seq_half + config.rnn["rend_n_rollouts"] * config.rnn["rend_step"]:]).to(
-                    next(rnn.model.parameters()).device)
-            ).reshape(-1, dataset.latent_dim)
-
-            orig_img = decoder.predict(orig_mu)[:, np.newaxis]
-            pred_img = decoder.predict(pred_mu[::config.rnn["rend_step"]])\
-                .reshape(n_episodes, config.rnn["rend_n_rollouts"], *config.general['state_shape'])
-
-            samples = np.concatenate((orig_img, pred_img), axis=1)
-
-            fig = plt.figure(figsize=(
-                config.rnn["rend_n_rollouts"] + 1,
-                n_episodes + 1))  # Add + 1 to make space for titles
-            gs = gridspec.GridSpec(n_episodes,
-                                   config.rnn["rend_n_rollouts"] + 1,
-                                   wspace=0.05, hspace=0.05, figure=fig)
-
-            for i in range(n_episodes):
-                for j in range(config.rnn["rend_n_rollouts"] + 1):
-                    ax = plt.subplot(gs[i, j])
-                    plt.axis('off')
-                    ax.set_aspect('equal')
-                    if i == 0:
-                        if j == 0:
-                            ax.set_title("start")
-                        else:
-                            ax.set_title("t + {}".format(j * config.rnn["rend_step"]))
-                    plt.imshow(samples[i, j])
-
-            # Save figure to logs dir
-            plt.savefig(os.path.join(
-                plots_dir,
-                "memory_sample_{}".format(dt.datetime.now().strftime("%d-%mT%H:%M:%S"))
-            ))
-            plt.close()
-    else:
-        def plot_samples(_):
-            pass
-
-    # Create checkpoint directory, if it doesn't exist
-    create_directory(os.path.dirname(config.rnn['ckpt_path']))
-
-    # Create callbacks
-    callbacks = [
-        EarlyStopping(metric='loss', patience=config.rnn['patience'], verbose=1),
-        LambdaCallback(on_batch_begin=lambda _, batch_size: rnn.model.init_hidden(batch_size),
-                       on_epoch_begin=plot_samples),
-        ModelCheckpoint(config.rnn['ckpt_path'], metric='loss', save_best=True),
-        CSVLogger(filename=os.path.join(config.rnn['logs_dir'], 'train_mem.csv'))
-    ]
+        callbacks += [MemoryVisualization(config, decoder, rnn.model, dataset, 'mdn_plots')]
 
     # Fit MDN-RNN model!
     rnn.fit_loader(
