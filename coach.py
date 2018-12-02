@@ -98,6 +98,7 @@ class Coach(Callback, metaclass=ABCMeta):
     def on_epoch_end(self, epoch, _):
         self.global_epoch = epoch
 
+
 class RandomCoach(Coach):
     """Random agent coach interface.
 
@@ -167,4 +168,3 @@ class RandomCoach(Coach):
         if config.allow_render:
             self.train_callbacks += [
                 MemoryVisualization(config, decoder, self.trainer.model, dataset, 'epn_plots')]
-
