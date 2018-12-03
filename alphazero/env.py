@@ -1,7 +1,44 @@
-import numpy as np
+from abc import ABCMeta, abstractmethod
 
+import numpy as np
 from humblerl import Callback, Environment, MDP
 from humblerl.environments import Discrete
+
+
+class GameState(metaclass=ABCMeta):
+    """Game state interface.
+
+    Args:
+        state (np.ndarray): Board state.
+    """
+
+    def __init__(self, state):
+        self.raw = state
+
+    @abstractmethod
+    def __hash__(self):
+        pass
+
+    @abstractmethod
+    def __eq__(self, other):
+        pass
+
+
+class BoardState(GameState):
+    """Board games state.
+
+    Args:
+        state (np.ndarray): Board state.
+    """
+
+    def __init__(self, state):
+        super(BoardState, self).__init__(state)
+
+    def __hash__(self):
+        return hash(self.raw.tostring())
+
+    def __eq__(self, other):
+        return np.all(self.raw == other.raw)
 
 
 class BoardGameMDP(MDP):
@@ -20,11 +57,11 @@ class BoardGameMDP(MDP):
         """Perform `action` in `state`. Return outcome.
 
         Args:
-            state (np.ndarray): Canonical board game (from perspective of current player).
+            state (BoardState): Canonical board game (from perspective of current player).
             action (int): Board game action.
 
         Returns:
-            np.ndarray: Next canonical board game state (from perspective of next player).
+            BoardState: Next canonical board game state (from perspective of next player).
             float: 1 if current player won, -1 if current player lost, 0 for draw (it it's
                    terminal state).
         """
@@ -32,47 +69,50 @@ class BoardGameMDP(MDP):
         # In whole MDP we operate only on canonical board representations.
         # Canonical means, that it's from perspective of current player.
         # From perspective of some player means that he is 1 on the board.
-        next_state = self._game.getNextState(state, 1, action)
+        next_state = self._game.getNextState(state.raw, 1, action)
         # Draw has some small value, truncate it and leave only:
         # -1 (lose), 0 (draw), 1 (win)
         reward = float(int(self._game.getGameEnded(next_state[0], 1)))
-        return self._game.getCanonicalForm(*next_state), reward
+        canonical_state = self._game.getCanonicalForm(*next_state)
+
+        return BoardState(canonical_state), reward
 
     def get_init_state(self):
         """Prepare and return initial state.
 
         Returns:
-            np.ndarray: Initial state.
+            BoardState: Initial state.
         """
 
         # We need to represent init state from perspective of starting player.
         # Otherwise different first players could have different starting conditions e.g in Othello.
-        return self._game.getCanonicalForm(self._game.getInitBoard(), self.first_player)
+        init_state = self._game.getCanonicalForm(self._game.getInitBoard(), self.first_player)
+        return BoardState(init_state)
 
     def get_valid_actions(self, state):
         """Get available actions in `state`.
 
         Args:
-            state (np.ndarray): Canonical board game (from perspective of current player).
+            state (BoardState): Canonical board game (from perspective of current player).
 
         Returns:
             np.ndarray: Array with available moves numbers in given state.
         """
 
-        valid_moves_map = self._game.getValidMoves(state, 1).astype(bool)
+        valid_moves_map = self._game.getValidMoves(state.raw, 1).astype(bool)
         return np.arange(valid_moves_map.shape[0])[valid_moves_map]
 
     def is_terminal_state(self, state):
         """Check if `state` is terminal.
 
         Args:
-            state (tuple(np.ndarray, int)): MDP's state.
+            state (BoardState): MDP's state.
 
         Returns:
             bool: Whether state is terminal or not.
         """
 
-        return self._game.getGameEnded(state, 1) != 0
+        return self._game.getGameEnded(state.raw, 1) != 0
 
     @property
     def action_space(self):
