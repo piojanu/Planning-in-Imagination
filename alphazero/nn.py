@@ -12,35 +12,21 @@ from keras.regularizers import l2
 import numpy as np
 
 
-class NeuralNet(metaclass=ABCMeta):
-    """Artificial neural mind of planning.
+class ModelTrainer(metaclass=ABCMeta):
+    """Model trainer.
 
     Args:
-        arch (object): Neural network architecture.
+        model (object): Model, implementation specific.
         params (dict): Train/inference hyper-parameters.
     """
 
     @abstractmethod
-    def __init__(self, arch, params):
+    def __init__(self, model, params):
         pass
 
     @abstractmethod
-    def predict(self, state):
-        """Do forward pass through nn, inference on state.
-
-        Args:
-            state (np.ndarray): State of game to inference on.
-
-        Returns:
-            np.ndarray: pi head inference result.
-            np.ndarray: value head inference result.
-        """
-
-        pass
-
-    @abstractmethod
-    def train(self, dataset, callbacks=None):
-        """Perform training according to passed parameters in :method:`build` call.
+    def train(self, dataset, initial_epoch, callbacks=None):
+        """Perform training according.
 
         Args:
             dataset (object): Dataset, type depends on implementation.
@@ -75,16 +61,12 @@ class NeuralNet(metaclass=ABCMeta):
         pass
 
 
-class KerasNet(NeuralNet):
+class KerasTrainer(ModelTrainer):
     """Artificial neural mind of planning.
 
     Args:
-        model (keras.Model): Neural network architecture.
-        params (dict): Train/inference hyper-parameters. Available:
-          * 'batch_size' (int)  : Training batch size. (Default: 32)
-          * 'epochs' (int)      : Number of epochs to train the model. (Default: 50)
-          * 'save_training_log_path' (str) : where to save nn train logs.
-                                             (Default: "./logs/training.log")
+        model (keras.Model): Neural network model.
+        params (dict): Train/inference hyper-parameters.
     """
 
     def __init__(self, model, params):
@@ -95,19 +77,6 @@ class KerasNet(NeuralNet):
         # Initialize callbacks list with CSVLogger
         self.callbacks = [
             CSVLogger(params.get('save_training_log_path', './logs/training.log'), append=True)]
-
-    def predict(self, state):
-        """Do forward pass through nn, inference on state.
-
-        Args:
-            state (np.ndarray): State of game to inference on.
-
-        Returns:
-            np.ndarray: pi head inference result.
-            np.ndarray: value head inference result.
-        """
-
-        return self.model.predict(state)
 
     def train(self, dataset, initial_epoch=0, callbacks=None):
         """Perform training according to passed parameters in `build` call.
@@ -175,44 +144,32 @@ class KerasNet(NeuralNet):
         self.model.load_weights(filepath)
 
 
-def build_keras_nn(game, params):
+def build_keras_trainer(game, config):
     """Build neural network model in Keras.
 
     Args:
         game (Game): Perfect information dynamics/game. Used to get information
                      like action/state space sizes etc.
-        params (dict): Neural Net architecture hyper-parameters. Available:
-          * architecture related      : ResNet like architecture description. If conv_filters = -1 or
-                                        residual_filters = -1, then no conv layer/residual blocks.
-          * 'feature_extractor' (str) : "agz" (Default) - heads are the same like in AlphaGo Zero,
-                                        "avgpool"       - global avgpool after residual tower,
-                                        "flatten"       - flatten residual tower output.
-                                        After 'avgpool' and 'flatten' there is FC layer controlled
-                                        with 'dense_size' parameter.
-          * 'loss' (str)              : Loss function name, passed to keras model.compile(...) method.
-                                        (Default: ["categorical_crossentropy", "mean_squared_error"])
-          * 'l2_regularizer' (float)  : L2 weight decay rate.
-                                        (Default: 0.0001)
-          * 'lr' (float)              : Learning rate of SGD with momentum optimizer. Float > 0.
-                                        (Default: 0.1)
-          * 'momentum' (float)        : Parameter that accelerates SGD in the relevant direction and
-                                        dampens oscillations. Float >= 0 (Default: 0.9)
+        config (Config): Configuration loaded json .from file.
+
+    Returns:
+        KerasTrainer: Keras Sequential model wrapped in trainer object.
     """
 
-    conv_filters = params["conv_filters"]
-    conv_kernel = params["conv_kernel"]
-    conv_stride = params["conv_stride"]
-    residual_bottleneck = params["residual_bottleneck"]
-    residual_filters = params["residual_filters"]
-    residual_kernel = params["residual_kernel"]
-    residual_num = params["residual_num"]
-    feature_extractor = params["feature_extractor"]
-    dense_size = params["dense_size"]
+    conv_filters = config.nn["conv_filters"]
+    conv_kernel = config.nn["conv_kernel"]
+    conv_stride = config.nn["conv_stride"]
+    residual_bottleneck = config.nn["residual_bottleneck"]
+    residual_filters = config.nn["residual_filters"]
+    residual_kernel = config.nn["residual_kernel"]
+    residual_num = config.nn["residual_num"]
+    feature_extractor = config.nn["feature_extractor"]
+    dense_size = config.nn["dense_size"]
 
-    loss = params['loss']
-    l2_reg = params["l2_regularizer"]
-    lr = params['lr']
-    momentum = params['momentum']
+    loss = config.nn['loss']
+    l2_reg = config.nn["l2_regularizer"]
+    lr = config.nn['lr']
+    momentum = config.nn['momentum']
 
     DATA_FORMAT = image_data_format()
     BOARD_HEIGHT, BOARD_WIDTH = game.getBoardSize()
@@ -296,4 +253,4 @@ def build_keras_nn(game, params):
 
     # Log model architecture
     model.summary(print_fn=lambda x: log.debug("%s", x))
-    return model
+    return KerasTrainer(model, config.training)

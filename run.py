@@ -4,7 +4,7 @@ import os.path
 
 import click
 
-from coach import RandomCoach
+from coach import RandomCoach as Coach
 from common_utils import TensorBoardLogger, TqdmStream, create_directory, obtain_config
 from common_utils import mute_tf_logs_if_needed
 from utils import Config
@@ -30,7 +30,7 @@ def cli(ctx, config_path, debug, quiet, render):
     log.basicConfig(level=level, format="[%(levelname)s]: %(message)s", stream=TqdmStream)
 
     # Load configuration from .json file into ctx object
-    ctx.obj = (Config(config_path, debug, render), RandomCoach)
+    ctx.obj = Config(config_path, debug, render)
 
 
 @cli.command()
@@ -48,7 +48,7 @@ def iter_train(ctx, vae_path, epn_path):
         epn_path (string): Path to EPN-RNN ckpt. Taken from .json config if `None`. (Default: None)
     """
 
-    config, Coach = obtain_config(ctx)
+    config = obtain_config(ctx)
     coach = Coach(config, vae_path, epn_path, train_mode=True)
 
     # Create checkpoint/logs directory, if it doesn't exist
@@ -98,7 +98,7 @@ def eval(ctx, vae_path, epn_path, n_games):
         n_games (int): How many games to play. (Default: 3)
     """
 
-    config, Coach = obtain_config(ctx)
+    config = obtain_config(ctx)
     coach = Coach(config, vae_path, epn_path, train_mode=False)
 
     avg_return = coach.play(desc="Evaluate", n_episodes=n_games)

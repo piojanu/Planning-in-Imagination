@@ -1,6 +1,7 @@
 import pandas as pd
 
 from common_utils import Storage
+from env import BoardState
 from humblerl import Callback, Mind, Vision
 
 
@@ -31,7 +32,7 @@ class AdversarialMinds(Mind, Callback):
         """
 
         board, player = state
-        return self.players[player].plan(board, train_mode, debug_mode)
+        return self.players[player].plan(BoardState(board), train_mode, debug_mode)
 
     def clear_tree(self):
         """Clear search tree of players."""

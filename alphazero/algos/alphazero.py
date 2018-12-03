@@ -91,7 +91,7 @@ class Planner(Callback, Mind):
         """
 
         # Evaluate state
-        pi, value = self.nn.predict(np.expand_dims(leaf_node.state, axis=0))
+        pi, value = self.nn.predict(np.expand_dims(leaf_node.state.raw, axis=0))
 
         # Take first element in batch
         pi = pi[0]
@@ -175,7 +175,7 @@ class Planner(Callback, Mind):
         """
 
         node = Node(state)
-        self._tree[state.tostring()] = node
+        self._tree[state] = node
 
         return node
 
@@ -189,9 +189,12 @@ class Planner(Callback, Mind):
 
         Args:
             state (np.ndarray): Canonical board game (from perspective of current player).
+
+        Returns:
+            Node: Node in search tree representing given state.
         """
 
-        return self._tree.get(state.tostring(), None)
+        return self._tree.get(state, None)
 
     def plan(self, state, train_mode, debug_mode):
         """Conduct planning on state.
@@ -252,7 +255,7 @@ class Planner(Callback, Mind):
 
     def _debug_log(self, root, metrics):
         # Evaluate root state
-        pi, value = self.nn.predict(np.expand_dims(root.state, axis=0))
+        pi, value = self.nn.predict(np.expand_dims(root.state.raw, axis=0))
 
         # Log root state
         log.debug("Max search depth: %d", metrics['max_depth'])
@@ -270,7 +273,7 @@ class Planner(Callback, Mind):
         log.debug("NN root value: %.5f\n", value[0])
 
         # Action size must be multiplication of board width
-        BOARD_WIDTH = root.state.shape[1]
+        BOARD_WIDTH = root.state.raw.shape[1]
         action_size = self.model.action_space.num
         if action_size % BOARD_WIDTH == 1:
             # There is extra 'null' action, ignore it
