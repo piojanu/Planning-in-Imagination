@@ -4,7 +4,7 @@ from humblerl import Callback, Environment, MDP
 from humblerl.environments import Discrete
 
 
-class GameMDP(MDP):
+class BoardGameMDP(MDP):
     """Define board game MDP.
 
     Args:
@@ -100,7 +100,7 @@ class GameMDP(MDP):
         self._first_player = value
 
 
-class GameEnv(Callback, Environment):
+class BoardGameEnv(Callback, Environment):
     """Environment for board games from https://github.com/suragnair/alpha-zero-general
 
     Args:
