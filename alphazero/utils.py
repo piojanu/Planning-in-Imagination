@@ -3,7 +3,7 @@ import glob
 import os
 
 from common_utils import get_configs
-from env import GameEnv, GameMDP
+from env import BoardGameEnv, BoardGameMDP
 from games import *  # This allows to create every game from games
 
 
@@ -27,8 +27,8 @@ class Config(object):
         self.planner = {**default_config["planner"], **custom_config.get("planner", {})}
 
         self.game = eval(self.self_play["game"])()
-        self.env = GameEnv(self.game)
-        self.mdp = GameMDP(self.game)
+        self.env = BoardGameEnv(self.game)
+        self.mdp = BoardGameMDP(self.game)
         self.debug = debug
 
 
