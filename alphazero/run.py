@@ -175,7 +175,7 @@ def hopt(ctx, n_steps):
             cfg.nn[k] = v
 
         # Build Keras neural net model
-        model = build_keras_trainer(cfg.game, cfg)
+        model = build_keras_trainer(cfg.game, cfg).model
 
         # Fit model
         history = model.fit(data, targets,
