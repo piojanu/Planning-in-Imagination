@@ -8,7 +8,7 @@ from keras.callbacks import TensorBoard
 
 from algos.alphazero import Planner
 from algos.board_games import AdversarialMinds, BoardStorage, BoardVision
-from nn import build_keras_nn, KerasNet
+from nn import build_keras_trainer
 from metrics import Tournament
 from humblerl.callbacks import BasicStats, CSVSaverWrapper
 
@@ -220,18 +220,16 @@ class BoardGameBuilder(Builder):
         self.coach.vision = BoardVision(self.cfg.game)
 
     def build_nn(self):
-        self.coach.best_nn = KerasNet(build_keras_nn(
-            self.cfg.game, self.cfg.nn), self.cfg.training)
-        self.coach.current_nn = KerasNet(build_keras_nn(
-            self.cfg.game, self.cfg.nn), self.cfg.training)
+        self.coach.best_nn = build_keras_trainer(self.cfg.game, self.cfg)
+        self.coach.current_nn = build_keras_trainer(self.cfg.game, self.cfg)
 
     def build_metadata(self):
         self.coach.global_epoch = 0
         self.coach.best_score = 1000
 
     def build_mind(self):
-        best_player = Planner(self.cfg.mdp, self.coach.best_nn, self.cfg.planner)
-        current_player = Planner(self.cfg.mdp, self.coach.current_nn, self.cfg.planner)
+        best_player = Planner(self.cfg.mdp, self.coach.best_nn.model, self.cfg.planner)
+        current_player = Planner(self.cfg.mdp, self.coach.current_nn.model, self.cfg.planner)
 
         self.coach.best_mind = AdversarialMinds(best_player, best_player)
         self.coach.current_mind = AdversarialMinds(current_player, best_player)

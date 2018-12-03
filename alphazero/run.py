@@ -12,7 +12,7 @@ from coach import BoardGameBuilder
 from common_utils import TensorBoardLogger, mute_tf_logs_if_needed
 from keras.callbacks import EarlyStopping, TensorBoard
 from metrics import Tournament
-from nn import build_keras_nn, KerasNet
+from nn import build_keras_trainer
 from tabulate import tabulate
 from utils import Config
 
@@ -175,7 +175,7 @@ def hopt(ctx, n_steps):
             cfg.nn[k] = v
 
         # Build Keras neural net model
-        model = build_keras_nn(cfg.game, cfg.nn)
+        model = build_keras_trainer(cfg.game, cfg)
 
         # Fit model
         history = model.fit(data, targets,
@@ -283,11 +283,10 @@ def cross_play(ctx, checkpoints_dir, gap, second_config):
         checkpoints_dir = cfg.logging['save_checkpoint_folder']
 
     # Create players and their minds
-    first_player_net = KerasNet(build_keras_nn(cfg.game, cfg.nn), cfg.training)
-    second_player_net = KerasNet(build_keras_nn(
-        second_cfg.game, second_cfg.nn), second_cfg.training)
-    first_player = Planner(cfg.mdp, first_player_net, cfg.planner)
-    second_player = Planner(second_cfg.mdp, second_player_net, second_cfg.planner)
+    first_player_trainer = build_keras_trainer(cfg.game, cfg)
+    second_player_trainer = build_keras_trainer(second_cfg.game, second_cfg)
+    first_player = Planner(cfg.mdp, first_player_trainer.model, cfg.planner)
+    second_player = Planner(second_cfg.mdp, second_player_trainer.model, second_cfg.planner)
     players = AdversarialMinds(first_player, second_player)
 
     # Create callbacks
@@ -317,13 +316,13 @@ def cross_play(ctx, checkpoints_dir, gap, second_config):
     elo = ELOScoreboard(players_ids)
 
     for i, (first_player_id, first_checkpoint_path) in enumerate(zip(players_ids, checkpoints_paths)):
-        first_player_net.load_checkpoint(first_checkpoint_path)
+        first_player_trainer.load_checkpoint(first_checkpoint_path)
 
         tournament_wins = tournament_draws = 0
         opponents_elo = []
         for j in range(i + 1, len(players_ids)):
             second_player_id, second_checkpoint_path = players_ids[j], checkpoints_paths[j]
-            second_player_net.load_checkpoint(second_checkpoint_path)
+            second_player_trainer.load_checkpoint(second_checkpoint_path)
 
             # Clear players tree
             first_player.clear_tree()
