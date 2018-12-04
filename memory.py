@@ -36,8 +36,8 @@ class EPNState(GameState):
 
     def __eq__(self, other):
         return np.all(self.latent == other.latent) \
-            and np.all(self.hidden[0] == other.hidden[0]) \
-            and np.all(self.hidden[1] == other.hidden[1]) \
+            and bool(torch.all(self.hidden[0] == other.hidden[0])) \
+            and bool(torch.all(self.hidden[1] == other.hidden[1])) \
             and self.is_done == other.is_done
 
 
