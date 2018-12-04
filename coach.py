@@ -50,9 +50,17 @@ class Coach(Callback, metaclass=ABCMeta):
         self.train_mode = train_mode
         self.mind = None
 
+        # Get ckpt path and metadata
+        default_path = get_last_checkpoint_path(self.config.rnn['ckpt_dir'])
+        path = get_model_path_if_exists(epn_path, default_path or '', 'EPN-RNN')
+
         # Initialize metadata
-        self.global_epoch = 0
-        self.best_score = float('-inf')
+        if not path:  # When path is empty
+            self.iteration = 0
+            self.global_epoch = 0
+            self.best_score = float('-inf')
+        else:
+            self.iteration, self.global_epoch, self.best_score = read_checkpoint_metadata(path)
 
         # Track agent return, used to calculate mean in `play`
         self.play_callbacks = [ReturnTracker()]
@@ -64,7 +72,8 @@ class Coach(Callback, metaclass=ABCMeta):
         _, encoder, decoder = build_vae_model(
             self.config.vae, self.config.general['state_shape'], model_path=vae_path)
         self.trainer = build_rnn_model(
-            self.config.rnn, self.config.vae['latent_space_dim'], self.env.action_space, model_path=epn_path)
+            self.config.rnn, self.config.vae['latent_space_dim'], self.env.action_space,
+            model_path=path or None)  # None when path is empty, start tabula rasa
 
         # Create HRL vision
         basic_vision = BasicVision(  # Resizes states to `state_shape` with cropping
@@ -117,7 +126,7 @@ class Coach(Callback, metaclass=ABCMeta):
             self.data_loader = None
             self.train_callbacks = None
 
-    def play(self, desc="Gather data", n_episodes=None, callbacks=None):
+    def play(self, desc="Play", n_episodes=None, callbacks=None):
         """Self-play phase, gather data using best nn and save to storage.
 
         Args:
@@ -165,12 +174,13 @@ class Coach(Callback, metaclass=ABCMeta):
             callbacks=self.train_callbacks + callbacks,
         )
 
-    def update_best(self, current_score, iteration):
+        self.iteration += 1
+
+    def update_best(self, current_score):
         """Update best score and save ckpt if current agent is better.
 
         Args:
             current_score (float): Current agent's score.
-            iteration (int): Current training iteration num.
 
         Returns:
             bool: True if current agent's score is higher, False otherwise.
@@ -178,8 +188,8 @@ class Coach(Callback, metaclass=ABCMeta):
 
         if current_score > self.best_score:
             self.best_score = current_score
-            path = create_checkpoint_path(self.config.rnn['ckpt_prefix'],
-                                          iteration,
+            path = create_checkpoint_path(self.config.rnn['ckpt_dir'],
+                                          self.iteration,
                                           self.global_epoch,
                                           current_score)
             self.trainer.save_ckpt(path)

@@ -52,27 +52,26 @@ def iter_train(ctx, vae_path, epn_path):
     coach = Coach(config, vae_path, epn_path, train_mode=True)
 
     # Create checkpoint/logs directory, if it doesn't exist
-    create_directory(os.path.dirname(config.rnn['ckpt_prefix']))
+    create_directory(os.path.dirname(config.rnn['ckpt_dir']))
     create_directory(config.rnn['logs_dir'])
 
     # Create TensorBoard logger
     tb_logger = TensorBoardLogger(os.path.join(config.rnn['logs_dir'], 'tensorboard'))
 
     # Train EPN for inf epochs
-    iteration = 0
-    while config.ctrl['iterations'] == -1 or iteration < config.ctrl['iterations']:
+    while config.ctrl['iterations'] == -1 or coach.iteration < config.ctrl['iterations']:
         # Gather data
-        mean_score = coach.play()
+        mean_score = coach.play("Iter. {}".format(coach.iteration + 1))
 
         # Update best if current is better (and save ckpt)
-        is_better = coach.update_best(mean_score, iteration)
+        is_better = coach.update_best(mean_score)
         if is_better:
             log.info("Did save new checkpoint, current best: %f", mean_score)
         else:
             log.info("Didn't save new checkpoint, last best: %f", coach.best_score)
 
         # Log agent's current mean tb
-        tb_logger.log_scalar("Mean score", mean_score, iteration)
+        tb_logger.log_scalar("Mean score", mean_score, coach.iteration)
 
         # Proceed to training only if threshold is fulfilled
         if len(coach.storage.big_bag) < config.ctrl["min_examples"]:
@@ -84,8 +83,6 @@ def iter_train(ctx, vae_path, epn_path):
 
         # Fit EPN-RNN model!
         coach.train()
-
-        iteration += 1
 
 
 @cli.command()

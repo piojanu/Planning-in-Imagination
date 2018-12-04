@@ -10,7 +10,6 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data import Dataset
 
-from common_utils import get_model_path_if_exists
 from world_models.third_party.torchtrainer import TorchTrainer, evaluate
 
 
@@ -342,7 +341,7 @@ def build_rnn_model(rnn_params, latent_dim, action_space, model_path=None):
         rnn_params (dict): EPN-RNN parameters from .json config.
         latent_dim (int): Latent space dimensionality.
         action_space (hrl.environments.ActionSpace): Action space, discrete or continuous.
-        model_path (str): Path to VAE ckpt. Taken from .json config if `None` (Default: None)
+        model_path (str): Path to EPN-RNN ckpt to load or `None`. (Default: None)
 
     Returns:
         TorchTrainer: Compiled EPN-RNN model wrapped in TorchTrainer, ready for training.
@@ -374,9 +373,6 @@ def build_rnn_model(rnn_params, latent_dim, action_space, model_path=None):
             'value': nn.MSELoss()
         }
     )
-
-    model_path = get_model_path_if_exists(
-        path=model_path, default_path=rnn_params['ckpt_path'], model_name="EPN-RNN")
 
     if model_path is not None:
         epn.load_ckpt(model_path)
