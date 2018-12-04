@@ -10,8 +10,35 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data import Dataset
 
+from alphazero.env import GameState
 from common_utils import get_model_path_if_exists
 from world_models.third_party.torchtrainer import TorchTrainer, evaluate
+
+
+class EPNState(GameState):
+    """Board games state.
+
+    Args:
+        latent (np.ndarray): Latent state.
+        hidden (tuple): Hidden state (h, c).
+        is_done (bool): Is state terminal.
+    """
+
+    def __init__(self, latent, hidden, is_done):
+        super(EPNState, self).__init__(state=(latent, hidden, is_done))
+        self.latent = latent
+        self.hidden = hidden
+        self.is_done = is_done
+
+    def __hash__(self):
+        h, c = self.hidden[0].cpu().numpy(), self.hidden[1].cpu().numpy()
+        return hash(self.latent.tostring() + h.tostring() + c.tostring() + bytes(self.is_done))
+
+    def __eq__(self, other):
+        return np.all(self.latent == other.latent) \
+               and np.all(self.hidden[0] == other.hidden[0]) \
+               and np.all(self.hidden[1] == other.hidden[1]) \
+               and self.is_done == other.is_done
 
 
 class EPNVision(Vision, Callback):
@@ -43,7 +70,7 @@ class EPNVision(Vision, Callback):
         hidden = self.epn_model.hidden
 
         # Agent never get terminal state to decide on. Always return False as done flag of state.
-        return latent, hidden, False
+        return EPNState(latent=latent, hidden=hidden, is_done=False)
 
     def on_episode_start(self, episode, train_mode):
         self.epn_model.init_hidden(1)
@@ -52,8 +79,8 @@ class EPNVision(Vision, Callback):
         device = next(self.epn_model.parameters()).device
 
         latent = torch.as_tensor(
-            transition.state[0], dtype=torch.float, device=device).view(1, 1, -1)
-        hidden = transition.state[1]
+            transition.state.latent, dtype=torch.float, device=device).view(1, 1, -1)
+        hidden = transition.state.hidden
         action = torch.as_tensor(
             transition.action, dtype=torch.long, device=device).view(1, 1, -1)
 
@@ -144,6 +171,7 @@ class EPN(nn.Module):
         self.done = nn.Linear(hidden_units, 1)
         self.pi = nn.Linear(hidden_units, action_space.num)
         self.value = nn.Linear(hidden_units, 1)
+        self.pi_out = nn.Sequential(self.pi, nn.Softmax(dim=2))
 
     def forward(self, latent, action, hidden=None):
         self.lstm.flatten_parameters()
@@ -225,6 +253,23 @@ class EPN(nn.Module):
         #       batch x len(states) (sequence dim.) x latent dim.
         return np.transpose(np.squeeze(np.array(states), axis=2), axes=[1, 0, 2])
 
+    def predict(self, state):
+        """Predict pi and value based on current state.
+
+        Args:
+            state (np.ndarray): Latent state, hidden state, is done flag (shape: [1, 3]).
+
+        Returns:
+            np.ndarray: pi,
+            np.ndarray: value
+        """
+
+        # NOTE: state[0, 1] gets the tuple representing LSTM's hidden state.
+        #       Pi and value work on the output itself, which is hidden[0].
+        hidden = state[0, 1][0]
+        return self.pi_out(hidden).cpu().detach().numpy()[0], \
+               self.value(hidden).cpu().detach().numpy()[0]
+
     def init_hidden(self, batch_size):
         device = next(self.parameters()).device
 
@@ -255,20 +300,19 @@ class SokobanMDP(MDP):
         """Perform `action` in `state`. Return outcome.
 
         Args:
-            state (tuple): MDP's state (observation latent vector, memory hidden state, if done).
+            state (EPNState): MDP's state (observation latent vector, memory hidden state, if done).
             action (int): MDP's action.
 
         Returns:
-            state (tuple): MDP's next state (observation latent vector, memory hidden state, if done).
+            state (EPNState): MDP's next state (observation latent vector, memory hidden state, if done).
             float: Reward.
         """
 
-        latent, hidden, is_done = state
-        if is_done:
+        if state.is_done:
             return state
 
         next_latent, next_hidden, reward, is_done_prob = \
-            self.epn_model.sample(latent, hidden, action)
+            self.epn_model.sample(state.latent, state.hidden, action)
 
         # Determine if this terminal state
         is_done = is_done_prob > self.done_threshold
@@ -279,7 +323,7 @@ class SokobanMDP(MDP):
             result = 1 if reward > 0 else -1
 
         # TODO: This should predict reward
-        return (next_latent, next_hidden, is_done), result
+        return EPNState(next_latent, next_hidden, is_done), result
 
     def get_init_state(self):
         """Prepare and return initial state.
@@ -309,14 +353,15 @@ class SokobanMDP(MDP):
         """Check if `state` is terminal.
 
         Args:
-            state (tuple): MDP's state (observation latent vector, memory hidden state).
+            state (EPNState): MDP's state (observation latent vector, memory hidden state).
 
         Returns:
             bool: Whether state is terminal or not.
         """
 
-        return state[2]
+        return state.is_done
 
+    @property
     def action_space(self):
         """Get action space definition.
 
@@ -326,6 +371,7 @@ class SokobanMDP(MDP):
 
         return self.env.action_space
 
+    @property
     def state_space(self):
         """Get environment state space definition.
 

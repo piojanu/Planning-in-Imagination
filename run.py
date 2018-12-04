@@ -4,7 +4,7 @@ import os.path
 
 import click
 
-from coach import RandomCoach as Coach
+from coach import AlphaZeroCoach as Coach
 from common_utils import TensorBoardLogger, TqdmStream, create_directory, obtain_config
 from common_utils import mute_tf_logs_if_needed
 from utils import Config

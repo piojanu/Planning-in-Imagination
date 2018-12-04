@@ -18,6 +18,7 @@ class Config(object):
         self.vae = {**default_config["vae_training"], **custom_config.get("vae_training", {})}
         self.rnn = {**default_config["rnn_training"], **custom_config.get("rnn_training", {})}
         self.ctrl = {**default_config["ctrl_play"], **custom_config.get("ctrl_play", {})}
+        self.planner = {**default_config["planner"], **custom_config.get("planner", {})}
         self.is_debug = is_debug
         self.allow_render = allow_render
 
@@ -39,7 +40,7 @@ class ExperienceStorage(Storage):
 
     def on_step_taken(self, step, transition, info):
         self.small_bag.append((
-            transition.state[0],  # Take latent state, discard hidden state
+            transition.state.latent,  # Take latent state, discard hidden state
             transition.action,    # Action is needed as RNN input
             transition.reward,
             transition.is_terminal,
@@ -48,7 +49,7 @@ class ExperienceStorage(Storage):
 
         if transition.is_terminal:
             # NOTE: We just need next state to train RNN predict it, any other value doesn't matter.
-            tau = [(transition.next_state[0], None, None, None, None, None)]
+            tau = [(transition.next_state.latent, None, None, None, None, None)]
 
             return_t = 0
             for state, action, reward, is_terminal, mcts_pi in reversed(self.small_bag):
