@@ -25,6 +25,7 @@ class MDNVision(Vision, Callback):
     Note:
         In order to work, this Vision system must be also passed as callback to 'hrl.loop(...)'!
     """
+
     def __init__(self, vae_model, mdn_model, latent_dim):
         self.vae_model = vae_model
         self.mdn_model = mdn_model

@@ -6,11 +6,12 @@ from humblerl.agents import ChainVision, RandomAgent
 import numpy as np
 from torch.utils.data import DataLoader
 
-from common_utils import ReturnTracker
+from common_utils import ReturnTracker, get_model_path_if_exists
 from memory import build_rnn_model, EPNDataset, EPNVision
+from utils import create_checkpoint_path, get_last_checkpoint_path, read_checkpoint_metadata
 from utils import ExperienceStorage
 from world_models.utils import MemoryVisualization
-from world_models.third_party.torchtrainer import EarlyStopping, LambdaCallback, ModelCheckpoint
+from world_models.third_party.torchtrainer import EarlyStopping, LambdaCallback
 from world_models.third_party.torchtrainer import Callback, CSVLogger, TensorBoardLogger
 from world_models.vision import BasicVision, build_vae_model
 
@@ -51,7 +52,7 @@ class Coach(Callback, metaclass=ABCMeta):
 
         # Initialize metadata
         self.global_epoch = 0
-        self.best_score = 0
+        self.best_score = float('-inf')
 
         # Track agent return, used to calculate mean in `play`
         self.play_callbacks = [ReturnTracker()]
@@ -103,7 +104,6 @@ class Coach(Callback, metaclass=ABCMeta):
                 EarlyStopping(metric='loss', patience=self.config.rnn['patience'], verbose=1),
                 LambdaCallback(on_batch_begin=lambda _, batch_size:
                                self.trainer.model.init_hidden(batch_size)),
-                ModelCheckpoint(self.config.rnn['ckpt_path'], metric='loss', save_best=True),
                 CSVLogger(os.path.join(self.config.rnn['logs_dir'], 'train_mem.csv')),
                 TensorBoardLogger(os.path.join(self.config.rnn['logs_dir'], 'tensorboard'))
             ]
@@ -165,8 +165,29 @@ class Coach(Callback, metaclass=ABCMeta):
             callbacks=self.train_callbacks + callbacks,
         )
 
+    def update_best(self, current_score, iteration):
+        """Update best score and save ckpt if current agent is better.
+
+        Args:
+            current_score (float): Current agent's score.
+            iteration (int): Current training iteration num.
+
+        Returns:
+            bool: True if current agent's score is higher, False otherwise.
+        """
+
+        if current_score > self.best_score:
+            self.best_score = current_score
+            path = create_checkpoint_path(self.config.rnn['ckpt_prefix'],
+                                          iteration,
+                                          self.global_epoch,
+                                          current_score)
+            self.trainer.save_ckpt(path)
+            return True
+        return False
+
     def on_epoch_end(self, epoch, _):
-        self.global_epoch = epoch
+        self.global_epoch = epoch + 1
 
 
 class RandomCoach(Coach):

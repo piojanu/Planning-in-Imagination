@@ -56,9 +56,9 @@ Config options:
     "rend_step"          : 4,                    -- Render every Nth frame. rend_step*rend_n_rollouts can't be greater than sequence_len/2
     "exp_replay_size"    : 200000,               -- How many games to keep in experience replay.
     "gamma"              : 1.0                   -- Discount factor, used to calculate state values.
-    "ckpt_path"          : "./ckpt/memory.ckpt", -- Path to best model (checkpoint).
+    "ckpt_prefix"        : "./ckpt/memory",      -- Prefix used in path to best model (checkpoint).
     "logs_dir"           : "./logs"              -- Path to directory with logs.
 }
 ```
 
-Best model will be saved to and loaded from `ckpt_path`.
+By default best model will be loaded from last iteration checkpoint.

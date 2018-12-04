@@ -1,3 +1,7 @@
+import datetime as dt
+import glob
+import os.path
+
 from common_utils import Storage, get_configs
 
 
@@ -60,3 +64,26 @@ class ExperienceStorage(Storage):
                 self.big_bag.popleft()
 
             self.small_bag.clear()
+
+
+def create_checkpoint_path(prefix, iteration, epoch, score):
+    """Encode iter. num., epoch num., score and date and time into path."""
+    return "_".join([os.path.abspath(prefix),
+                     '{0:03d}'.format(iteration),
+                     '{0:04d}'.format(epoch),
+                     '{0:03.5f}'.format(score),
+                     dt.datetime.now().strftime("%d-%mT%H:%M")]) + ".ckpt"
+
+
+def read_checkpoint_metadata(filename):
+    """Read iter. num., epoch num. and score from filename."""
+    iteration, epoch, score = filename.split('_')[1:-1]
+    return int(iteration), int(epoch), float(score)
+
+
+def get_last_checkpoint_path(prefix):
+    """Looks for files with `prefix` in filename and '.ckpt' extension."""
+    files = list(filter(os.path.isfile, glob.glob(os.path.join(prefix, '*.ckpt'))))
+    files.sort(key=lambda x: read_checkpoint_metadata(x)[0])
+
+    return files[-1] if len(files) > 0 else ''
