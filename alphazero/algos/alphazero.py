@@ -4,7 +4,7 @@ import logging as log
 import numpy as np
 
 from humblerl import Callback, Mind
-from ..tree.basic import Edge, Node
+from tree.basic import Edge, Node
 
 
 class Planner(Callback, Mind):
