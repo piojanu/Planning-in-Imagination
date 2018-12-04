@@ -36,9 +36,9 @@ class EPNState(GameState):
 
     def __eq__(self, other):
         return np.all(self.latent == other.latent) \
-               and np.all(self.hidden[0] == other.hidden[0]) \
-               and np.all(self.hidden[1] == other.hidden[1]) \
-               and self.is_done == other.is_done
+            and np.all(self.hidden[0] == other.hidden[0]) \
+            and np.all(self.hidden[1] == other.hidden[1]) \
+            and self.is_done == other.is_done
 
 
 class EPNVision(Vision, Callback):
@@ -268,7 +268,7 @@ class EPN(nn.Module):
         #       Pi and value work on the output itself, which is hidden[0].
         hidden = state[0, 1][0]
         return self.pi_out(hidden).cpu().detach().numpy()[0], \
-               self.value(hidden).cpu().detach().numpy()[0]
+            self.value(hidden).cpu().detach().numpy()[0]
 
     def init_hidden(self, batch_size):
         device = next(self.parameters()).device
