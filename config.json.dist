@@ -25,7 +25,7 @@
         "rend_n_episodes"    : 16,
         "rend_step"          : 4,
         "gamma"              : 1.0,
-        "ckpt_path"          : "./checkpoints/best_memory.ckpt",
+        "ckpt_dir"           : "./checkpoints",
         "logs_dir"           : "./logs"
     },
     "ctrl_play": {
