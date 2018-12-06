@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
 import logging as log
 import os.path
+import sys
 
 import click
+
+# NOTE: For the relative imports to work correctly, alphazero and world_models
+#       must be added to python path.
+sys.path.extend(['alphazero', 'world_models'])
 
 from coach import AlphaZeroCoach as Coach
 from common_utils import TensorBoardLogger, TqdmStream, create_directory, obtain_config
