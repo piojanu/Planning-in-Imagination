@@ -35,7 +35,7 @@
         "popsize"            : 64,
         "n_episodes"         : 5,
         "processes"          : -1,
-        "l2_decay"           : 0.01,
+        "l2_decay"           : 0.0001,
         "ckpt_path"          : "./checkpoints/best_controller.ckpt",
         "mind_path"          : "./checkpoints/controller_weights.ckpt",
         "logs_dir"           : "./logs"
