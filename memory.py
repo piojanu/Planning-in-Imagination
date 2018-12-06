@@ -170,7 +170,6 @@ class EPN(nn.Module):
         self.done = nn.Linear(hidden_units, 1)
         self.pi = nn.Linear(hidden_units, action_space.num)
         self.value = nn.Linear(hidden_units, 1)
-        self.pi_out = nn.Sequential(self.pi, nn.Softmax(dim=2))
 
     def forward(self, latent, action, hidden=None):
         self.lstm.flatten_parameters()
@@ -259,15 +258,16 @@ class EPN(nn.Module):
             state (np.ndarray): Latent state, hidden state, is done flag (shape: [1, 3]).
 
         Returns:
-            np.ndarray: pi,
-            np.ndarray: value
+            np.ndarray: Probabilities of taking action a in given state,
+            np.ndarray: Value of a given state.
         """
 
         # NOTE: state[0, 1] gets the tuple representing LSTM's hidden state.
         #       Pi and value work on the output itself, which is hidden[0].
         hidden = state[0, 1][0]
-        return self.pi_out(hidden).cpu().detach().numpy()[0], \
-            self.value(hidden).cpu().detach().numpy()[0]
+        pi = F.softmax(self.pi(hidden), dim=2).cpu().detach().numpy()[0]
+        value = self.value(hidden).cpu().detach().numpy()[0]
+        return pi, value
 
     def init_hidden(self, batch_size):
         device = next(self.parameters()).device
