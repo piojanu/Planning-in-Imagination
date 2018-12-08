@@ -1,13 +1,16 @@
-from abc import ABCMeta, abstractclassmethod
+from abc import ABCMeta
 import os.path
 
 import humblerl as hrl
 from humblerl.agents import ChainVision, RandomAgent
 import numpy as np
+# NOTE: When using GPU, tensorflow MUST be imported before torch to avoid segmentation fault
+import tensorflow
 from torch.utils.data import DataLoader
 
+from alphazero.algos.alphazero import Planner
 from common_utils import ReturnTracker, get_model_path_if_exists
-from memory import build_rnn_model, EPNDataset, EPNVision
+from memory import build_rnn_model, EPNDataset, EPNVision, SokobanMDP
 from utils import create_checkpoint_path, get_last_checkpoint_path, read_checkpoint_metadata
 from utils import ExperienceStorage
 from world_models.utils import MemoryVisualization
@@ -66,7 +69,7 @@ class Coach(Callback, metaclass=ABCMeta):
         self.play_callbacks = [ReturnTracker()]
 
         # Create env and mind
-        self.env = hrl.create_gym(self.config.general['game_name'])
+        self.env = hrl.QualitativeRewardEnvironment(hrl.create_gym(self.config.general['game_name']))
 
         # Create vision and memory modules
         _, encoder, decoder = build_vae_model(
@@ -214,3 +217,20 @@ class RandomCoach(Coach):
     def __init__(self, config, vae_path=None, epn_path=None, train_mode=True):
         super(RandomCoach, self).__init__(config, vae_path, epn_path, train_mode)
         self.mind = RandomAgent(self.env)
+
+
+class AlphaZeroCoach(Coach):
+    """AlphaZero agent's coach, keeps all the operations to train and run algorithm.
+
+    Args:
+        config (Config): Configuration loaded from .json file.
+        vae_path (string): Path to VAE ckpt. Taken from .json config if `None` (Default: None)
+        epn_path (string): Path to EPN ckpt. Taken from .json config if `None` (Default: None)
+        train_mode (bool): If Coach is in train mode (can be trained) or in eval mode (can be
+            only played).
+    """
+
+    def __init__(self, config, vae_path=None, epn_path=None, train_mode=True):
+        super(AlphaZeroCoach, self).__init__(config, vae_path, epn_path, train_mode)
+        self.mdp = SokobanMDP(self.env, self.trainer.model, self.config.ctrl['done_threshold'])
+        self.mind = Planner(self.mdp, self.trainer.model, self.config.planner)

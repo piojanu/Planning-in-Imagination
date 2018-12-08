@@ -9,7 +9,7 @@ class GameState(metaclass=ABCMeta):
     """Game state interface.
 
     Args:
-        state (np.ndarray): Board state.
+        state (object): Game state, type depending on implementation.
     """
 
     def __init__(self, state):
