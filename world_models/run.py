@@ -163,7 +163,7 @@ def train_vae(ctx, path):
         LambdaCallback(on_epoch_begin=plot_samples),
         ModelCheckpoint(config.vae['ckpt_path'], verbose=1,
                         save_best_only=True, save_weights_only=True),
-        CSVLogger(filename=os.path.join(config.rnn['logs_dir'], 'train_vae.csv'), append=True)
+        CSVLogger(filename=os.path.join(config.vae['logs_dir'], 'train_vae.csv'), append=True)
     ]
 
     # Fit VAE model!
