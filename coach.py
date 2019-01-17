@@ -48,7 +48,6 @@ class Coach(Callback, metaclass=ABCMeta):
     """
 
     def __init__(self, config, vae_path=None, epn_path=None, train_mode=True):
-
         self.config = config
         self.train_mode = train_mode
         self.mind = None
@@ -69,7 +68,8 @@ class Coach(Callback, metaclass=ABCMeta):
         self.play_callbacks = [ReturnTracker()]
 
         # Create env and mind
-        self.env = hrl.QualitativeRewardEnvironment(hrl.create_gym(self.config.general['game_name']))
+        self.env = hrl.QualitativeRewardEnvironment(
+            hrl.create_gym(self.config.general['game_name']))
 
         # Create vision and memory modules
         _, encoder, decoder = build_vae_model(

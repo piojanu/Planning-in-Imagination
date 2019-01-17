@@ -16,6 +16,13 @@ from humblerl.callbacks import BasicStats, CSVSaverWrapper
 class Coach(object):
     """AlphaZero coach, all the operations to train and evaluate algorithm.
 
+    Args:
+        config (Config): Configuration loaded from .json file.
+        best_ckpt (string): Path to best agent nn weights. If None, then newest ckpt file in
+            ckpt dir from config is taken. (Default: None)
+        current_ckpt (string): Path to current agent (trained one) nn weights. If None, then the
+            weights are copied from best nn. (Default: None)
+
     Attributes:
         cfg (Config): Configuration loaded from .json file.
         env (hrl.Environment): Environment to play in.
@@ -33,21 +40,59 @@ class Coach(object):
         best_score (float): Current best agent score.
     """
 
-    def __init__(self):
-        self.cfg = None
-        self.env = None
-        self.vision = None
-        self.best_nn = None
-        self.current_nn = None
-        self.best_mind = None
-        self.current_mind = None
-        self.storage = None
-        self.scoreboard = None
-        self.play_callbacks = None
-        self.train_callbacks = None
-        self.eval_callbacks = None
-        self.global_epoch = None
-        self.best_score = None
+    def __init__(self, config, best_ckpt=None, current_ckpt=None):
+        self.cfg = config
+        self.env = self.cfg.env
+
+        self.vision = BoardVision(self.cfg.game)
+
+        self.best_nn = build_keras_trainer(self.cfg.game, self.cfg)
+        self.current_nn = build_keras_trainer(self.cfg.game, self.cfg)
+
+        best_player = Planner(self.cfg.mdp, self.best_nn.model, self.cfg.planner)
+        current_player = Planner(self.cfg.mdp, self.current_nn.model, self.cfg.planner)
+        self.best_mind = AdversarialMinds(best_player, best_player)
+        self.current_mind = AdversarialMinds(current_player, best_player)
+
+        self.storage = BoardStorage(self.cfg)
+        # Load storage date from disk (path in config)
+        self.storage.load()
+
+        self.scoreboard = CSVSaverWrapper(
+            Tournament(self.cfg.self_play["update_threshold"]),
+            self.cfg.logging['save_tournament_log_path'], True)
+
+        self.play_callbacks = [
+            CSVSaverWrapper(BasicStats(), self.cfg.logging['save_self_play_log_path'])]
+        self.train_callbacks = [
+            TensorBoard(log_dir=utils.create_tensorboard_log_dir(
+                self.cfg.logging['tensorboard_log_folder'], 'self_play'))]
+        self.eval_callbacks = [self.cfg.env]  # env added to alternate starting player
+
+        # Load best nn checkpoint if available
+        try:
+            if best_ckpt:
+                ckpt_path = best_ckpt
+            else:
+                ckpt_dir = self.cfg.logging['save_checkpoint_folder']
+                ckpt_path = os.path.join(ckpt_dir, utils.get_newest_ckpt_fname(ckpt_dir))
+
+            self.best_nn.load_checkpoint(ckpt_path)
+            self.global_epoch = utils.get_checkpoints_epoch(ckpt_path)
+            self.best_score = utils.get_checkpoints_elo(ckpt_path)
+
+            log.info("Best mind has loaded latest checkpoint: %s", ckpt_path)
+        except BaseException:
+            log.info("No initial checkpoint, starting tabula rasa.")
+            self.global_epoch = 0
+            self.best_score = 1000
+
+        if current_ckpt:
+            # Load current nn checkpoint
+            self.current_nn.load_checkpoint(current_ckpt)
+        else:
+            # Copy best nn weights to current nn that will be trained
+            self.current_nn.model.set_weights(self.best_nn.model.get_weights())
 
     def play(self, desc="Play"):
         """Self-play phase, gather data using best nn and save to storage.
@@ -117,137 +162,3 @@ class Coach(object):
         # Save best and exchange weights
         self.current_nn.save_checkpoint(self.cfg.logging['save_checkpoint_folder'], best_fname)
         self.best_nn.model.set_weights(self.current_nn.model.get_weights())
-
-
-class Builder(metaclass=ABCMeta):
-    """Builds AlphaZero coach components.
-
-    Args:
-        config (Config): Configuration loaded from .json file.
-    """
-
-    def __init__(self, config):
-        self.cfg = config
-        self.coach = None
-
-    def direct(self, best_ckpt=None, current_ckpt=None):
-        """Direct AlphaZero coach building process.
-
-        Args:
-            best_ckpt (string): Path to best agent nn weights. If None, then newest ckpt file in
-                ckpt dir from config is taken. (Default: None)
-            current_ckpt (string): Path to current agent (trained one) nn weights. If None, then the
-                weights are copied from best nn. (Default: None)
-        """
-
-        self.coach = Coach()
-        self.coach.cfg = self.cfg
-
-        self.build_env()
-        self.build_vision()
-        self.build_nn()
-        self.build_mind()
-        self.build_storage()
-        self.build_scoreboard()
-        self.build_callbacks()
-
-        # Load best nn checkpoint if available
-        try:
-            if best_ckpt:
-                ckpt_path = best_ckpt
-            else:
-                ckpt_dir = self.cfg.logging['save_checkpoint_folder']
-                ckpt_path = os.path.join(ckpt_dir, utils.get_newest_ckpt_fname(ckpt_dir))
-
-            self.coach.best_nn.load_checkpoint(ckpt_path)
-            self.coach.global_epoch = utils.get_checkpoints_epoch(ckpt_path)
-            self.coach.best_score = utils.get_checkpoints_elo(ckpt_path)
-
-            log.info("Best mind has loaded latest checkpoint: %s", ckpt_path)
-        except BaseException:
-            log.info("No initial checkpoint, starting tabula rasa.")
-            self.build_metadata()
-
-        if current_ckpt:
-            # Load current nn checkpoint
-            self.coach.current_nn.load_checkpoint(current_ckpt)
-        else:
-            # Copy best nn weights to current nn that will be trained
-            self.coach.current_nn.model.set_weights(self.coach.best_nn.model.get_weights())
-
-        return self.coach
-
-    @abstractmethod
-    def build_env(self):
-        pass
-
-    @abstractmethod
-    def build_vision(self):
-        pass
-
-    @abstractmethod
-    def build_nn(self):
-        pass
-
-    @abstractmethod
-    def build_metadata(self):
-        pass
-
-    @abstractmethod
-    def build_mind(self):
-        pass
-
-    @abstractmethod
-    def build_storage(self):
-        pass
-
-    @abstractmethod
-    def build_scoreboard(self):
-        pass
-
-    @abstractmethod
-    def build_callbacks(self):
-        pass
-
-
-class BoardGameBuilder(Builder):
-    """AlphaZero coach builder for board games."""
-
-    def build_env(self):
-        self.coach.env = self.cfg.env
-
-    def build_vision(self):
-        self.coach.vision = BoardVision(self.cfg.game)
-
-    def build_nn(self):
-        self.coach.best_nn = build_keras_trainer(self.cfg.game, self.cfg)
-        self.coach.current_nn = build_keras_trainer(self.cfg.game, self.cfg)
-
-    def build_metadata(self):
-        self.coach.global_epoch = 0
-        self.coach.best_score = 1000
-
-    def build_mind(self):
-        best_player = Planner(self.cfg.mdp, self.coach.best_nn.model, self.cfg.planner)
-        current_player = Planner(self.cfg.mdp, self.coach.current_nn.model, self.cfg.planner)
-
-        self.coach.best_mind = AdversarialMinds(best_player, best_player)
-        self.coach.current_mind = AdversarialMinds(current_player, best_player)
-
-    def build_storage(self):
-        self.coach.storage = BoardStorage(self.cfg)
-        # Load storage date from disk (path in config)
-        self.coach.storage.load()
-
-    def build_scoreboard(self):
-        self.coach.scoreboard = CSVSaverWrapper(
-            Tournament(self.cfg.self_play["update_threshold"]),
-            self.cfg.logging['save_tournament_log_path'], True)
-
-    def build_callbacks(self):
-        self.coach.play_callbacks = [
-            CSVSaverWrapper(BasicStats(), self.cfg.logging['save_self_play_log_path'])]
-        self.coach.train_callbacks = [
-            TensorBoard(log_dir=utils.create_tensorboard_log_dir(
-                self.cfg.logging['tensorboard_log_folder'], 'self_play'))]
-        self.coach.eval_callbacks = [self.cfg.env]  # env added to alternate starting player

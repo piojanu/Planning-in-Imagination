@@ -8,7 +8,7 @@ import utils
 from algos.alphazero import Planner
 from algos.board_games import AdversarialMinds, BoardRender, BoardStorage, BoardVision, ELOScoreboard
 from algos.human import HumanPlayer
-from coach import BoardGameBuilder
+from coach import Coach
 from common_utils import TensorBoardLogger, mute_tf_logs_if_needed
 from keras.callbacks import EarlyStopping, TensorBoard
 from metrics import Tournament
@@ -28,10 +28,8 @@ def cli(ctx, config, debug):
     log.basicConfig(level=log.DEBUG if debug else log.INFO,
                     format="[%(levelname)s]: %(message)s")
 
-    # Create context and builder
-    cfg = Config(config, debug)
-    builder = BoardGameBuilder(cfg)
-    ctx.obj = cfg, builder
+    # Create context with config
+    ctx.obj = Config(config, debug)
 
 
 @cli.command()
@@ -64,8 +62,8 @@ def self_play(ctx):
                                                         (Default: 0.55)
     """
 
-    cfg, builder = ctx.obj
-    coach = builder.direct()
+    cfg = ctx.obj
+    coach = Coach(cfg)
 
     # Create TensorBoard logger
     tb_logger = TensorBoardLogger(utils.create_tensorboard_log_dir(
@@ -104,8 +102,8 @@ def self_play(ctx):
 def train(ctx, checkpoint, save_dir, tensorboard):
     """Train NN from passed configuration."""
 
-    cfg, builder = ctx.obj
-    coach = builder.direct(checkpoint)
+    cfg = ctx.obj
+    coach = Coach(cfg, checkpoint)
 
     # Create TensorBoard logging callback if enabled
     if tensorboard:
@@ -139,7 +137,7 @@ def hopt(ctx, n_steps):
     from skopt.utils import use_named_args
     import matplotlib.pyplot as plt
 
-    cfg, _ = ctx.obj
+    cfg = ctx.obj
 
     # Create storage and load data
     storage = BoardStorage(cfg)
@@ -216,8 +214,8 @@ def clash(ctx, first_model_path, second_model_path, render, n_games):
             second_model_path (string): Path to player two model.
     """
 
-    cfg, builder = ctx.obj
-    coach = builder.direct(current_ckpt=first_model_path, best_ckpt=second_model_path)
+    cfg = ctx.obj
+    coach = Coach(cfg, current_ckpt=first_model_path, best_ckpt=second_model_path)
 
     coach.scoreboard = Tournament()
     coach.evaluate(
@@ -244,8 +242,8 @@ def human_play(ctx, model_path, n_games):
             model_path: (string): Path to trained model.
     """
 
-    cfg, builder = ctx.obj
-    coach = builder.direct(model_path)
+    cfg = ctx.obj
+    coach = Coach(cfg, model_path)
 
     coach.current_mind.players[1] = HumanPlayer(cfg.mdp)
     coach.eval_callbacks.append(BoardRender(cfg.env, render=True, fancy=True))
@@ -272,7 +270,7 @@ def cross_play(ctx, checkpoints_dir, gap, second_config):
     """Validate trained models. Best networks play with each other."""
 
     # TODO: Use coach object.
-    cfg, _ = ctx.obj
+    cfg = ctx.obj
     second_cfg = Config(second_config) if second_config is not None else cfg
 
     # Create board games vision
