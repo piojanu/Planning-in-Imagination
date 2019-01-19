@@ -269,7 +269,6 @@ def human_play(ctx, model_path, n_games):
 def cross_play(ctx, checkpoints_dir, gap, second_config):
     """Validate trained models. Best networks play with each other."""
 
-    # TODO: Use coach object.
     cfg = ctx.obj
     second_cfg = Config(second_config) if second_config is not None else cfg
 
