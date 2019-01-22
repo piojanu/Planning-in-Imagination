@@ -73,7 +73,7 @@ class MDNDataset(Dataset):
         same as desired Tensor type.
     """
 
-    def __init__(self, dataset_path, sequence_len, terminal_prob=0.5, dataset_fraction=1.):
+    def __init__(self, dataset_path, sequence_len, terminal_prob, dataset_fraction):
         assert 0 < terminal_prob and terminal_prob <= 1.0, "0 < terminal_prob <= 1.0"
         assert 0 < dataset_fraction and dataset_fraction <= 1.0, "0 < dataset_fraction <= 1.0"
 
