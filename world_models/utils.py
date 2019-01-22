@@ -328,9 +328,16 @@ def create_generating_agent(generating_agent, env):
         hrl.Mind: Generating agent.
         list:     Callbacks that should be added to hrl.loop, empty list by default.
     """
+
     if generating_agent == 'car_racing':
+        log.info("Created agent for Car Racing.")
         agent = CarRacingAgent(env)
         return agent, [agent.step_counter_callback]
+    elif generating_agent == 'move_n_push':
+        log.info("Created agent for Sokoban.")
+        agent = MoveNPushAgent(env)
+        return agent, []
+    log.info("Created generic random agent.")
     return hrl.agents.RandomAgent(env), []
 
 
@@ -384,6 +391,21 @@ class CarRacingAgent(hrl.Mind):
 
         self.current_action = action
         return action
+
+
+class MoveNPushAgent(hrl.Mind):
+    """'Random' agent for Sokoban game. It performs push action (in random direction) with
+    probability 0.7 and move action otherwise.
+    """
+
+    def __init__(self, env):
+        self.action_num = env.action_space.num
+
+    def plan(self, state, train_mode, debug_mode):
+        action = np.random.randint(4) + 4 * (np.random.rand() >= 0.7)
+        one_hot = np.zeros(self.action_num)
+        one_hot[action] = 1
+        return one_hot
 
 
 class MemoryVisualization(TorchCallback):
