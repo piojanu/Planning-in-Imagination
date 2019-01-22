@@ -220,7 +220,10 @@ def train_mem(ctx, path, vae_path):
     create_directory(os.path.dirname(config.rnn['ckpt_path']))
 
     # Create training DataLoader
-    dataset = MDNDataset(path, config.rnn['sequence_len'], config.rnn['terminal_prob'])
+    dataset = MDNDataset(path,
+                         config.rnn['sequence_len'],
+                         config.rnn['terminal_prob'],
+                         config.rnn['dataset_fraction'])
     data_loader = DataLoader(
         dataset,
         batch_sampler=RandomBatchSampler(dataset, config.rnn['batch_size']),

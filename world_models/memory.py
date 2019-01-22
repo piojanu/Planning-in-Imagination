@@ -73,12 +73,14 @@ class MDNDataset(Dataset):
         same as desired Tensor type.
     """
 
-    def __init__(self, dataset_path, sequence_len, terminal_prob=0.5):
+    def __init__(self, dataset_path, sequence_len, terminal_prob=0.5, dataset_fraction=1.):
         assert 0 < terminal_prob and terminal_prob <= 1.0, "0 < terminal_prob <= 1.0"
+        assert 0 < dataset_fraction and dataset_fraction <= 1.0, "0 < dataset_fraction <= 1.0"
 
         self.dataset = h5py.File(dataset_path, "r")
         self.sequence_len = sequence_len
         self.terminal_prob = terminal_prob
+        self.dataset_fraction = dataset_fraction
         self.latent_dim = self.dataset.attrs["LATENT_DIM"]
         self.action_dim = self.dataset.attrs["ACTION_DIM"]
 
@@ -125,7 +127,7 @@ class MDNDataset(Dataset):
         return [states, actions], [next_states]
 
     def __len__(self):
-        return self.dataset.attrs["N_GAMES"]
+        return int(self.dataset.attrs["N_GAMES"] * self.dataset_fraction)
 
     def close(self):
         self.dataset.close()
