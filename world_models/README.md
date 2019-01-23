@@ -155,6 +155,7 @@ Config options:
     "sequence_len"       : 1000,                 -- Sequence length to use in RNN. If recorded episode is shorter, it will
                                                  -- be padded with zeros.
     "terminal_prob"      : 0.2,                  -- Probability that sampled sequence will finish with terminal state.
+    "dataset_fraction"   : 1.0,                  -- Fraction of dataset to use during training, value range: (0, 1] (dataset forepart is taken).
     "hidden_units"       : 256,                  -- Number of neurons in RNN's hidden state.
     "n_gaussians"        : 5,                    -- Number of Gaussian distributions in mixture.
     "temperature"        : 1.0,                  -- Temperature parameter, used to control model uncertainty.

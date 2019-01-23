@@ -18,6 +18,7 @@
         "batch_size"         : 128,
         "sequence_len"       : 1000,
         "terminal_prob"      : 0.2,
+        "dataset_fraction"   : 1.0,
         "hidden_units"       : 256,
         "n_gaussians"        : 5,
         "temperature"        : 1.0,
