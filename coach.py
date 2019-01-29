@@ -94,8 +94,8 @@ class Coach(Callback, metaclass=ABCMeta):
         if self.train_mode:
             # Create storage and load data
             self.storage = ExperienceStorage(
-                self.config.ctrl['save_data_path'],
-                self.config.ctrl['exp_replay_size'],
+                self.config.az['data_path'],
+                self.config.az['exp_replay_size'],
                 self.config.rnn['gamma'])
             self.storage.load()
             self.play_callbacks.append(self.storage)
@@ -148,7 +148,7 @@ class Coach(Callback, metaclass=ABCMeta):
                         train_mode=self.train_mode,
                         debug_mode=self.config.is_debug,
                         render_mode=self.config.allow_render and not self.train_mode,
-                        n_episodes=n_episodes if n_episodes else self.config.ctrl['n_episodes'],
+                        n_episodes=n_episodes if n_episodes else self.config.az['n_episodes'],
                         callbacks=self.play_callbacks + callbacks,
                         name=desc, verbose=1 if self.train_mode else 2)
 
@@ -232,5 +232,5 @@ class AlphaZeroCoach(Coach):
 
     def __init__(self, config, vae_path=None, epn_path=None, train_mode=True):
         super(AlphaZeroCoach, self).__init__(config, vae_path, epn_path, train_mode)
-        self.mdp = SokobanMDP(self.env, self.trainer.model, self.config.ctrl['done_threshold'])
+        self.mdp = SokobanMDP(self.env, self.trainer.model, self.config.az['done_threshold'])
         self.mind = Planner(self.mdp, self.trainer.model, self.config.planner)

@@ -11,7 +11,7 @@ import torch.optim as optim
 from torch.utils.data import Dataset
 
 from alphazero.env import GameState
-from world_models.third_party.torchtrainer import TorchTrainer, evaluate
+from third_party.torchtrainer import TorchTrainer, evaluate
 
 
 class EPNState(GameState):

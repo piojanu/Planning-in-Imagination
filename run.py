@@ -59,7 +59,7 @@ def iter_train(ctx, vae_path, epn_path):
     tb_logger = TensorBoardLogger(os.path.join(config.rnn['logs_dir'], 'tensorboard'))
 
     # Train EPN for inf epochs
-    while config.ctrl['iterations'] == -1 or coach.iteration < config.ctrl['iterations']:
+    while config.az['max_iter'] == -1 or coach.iteration < config.az['max_iter']:
         # Gather data
         mean_score = coach.play("Iter. {}".format(coach.iteration + 1))
 
@@ -74,10 +74,10 @@ def iter_train(ctx, vae_path, epn_path):
         tb_logger.log_scalar("Mean score", mean_score, coach.iteration)
 
         # Proceed to training only if threshold is fulfilled
-        if len(coach.storage.big_bag) < config.ctrl["min_examples"]:
+        if len(coach.storage.big_bag) < config.az["min_examples"]:
             log.warning(
                 "Skip training, gather minimum %d training examples!",
-                config.ctrl["min_examples"]
+                config.az["min_examples"]
             )
             continue
 
