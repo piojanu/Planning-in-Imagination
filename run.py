@@ -59,7 +59,7 @@ def iter_train(ctx, vae_path, epn_path):
     coach = Coach(config, vae_path, epn_path, train_mode=True)
 
     # Create checkpoint/logs directory, if it doesn't exist
-    create_directory(os.path.dirname(config.rnn['ckpt_dir']))
+    create_directory(os.path.dirname(config.rnn['ckpt_path']))
     create_directory(config.rnn['logs_dir'])
 
     # Create TensorBoard logger

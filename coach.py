@@ -53,7 +53,7 @@ class Coach(Callback, metaclass=ABCMeta):
         self.mind = None
 
         # Get ckpt path and metadata
-        default_path = get_last_checkpoint_path(self.config.rnn['ckpt_dir'])
+        default_path = get_last_checkpoint_path(os.path.dirname(self.config.rnn['ckpt_path']))
         path = get_model_path_if_exists(epn_path, default_path or '', 'EPN-RNN')
 
         # Initialize metadata
@@ -191,7 +191,7 @@ class Coach(Callback, metaclass=ABCMeta):
 
         if current_score > self.best_score:
             self.best_score = current_score
-            path = create_checkpoint_path(self.config.rnn['ckpt_dir'],
+            path = create_checkpoint_path(os.path.dirname(self.config.rnn['ckpt_path']),
                                           self.iteration,
                                           self.global_epoch,
                                           current_score)
