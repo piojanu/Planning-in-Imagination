@@ -14,7 +14,7 @@ from alphazero.env import GameState
 from third_party.torchtrainer import TorchTrainer, evaluate
 
 
-class EPNState(GameState):
+class WorldState(GameState):
     """Board games state.
 
     Args:
@@ -24,7 +24,7 @@ class EPNState(GameState):
     """
 
     def __init__(self, latent, hidden, is_done):
-        super(EPNState, self).__init__(state=(latent, hidden, is_done))
+        super(WorldState, self).__init__(state=(latent, hidden, is_done))
         self.latent = latent
         self.hidden = hidden
         self.is_done = is_done
@@ -69,7 +69,7 @@ class EPNVision(Vision, Callback):
         hidden = self.epn_model.hidden
 
         # Agent never get terminal state to decide on. Always return False as done flag of state.
-        return EPNState(latent=latent, hidden=hidden, is_done=False)
+        return WorldState(latent=latent, hidden=hidden, is_done=False)
 
     def on_episode_start(self, episode, train_mode):
         self.epn_model.init_hidden(1)
@@ -299,11 +299,11 @@ class SokobanMDP(MDP):
         """Perform `action` in `state`. Return outcome.
 
         Args:
-            state (EPNState): MDP's state (observation latent vector, memory hidden state, if done).
+            state (WorldState): MDP's state (observation latent vector, memory hidden state, if done).
             action (int): MDP's action.
 
         Returns:
-            state (EPNState): MDP's next state (observation latent vector, memory hidden state, if done).
+            state (WorldState): MDP's next state (observation latent vector, memory hidden state, if done).
             float: Reward.
         """
 
@@ -322,7 +322,7 @@ class SokobanMDP(MDP):
             result = 1 if reward > 0 else -1
 
         # TODO: This should predict reward
-        return EPNState(next_latent, next_hidden, is_done), result
+        return WorldState(next_latent, next_hidden, is_done), result
 
     def get_init_state(self):
         """Prepare and return initial state.
@@ -352,7 +352,7 @@ class SokobanMDP(MDP):
         """Check if `state` is terminal.
 
         Args:
-            state (EPNState): MDP's state (observation latent vector, memory hidden state).
+            state (WorldState): MDP's state (observation latent vector, memory hidden state).
 
         Returns:
             bool: Whether state is terminal or not.

@@ -7,7 +7,7 @@
     },
     "vae_training": {
         "batch_size"         : 256,
-        "latent_space_dim"   : 16,
+        "latent_space_dim"   : 64,
         "epochs"             : 300,
         "learning_rate"      : 0.001,
         "patience"           : 5,
@@ -37,7 +37,7 @@
         "exp_replay_size"    : 10000,
         "data_path"          : "./checkpoints/data.examples",
         "ckpt_path"          : "./checkpoints/best_controller.ckpt",
-        "logs_dir"           : "./logs"
+        "logs_dir"           : "./logs",
 
         "max_iter"           : -1,
         "min_examples"       : 2000,
@@ -50,7 +50,7 @@
         "c"                  : 1.0,
         "dirichlet_noise"    : 0.3,
         "noise_ratio"        : 0.25,
-        "gamma"              : -1.0,
+        "gamma"              : 0.99,
         "n_simulations"      : 50,
         "timeout"            : "inf"
     }

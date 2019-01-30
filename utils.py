@@ -45,7 +45,7 @@ class ExperienceStorage(Storage):
     def on_step_taken(self, step, transition, info):
         self.small_bag.append((
             transition.state.latent,  # Take latent state, discard hidden state
-            transition.action,    # Action is needed as RNN input
+            transition.action,        # Action is needed as RNN input
             transition.reward,
             transition.is_terminal,
             self._recent_action_probs
