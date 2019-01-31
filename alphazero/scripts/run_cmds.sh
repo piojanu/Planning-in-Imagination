@@ -20,5 +20,3 @@ run_test train -ckpt $CKPT_DIR`ls $CKPT_DIR | cut -f 1 | tail -n1`
 
 CONFIG_FILE=test_config_for_hopt.json
 run_test hopt -n 20
-
-rm -rf checkpoints
