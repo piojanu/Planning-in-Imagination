@@ -12,7 +12,7 @@ from tqdm import tqdm
 
 from common_utils import TqdmStream, obtain_config, mute_tf_logs_if_needed, create_directory
 from controller import build_es_model, build_mind, Evaluator, ReturnTracker
-from memory import build_rnn_model, MDNDataset, MDNVision
+from memory import build_rnn_model, MemoryDataset, MemoryVision
 from utils import Config, StoreTransitions, create_generating_agent
 from utils import HDF5DataGenerator, convert_data_with_vae, MemoryVisualization
 from vision import BasicVision, build_vae_model
@@ -220,10 +220,10 @@ def train_mem(ctx, path, vae_path):
     create_directory(os.path.dirname(config.rnn['ckpt_path']))
 
     # Create training DataLoader
-    dataset = MDNDataset(path,
-                         config.rnn['sequence_len'],
-                         config.rnn['terminal_prob'],
-                         config.rnn['dataset_fraction'])
+    dataset = MemoryDataset(path,
+                            config.rnn['sequence_len'],
+                            config.rnn['terminal_prob'],
+                            config.rnn['dataset_fraction'])
     data_loader = DataLoader(
         dataset,
         batch_sampler=RandomBatchSampler(dataset, config.rnn['batch_size']),
@@ -357,7 +357,7 @@ def eval(ctx, controller_path, vae_path, mdn_path, n_games):
 
     basic_vision = BasicVision(state_shape=config.general['state_shape'],
                                crop_range=config.general['crop_range'])
-    mdn_vision = MDNVision(encoder, rnn.model, config.vae['latent_space_dim'])
+    mdn_vision = MemoryVision(encoder, rnn.model, config.vae['latent_space_dim'])
 
     # Build CMA-ES solver and linear model
     mind = build_mind(config.es,

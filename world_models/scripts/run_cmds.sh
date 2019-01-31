@@ -26,3 +26,7 @@ run_test train_mem ${MEMORY_FILE}
 run_test train_ctrl
 
 run_test eval -n 1 -c ./checkpoints/test/controller_weights_best.ckpt
+
+CONFIG_FILE=test_config_LMH.json
+
+run_test train_mem ${MEMORY_FILE}

@@ -6,7 +6,7 @@ import pickle
 import humblerl as hrl
 
 from humblerl import ChainVision, Mind, Worker
-from memory import build_rnn_model, MDNVision
+from memory import build_rnn_model, MemoryVision
 from vision import BasicVision, build_vae_model
 
 from common_utils import ReturnTracker, create_directory, get_model_path_if_exists
@@ -135,7 +135,7 @@ class Evaluator(Worker):
         return (BasicVision(
             state_shape=self.config.general['state_shape'],
             crop_range=self.config.general['crop_range']),
-            MDNVision(encoder, rnn.model, self.config.vae['latent_space_dim']))
+            MemoryVision(encoder, rnn.model, self.config.vae['latent_space_dim']))
 
 
 class LinearModel(Mind):
