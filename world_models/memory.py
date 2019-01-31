@@ -152,8 +152,6 @@ class MDN(nn.Module):
         self.pi = nn.Linear(hidden_units, n_gaussians * latent_dim)
         self.mu = nn.Linear(hidden_units, n_gaussians * latent_dim)
         self.logsigma = nn.Linear(hidden_units, n_gaussians * latent_dim)
-        # NOTE: This is here only for backward compatibility with trained checkpoint
-        self.reward = nn.Linear(hidden_units, 1)
 
     def forward(self, latent, action, hidden=None):
         self.lstm.flatten_parameters()
