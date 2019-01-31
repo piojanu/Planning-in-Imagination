@@ -25,19 +25,29 @@
         "ckpt_path"          : "./checkpoints/test/best_memory.ckpt",
         "logs_dir"           : "./checkpoints/test"
     },
-    "ctrl_play": {
-        "iterations"         : 2,
-        "n_episodes"         : 1,
-        "min_examples"       : 1,
-        "done_threshold"     : 0.5,
+    "az_training": {
+        "batch_size"         : 16,
+        "epochs"             : 2,
+        "learning_rate"      : 0.001,
+        "patience"           : 10,
         "exp_replay_size"    : 10000,
-        "save_data_path"     : "./checkpoints/test/data.examples"
+        "data_path"          : "./checkpoints/test/data.examples",
+        "ckpt_path"          : "./checkpoints/test/best_controller.ckpt",
+        "logs_dir"           : "./checkpoints/test/",
+
+        "max_iter"           : 2,
+        "min_examples"       : 1,
+        "policy_warmup"      : 12,
+        "n_episodes"         : 1,
+        "update_threshold"   : 0.55,
+        "done_threshold"     : 0.5
     },
     "planner": {
-        "c"                        : 1.0,
-        "dirichlet_noise"          : 0.3,
-        "noise_ratio"              : 0.25,
-        "gamma"                    : -1.0,
-        "n_simulations"            : 5
+        "c"                  : 1.0,
+        "dirichlet_noise"    : 0.3,
+        "noise_ratio"        : 0.25,
+        "gamma"              : 0.99,
+        "n_simulations"      : 5,
+        "timeout"            : "inf"
     }
 }
