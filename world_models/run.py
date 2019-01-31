@@ -224,8 +224,10 @@ def train_mem(ctx, path, vae_path):
                             config.rnn['sequence_len'],
                             config.rnn['terminal_prob'],
                             config.rnn['dataset_fraction'])
+
     data_loader = DataLoader(
         dataset,
+        num_workers=3,
         batch_sampler=RandomBatchSampler(dataset, config.rnn['batch_size']),
         pin_memory=True
     )
@@ -251,7 +253,7 @@ def train_mem(ctx, path, vae_path):
                                         config.general['state_shape'],
                                         vae_path)
 
-        callbacks += [MemoryVisualization(config, decoder, rnn.model, dataset, 'mdn_plots')]
+        callbacks += [MemoryVisualization(config, decoder, rnn.model, dataset, 'plots_mem')]
 
     # Fit MDN-RNN model!
     rnn.fit_loader(
@@ -259,8 +261,6 @@ def train_mem(ctx, path, vae_path):
         epochs=config.rnn['epochs'],
         callbacks=callbacks
     )
-
-    dataset.close()
 
 
 @cli.command()

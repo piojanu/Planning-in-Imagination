@@ -79,17 +79,26 @@ class MemoryDataset(Dataset):
         assert 0 < terminal_prob and terminal_prob <= 1.0, "0 < terminal_prob <= 1.0"
         assert 0 < dataset_fraction and dataset_fraction <= 1.0, "0 < dataset_fraction <= 1.0"
 
-        self.dataset = h5py.File(dataset_path, "r")
+        self.dataset = None
+        self.dataset_path = dataset_path
         self.sequence_len = sequence_len
         self.terminal_prob = terminal_prob
         self.dataset_fraction = dataset_fraction
-        self.latent_dim = self.dataset.attrs["LATENT_DIM"]
-        self.action_dim = self.dataset.attrs["ACTION_DIM"]
+
+        # https://stackoverflow.com/questions/46045512/h5py-hdf5-database-randomly-returning-nans-and-near-very-small-data-with-multi
+        with h5py.File(self.dataset_path, "r") as dataset:
+            self.latent_dim = dataset.attrs["LATENT_DIM"]
+            self.action_dim = dataset.attrs["ACTION_DIM"]
+            self.n_games = dataset.attrs["N_GAMES"]
 
     def __getitem__(self, idx):
         """Get sequence at random starting position of given sequence length from episode `idx`."""
 
         offset = 1
+
+        # https://discuss.pytorch.org/t/hdf5-multi-threaded-alternative/6189/9?u=piojanu
+        if self.dataset is None:
+            self.dataset = h5py.File(self.dataset_path, "r")
 
         t_start, t_end = self.dataset['episodes'][idx:idx + 2]
         episode_length = t_end - t_start
@@ -129,10 +138,7 @@ class MemoryDataset(Dataset):
         return [states, actions], [next_states]
 
     def __len__(self):
-        return int(self.dataset.attrs["N_GAMES"] * self.dataset_fraction)
-
-    def close(self):
-        self.dataset.close()
+        return int(self.n_games * self.dataset_fraction)
 
 
 class Memory(nn.Module, metaclass=ABCMeta):
