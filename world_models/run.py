@@ -218,7 +218,8 @@ def train_mem(ctx, path, vae_path):
     dataset = MemoryDataset(path,
                             config.rnn['sequence_len'],
                             config.rnn['terminal_prob'],
-                            config.rnn['dataset_fraction'])
+                            config.rnn['dataset_fraction'],
+                            config.rnn['n_gaussians'] <= 0)
 
     data_loader = DataLoader(
         dataset,

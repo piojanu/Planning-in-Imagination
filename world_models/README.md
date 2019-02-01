@@ -115,6 +115,7 @@ Config options:
     "epochs"           : 300,
     "learning_rate"    : 0.001,
     "patience"         : 5,                    -- After this many epochs, if validation loss does not improve, the training is stopped.
+    "n_workers"        : 4,                    -- How many workers will be spawned to preload and preprocess batches of data.
     "ckpt_path"        : "./ckpt/vision.ckpt", -- Path to best model (checkpoint).
     "logs_dir"         : "./logs"              -- Path to directory with logs.
 }
@@ -165,6 +166,7 @@ Config options:
     "rend_n_rollouts"    : 10,                   -- Render N simulated steps using memory module. Can't be greater than sequence_len/2.
     "rend_n_episodes"    : 12,                   -- Render visualization for N episodes.
     "rend_step"          : 4,                    -- Render every Nth frame. rend_step*rend_n_rollouts can't be greater than sequence_len/2
+    "n_workers"          : 4,                    -- How many workers will be spawned to preload and preprocess batches of data.
     "ckpt_path"          : "./ckpt/memory.ckpt", -- Path to best model (checkpoint).
     "logs_dir"           : "./logs"              -- Path to directory with logs.
 }

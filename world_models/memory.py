@@ -68,14 +68,17 @@ class MemoryDataset(Dataset):
         dataset_path (string): Path to HDF5 dataset file.
         sequence_len (int): Desired output sequence len.
         terminal_prob (float): Probability of sampling sequence that finishes with
-            terminal state. (Default: 0.5)
+            terminal state.
+        dataset_fraction (float): Fraction of dataset to use during training, value range: (0, 1]
+            (dataset forepart is taken).
+        is_deterministic (bool): If return sampled latent states or mean latent states.
 
     Note:
         Arrays should have the same size of the first dimension and their type should be the
         same as desired Tensor type.
     """
 
-    def __init__(self, dataset_path, sequence_len, terminal_prob, dataset_fraction):
+    def __init__(self, dataset_path, sequence_len, terminal_prob, dataset_fraction, is_deterministic):
         assert 0 < terminal_prob and terminal_prob <= 1.0, "0 < terminal_prob <= 1.0"
         assert 0 < dataset_fraction and dataset_fraction <= 1.0, "0 < dataset_fraction <= 1.0"
 
@@ -83,6 +86,7 @@ class MemoryDataset(Dataset):
         self.sequence_len = sequence_len
         self.terminal_prob = terminal_prob
         self.dataset_fraction = dataset_fraction
+        self.is_deterministic = is_deterministic
 
         # https://stackoverflow.com/questions/46045512/h5py-hdf5-database-randomly-returning-nans-and-near-very-small-data-with-multi
         with h5py.File(self.dataset_path, "r") as dataset:
@@ -125,10 +129,13 @@ class MemoryDataset(Dataset):
         actions = torch.zeros(self.sequence_len, self.action_dim, dtype=actions_.dtype)
 
         # Sample latent states (this is done to prevent overfitting of memory to a specific 'z'.)
-        mu = states_[:, 0]
-        sigma = torch.exp(states_[:, 1] / 2)
-        latent = Normal(loc=mu, scale=sigma)
-        z_samples = latent.sample()
+        if self.is_deterministic:
+            z_samples = states_[:, 0]
+        else:
+            mu = states_[:, 0]
+            sigma = torch.exp(states_[:, 1] / 2)
+            latent = Normal(loc=mu, scale=sigma)
+            z_samples = latent.sample()
 
         states[:sequence_len] = z_samples[:-offset]
         next_states[:sequence_len] = z_samples[offset:]
@@ -361,7 +368,7 @@ class LMH(Memory):
 
 
 def build_rnn_model(rnn_params, latent_dim, action_space, model_path=None):
-    """Builds MDN\LMH-RNN (based on `rnn_params`) memory module, which model time dependencies.
+    """Builds MDN-RNN or LMH-RNN (based on `rnn_params`) memory module, which model time dependencies.
 
     Args:
         rnn_params (dict): RNN parameters from .json config.
