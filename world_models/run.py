@@ -172,12 +172,7 @@ def train_vae(ctx, path):
         validation_data=val_gen,
         epochs=config.vae['epochs'],
         use_multiprocessing=False,
-        # NOTE:  There is no need for more then one workers, we are disk IO bound (I suppose ...)
-        # NOTE2: h5py from conda should be threadsafe... but it apparently isn't and raises
-        #        `OSError: Can't read data (wrong B-tree signature)` sporadically if `workers` = 1
-        #        and always if `workers` > 1. That's why this generator needs to run in main thread
-        #        (`workers` = 0).
-        workers=3,
+        workers=config.vae['n_workers'],
         max_queue_size=100,
         shuffle=True,  # It shuffles whole batches, not items in batches
         callbacks=callbacks
@@ -227,7 +222,7 @@ def train_mem(ctx, path, vae_path):
 
     data_loader = DataLoader(
         dataset,
-        num_workers=3,
+        num_workers=config.rnn['n_workers'],
         batch_sampler=RandomBatchSampler(dataset, config.rnn['batch_size']),
         pin_memory=True
     )
