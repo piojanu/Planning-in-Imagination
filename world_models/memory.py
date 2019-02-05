@@ -82,6 +82,7 @@ class MemoryDataset(Dataset):
         assert 0 < terminal_prob and terminal_prob <= 1.0, "0 < terminal_prob <= 1.0"
         assert 0 < dataset_fraction and dataset_fraction <= 1.0, "0 < dataset_fraction <= 1.0"
 
+        self.dataset = None
         self.dataset_path = dataset_path
         self.sequence_len = sequence_len
         self.terminal_prob = terminal_prob
@@ -99,30 +100,29 @@ class MemoryDataset(Dataset):
 
         offset = 1
 
-        # Opening HDF5 file is costly, but apparently it's the only way on some machines...
-        # https://discuss.pytorch.org/t/hdf5-multi-threaded-alternative/6189/9
-        # https://github.com/h5py/h5py/issues/1092
-        with h5py.File(self.dataset_path, "r") as dataset:
-            t_start, t_end = dataset['episodes'][idx:idx + 2]
-            episode_length = t_end - t_start
-            if self.sequence_len <= episode_length - offset:
-                sequence_len = self.sequence_len
-            else:
-                sequence_len = episode_length - offset
-                # log.info(
-                #     "Episode %d is too short to form full sequence, data will be zero-padded.", idx)
+        if self.dataset is None:
+            self.dataset = h5py.File(self.dataset_path, "r")
 
-            # Sample where to start sequence of length `self.sequence_len` in episode `idx`
-            # '- offset' because "next states" are offset by 'offset'
-            if np.random.rand() < self.terminal_prob:
-                # Take sequence ending with terminal state
-                start = t_start + episode_length - sequence_len - offset
-            else:
-                # NOTE: np.random.randint takes EXCLUSIVE upper bound of range to sample from
-                start = t_start + np.random.randint(max(1, episode_length - sequence_len - offset))
+        t_start, t_end = self.dataset['episodes'][idx:idx + 2]
+        episode_length = t_end - t_start
+        if self.sequence_len <= episode_length - offset:
+            sequence_len = self.sequence_len
+        else:
+            sequence_len = episode_length - offset
+            # log.info(
+            #     "Episode %d is too short to form full sequence, data will be zero-padded.", idx)
 
-            states_ = torch.from_numpy(dataset['states'][start:start + sequence_len + offset])
-            actions_ = torch.from_numpy(dataset['actions'][start:start + sequence_len])
+        # Sample where to start sequence of length `self.sequence_len` in episode `idx`
+        # '- offset' because "next states" are offset by 'offset'
+        if np.random.rand() < self.terminal_prob:
+            # Take sequence ending with terminal state
+            start = t_start + episode_length - sequence_len - offset
+        else:
+            # NOTE: np.random.randint takes EXCLUSIVE upper bound of range to sample from
+            start = t_start + np.random.randint(max(1, episode_length - sequence_len - offset))
+
+        states_ = torch.from_numpy(self.dataset['states'][start:start + sequence_len + offset])
+        actions_ = torch.from_numpy(self.dataset['actions'][start:start + sequence_len])
 
         states = torch.zeros(self.sequence_len, self.latent_dim, dtype=states_.dtype)
         next_states = torch.zeros(self.sequence_len, self.latent_dim, dtype=states_.dtype)
