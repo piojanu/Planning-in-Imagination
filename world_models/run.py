@@ -353,7 +353,9 @@ def eval(ctx, controller_path, vae_path, mdn_path, n_games):
 
     basic_vision = BasicVision(state_shape=config.general['state_shape'],
                                crop_range=config.general['crop_range'])
-    mem_vision = MemoryVision(encoder, rnn.model, config.vae['latent_space_dim'])
+    mem_vision = MemoryVision(encoder, rnn.model,
+                              config.vae['latent_space_dim'],
+                              config.rnn['n_gaussians'] <= 0)
 
     # Build CMA-ES solver and linear model
     mind = build_mind(config.es,

@@ -132,10 +132,11 @@ class Evaluator(Worker):
                               self.action_space,
                               self.mdn_path)
 
-        return (BasicVision(
-            state_shape=self.config.general['state_shape'],
-            crop_range=self.config.general['crop_range']),
-            MemoryVision(encoder, rnn.model, self.config.vae['latent_space_dim']))
+        return (BasicVision(state_shape=self.config.general['state_shape'],
+                            crop_range=self.config.general['crop_range']),
+                MemoryVision(encoder, rnn.model,
+                             self.config.vae['latent_space_dim'],
+                             self.config.rnn['n_gaussians'] <= 0))
 
 
 class LinearModel(Mind):
