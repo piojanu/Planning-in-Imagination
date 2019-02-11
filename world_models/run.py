@@ -353,7 +353,7 @@ def eval(ctx, controller_path, vae_path, mdn_path, n_games):
 
     basic_vision = BasicVision(state_shape=config.general['state_shape'],
                                crop_range=config.general['crop_range'])
-    mdn_vision = MemoryVision(encoder, rnn.model, config.vae['latent_space_dim'])
+    mem_vision = MemoryVision(encoder, rnn.model, config.vae['latent_space_dim'])
 
     # Build CMA-ES solver and linear model
     mind = build_mind(config.es,
@@ -361,9 +361,9 @@ def eval(ctx, controller_path, vae_path, mdn_path, n_games):
                       env.action_space,
                       controller_path)
 
-    hist = hrl.loop(env, mind, ChainVision(basic_vision, mdn_vision),
+    hist = hrl.loop(env, mind, ChainVision(basic_vision, mem_vision),
                     n_episodes=n_games, render_mode=config.allow_render, verbose=1,
-                    callbacks=[ReturnTracker(), mdn_vision])
+                    callbacks=[ReturnTracker(), mem_vision])
 
     print("Returns:", *hist['return'])
     print("Avg. return:", np.mean(hist['return']))

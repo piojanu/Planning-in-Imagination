@@ -268,7 +268,7 @@ class MDN(Memory):
         self.logsigma = nn.Linear(hidden_units, n_gaussians * latent_dim)
 
     def forward(self, latent, action, hidden=None):
-        h, sequence_len = super(MDN, self).forward(latent, action, hidden=None)
+        h, sequence_len = super(MDN, self).forward(latent, action, hidden)
 
         pi = self.pi(h).view(-1, sequence_len, self.n_gaussians, self.latent_dim) / self.temperature
         pi = torch.softmax(pi, dim=2)
@@ -337,7 +337,7 @@ class LMH(Memory):
         self.out = nn.Linear(hidden_units, latent_dim)
 
     def forward(self, latent, action, hidden=None):
-        h, sequence_len = super(LMH, self).forward(latent, action, hidden=None)
+        h, sequence_len = super(LMH, self).forward(latent, action, hidden)
 
         return self.out(h).view(-1, sequence_len, self.latent_dim)
 
@@ -417,7 +417,7 @@ def build_rnn_model(rnn_params, latent_dim, action_space, model_path=None):
     )
 
     model_path = get_model_path_if_exists(
-        path=model_path, default_path=rnn_params['ckpt_path'], model_name="MDN-RNN")
+        path=model_path, default_path=rnn_params['ckpt_path'], model_name="Memory")
 
     if model_path is not None:
         trainer.load_ckpt(model_path)
