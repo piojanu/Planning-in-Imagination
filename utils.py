@@ -21,7 +21,7 @@ class Config(object):
         self.general = {**default_config["general"], **custom_config.get("general", {})}
         self.vae = {**default_config["vae_training"], **custom_config.get("vae_training", {})}
         self.rnn = {**default_config["rnn_training"], **custom_config.get("rnn_training", {})}
-        self.ctrl = {**default_config["ctrl_play"], **custom_config.get("ctrl_play", {})}
+        self.az = {**default_config["az_training"], **custom_config.get("az_training", {})}
         self.planner = {**default_config["planner"], **custom_config.get("planner", {})}
         self.is_debug = is_debug
         self.allow_render = allow_render
@@ -45,7 +45,7 @@ class ExperienceStorage(Storage):
     def on_step_taken(self, step, transition, info):
         self.small_bag.append((
             transition.state.latent,  # Take latent state, discard hidden state
-            transition.action,    # Action is needed as RNN input
+            transition.action,        # Action is needed as RNN input
             transition.reward,
             transition.is_terminal,
             self._recent_action_probs

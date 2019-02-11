@@ -12,7 +12,7 @@ from tqdm import tqdm
 
 from common_utils import TqdmStream, obtain_config, mute_tf_logs_if_needed, create_directory
 from controller import build_es_model, build_mind, Evaluator, ReturnTracker
-from memory import build_rnn_model, MDNDataset, MDNVision
+from memory import build_rnn_model, MemoryDataset, MemoryVision
 from utils import Config, StoreTransitions, create_generating_agent
 from utils import HDF5DataGenerator, convert_data_with_vae, MemoryVisualization
 from vision import BasicVision, build_vae_model
@@ -172,12 +172,7 @@ def train_vae(ctx, path):
         validation_data=val_gen,
         epochs=config.vae['epochs'],
         use_multiprocessing=False,
-        # NOTE:  There is no need for more then one workers, we are disk IO bound (I suppose ...)
-        # NOTE2: h5py from conda should be threadsafe... but it apparently isn't and raises
-        #        `OSError: Can't read data (wrong B-tree signature)` sporadically if `workers` = 1
-        #        and always if `workers` > 1. That's why this generator needs to run in main thread
-        #        (`workers` = 0).
-        workers=3,
+        workers=config.vae['n_workers'],
         max_queue_size=100,
         shuffle=True,  # It shuffles whole batches, not items in batches
         callbacks=callbacks
@@ -220,12 +215,15 @@ def train_mem(ctx, path, vae_path):
     create_directory(os.path.dirname(config.rnn['ckpt_path']))
 
     # Create training DataLoader
-    dataset = MDNDataset(path,
-                         config.rnn['sequence_len'],
-                         config.rnn['terminal_prob'],
-                         config.rnn['dataset_fraction'])
+    dataset = MemoryDataset(path,
+                            config.rnn['sequence_len'],
+                            config.rnn['terminal_prob'],
+                            config.rnn['dataset_fraction'],
+                            config.rnn['n_gaussians'] <= 0)
+
     data_loader = DataLoader(
         dataset,
+        num_workers=config.rnn['n_workers'],
         batch_sampler=RandomBatchSampler(dataset, config.rnn['batch_size']),
         pin_memory=True
     )
@@ -251,7 +249,7 @@ def train_mem(ctx, path, vae_path):
                                         config.general['state_shape'],
                                         vae_path)
 
-        callbacks += [MemoryVisualization(config, decoder, rnn.model, dataset, 'mdn_plots')]
+        callbacks += [MemoryVisualization(config, decoder, rnn.model, dataset, 'plots_mem')]
 
     # Fit MDN-RNN model!
     rnn.fit_loader(
@@ -259,8 +257,6 @@ def train_mem(ctx, path, vae_path):
         epochs=config.rnn['epochs'],
         callbacks=callbacks
     )
-
-    dataset.close()
 
 
 @cli.command()
@@ -357,7 +353,9 @@ def eval(ctx, controller_path, vae_path, mdn_path, n_games):
 
     basic_vision = BasicVision(state_shape=config.general['state_shape'],
                                crop_range=config.general['crop_range'])
-    mdn_vision = MDNVision(encoder, rnn.model, config.vae['latent_space_dim'])
+    mem_vision = MemoryVision(encoder, rnn.model,
+                              config.vae['latent_space_dim'],
+                              config.rnn['n_gaussians'] <= 0)
 
     # Build CMA-ES solver and linear model
     mind = build_mind(config.es,
@@ -365,9 +363,9 @@ def eval(ctx, controller_path, vae_path, mdn_path, n_games):
                       env.action_space,
                       controller_path)
 
-    hist = hrl.loop(env, mind, ChainVision(basic_vision, mdn_vision),
+    hist = hrl.loop(env, mind, ChainVision(basic_vision, mem_vision),
                     n_episodes=n_games, render_mode=config.allow_render, verbose=1,
-                    callbacks=[ReturnTracker(), mdn_vision])
+                    callbacks=[ReturnTracker(), mem_vision])
 
     print("Returns:", *hist['return'])
     print("Avg. return:", np.mean(hist['return']))

@@ -11,6 +11,6 @@ run_test () {
 
 run_test iter_train
 
-run_test eval -n 1
+run_test convert_data ../world_models/scripts/checkpoints/test/vae.hdf5 ${CKPT_DIR}/memory.examples
 
-rm -rf checkpoints
+run_test eval -n 1

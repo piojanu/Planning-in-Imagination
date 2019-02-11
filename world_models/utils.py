@@ -20,22 +20,22 @@ from third_party.torchtrainer import evaluate, Callback as TorchCallback
 
 
 class Config(object):
+    """Loads custom configuration, unspecified parameters are taken from default configuration.
+
+    Args:
+        config_path (str): Path to .json file with custom configuration
+        is_debug (bool): Specify to enable debugging features
+        allow_render (bool): Specify to enable render/plot features
+    """
+
     def __init__(self, config_path, is_debug, allow_render):
-        """Loads custom configuration, unspecified parameters are taken from default configuration.
-
-        Args:
-            config_path (str): Path to .json file with custom configuration
-            is_debug (bool): Specify to enable debugging features
-            allow_render (bool): Specify to enable render/plot features
-        """
-
         default_config, custom_config = get_configs(config_path)
 
         # Merging default and custom configs, for repeating keys second dict overwrites values
         self.general = {**default_config["general"], **custom_config.get("general", {})}
-        self.es = {**default_config["es_training"], **custom_config.get("es_training", {})}
-        self.rnn = {**default_config["rnn_training"], **custom_config.get("rnn_training", {})}
         self.vae = {**default_config["vae_training"], **custom_config.get("vae_training", {})}
+        self.rnn = {**default_config["rnn_training"], **custom_config.get("rnn_training", {})}
+        self.es = {**default_config["es_training"], **custom_config.get("es_training", {})}
         self.is_debug = is_debug
         self.allow_render = allow_render
 
