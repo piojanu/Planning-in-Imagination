@@ -28,25 +28,32 @@ class MemoryVision(Vision, Callback):
         In order to work, this Vision system must be also passed as callback to 'hrl.loop(...)'!
     """
 
-    def __init__(self, vae_model, mdn_model, latent_dim):
+    def __init__(self, vae_model, mdn_model, latent_dim, is_deterministic):
         self.vae_model = vae_model
         self.mdn_model = mdn_model
         self.latent_dim = latent_dim
+        self.is_deterministic = is_deterministic
 
     def __call__(self, state, reward=0.):
         return self.process_state(state), reward
 
     def process_state(self, state):
-        # NOTE: [0][0] <- it gets first in the batch latent space mean (mu)
-        latent = self.vae_model.predict(state[np.newaxis, :])[0][0]
-        memory = self.mdn_model.hidden[0].cpu().detach().numpy()
+        # Get space mean (mu) and sampled latent vector (z).
+        mu, _, z = self.vae_model.predict(state[np.newaxis, :])
+        h = self.mdn_model.hidden[0].cpu().detach().numpy()
+
+        # NOTE: In deterministic scenario, if policy used during training is also deterministic,
+        #        then exploration might be insufficient (e.g. in Sokoban agent doesn't move much).
+        if self.is_deterministic:
+            z = mu
 
         # NOTE: See HRL `ply`, `on_step_taken` that would update hidden state is called AFTER
         #       Vision is used to preprocess next_state. So next_state has out-dated hidden state!
         #       What saves us is the fact, that `state` in next `ply` call will have it updated so,
         #       Transitions.state has up-to-date latent and hidden state and in all the other places
         #       exactly it is used, not next state.
-        return np.concatenate((latent, memory.flatten()))
+        # Flatten z because it has batch dimension
+        return np.concatenate((z.flatten(), h.flatten()))
 
     def on_episode_start(self, episode, train_mode):
         self.mdn_model.init_hidden(1)
