@@ -148,6 +148,9 @@ def convert_data(ctx, path_in, path_out, vae_path):
                     game_i += 1
 
                 world_state = WorldState(state, None, None)
+                # NOTE: We lack the next state in HDF file so we bootstrap it with current state.
+                #       The next state from transition is only used for terminal state
+                #       (see ExperienceStorage code).
                 storage_out.on_step_taken(
                     None, hrl.Transition(world_state, action, reward, world_state, is_done), None)
 
