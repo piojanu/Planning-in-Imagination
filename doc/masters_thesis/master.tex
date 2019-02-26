@@ -1,0 +1,294 @@
+% Nasza inżynierka
+\documentclass[10pt,twoside,a4paper,hidelinks]{article}
+\usepackage{fontspec}                 % żeby ustawić czcionkę na systemową (Arial)
+\usepackage{geometry}                 % do marginesów
+\usepackage{indentfirst}              % żeby pierwsze akapity też miały wcięcie
+\usepackage{titlesec}                 % żeby formatować tytuły rozdziałów itd.
+\usepackage{secdot}                   % aby dodać kropkę za numerkiem podrzodziałów i podpodrozdziałów
+\usepackage{chngcntr}                 % umożliwia numerowanie obrazków itp. względem rozdziału
+\usepackage{tocloft}                  % umożliwia ustawienia dotyczące spisu treści i innych spisów
+\usepackage{tabu}                     % do tabel
+\usepackage[table,dvipsnames]{xcolor} % do kolorowania tabel
+\usepackage{tabularx}                 % do lepszych tabel
+\usepackage[backend=bibtex]{biblatex} % do bibliografii
+\usepackage{enumitem}                 % do modyfikacji listy (begin{itemize}, niepotrzebne odstępy przed i po)
+\usepackage{floatrow}                 % aby umożliwić wymuszenie położenia figury
+\usepackage{caption}                  % do zmiany podpisów tabel i obrazków
+\usepackage{setspace}                 % również do zmiany podpisów (konkretniej interlinii w podpisach - wymagany przez caption)
+\usepackage{longtable}
+\usepackage{booktabs}
+\usepackage{tabu}
+\usepackage{changepage}
+\usepackage{amsthm}
+\usepackage{hyperref}
+\usepackage[final]{pdfpages}
+\usepackage{multirow}
+\usepackage[titletoc,title]{appendix}
+\usepackage{listings}
+\usepackage{dirtree}
+\usepackage{multicol}
+\usepackage{subcaption}
+
+\newcommand\myicon[1]{{\color{#1}\rule{2ex}{2ex}}}
+\newcommand{\myfolder}[2]{\myicon{#1}\ {#2}}
+
+\definecolor{listinggray}{gray}{0.9}
+\definecolor{lbcolor}{rgb}{0.9,0.9,0.9}
+\lstset{
+  backgroundcolor=\color{lbcolor},
+  tabsize=4,
+  language=C++,
+  captionpos=b,
+  tabsize=4,
+  frame=lines,
+  numbers=left,
+  numberstyle=\tiny,
+  numbersep=5pt,
+  breaklines=true,
+  showstringspaces=false,
+  basicstyle=\linespread{0.94}\footnotesize\ttfamily,
+% identifierstyle=\color{magenta},
+  keywordstyle=\color[rgb]{0,0,1},
+  commentstyle=\color{OliveGreen},
+  stringstyle=\color{red}
+  }
+
+
+% Magia żeby dodatki miały ma początku "Dodatek X: ..."
+\makeatletter
+\renewcommand{\@redotocentry@pp}[1]{%
+  \let\oldacl@pp=\addcontentsline
+  \def\addcontentsline##1##2##3{%
+    \def\@pptempa{##1}\def\@pptempb{toc}%
+    \ifx\@pptempa\@pptempb
+      \def\@pptempa{##2}\def\@pptempb{#1}%
+      \ifx\@pptempa\@pptempb
+        \oldacl@pp{##1}{##2}{\appendixname\space ##3}%
+      \else
+        \oldacl@pp{##1}{##2}{\chaptertitlename\space ##3}% added \chaptertitlename
+      \fi
+    \else
+      \oldacl@pp{##1}{##2}{##3}%
+    \fi}
+}
+\makeatother
+
+% to jest jakas magia, aby odczytac szerokość longtable i ustawić tę wartość później jako LTcapwidth (parametr kontrolujący szerokość captiona w longtable)
+% Creditsy i flaszkę proszę wysyłać do magika Heiko (http://compgroups.net/comp.text.tex/longtable-tablewidth/1922986)
+\makeatletter
+\newlength\LongtableWidth
+\newcommand*{\org@longtable}{}
+\let\org@longtable\longtable
+\def\longtable{%
+  \begingroup
+    \advance\c@LT@tables\@ne
+    \edef\x{LT@\romannumeral\c@LT@tables}%
+    \global\LongtableWidth\z@
+    \@ifundefined{\x}{%
+      % longtable width not available
+    }{%
+      \def\LT@entry##1##2{%
+        \global\advance\LongtableWidth##2\relax
+      }%
+      \@nameuse{\x}%
+    }%
+    % debug output
+    \typeout{* \x: \the\LongtableWidth}%
+  \endgroup
+  \ifdim\LongtableWidth>\z@
+    \setlength{\LTcapwidth}{\LongtableWidth}%
+  \fi
+  \org@longtable
+}
+\makeatother
+
+% Rozpocznij od nowa numerowanie rysunków dla każdego rozdziału (section).
+% Dodaje numer rozdziału do numeru rysunku: nr_rozdzial.nr_rysunku_w_ramach_rozdzialu
+%
+% Źródło: http://tex.stackexchange.com/questions/28333/continuous-v-per-chapter-section-numbering-of-figures-tables-and-other-docume
+\counterwithin{figure}{section}
+
+% to samo dla tabel
+\counterwithin{table}{section}
+
+% żeby nie było Rysunek tylko Rys
+\renewcommand{\figurename}{Rys.}
+
+% żeby nie było odstępów przed/po/w środku listy (itemize, ew. dodać też dla enumerate?)
+\SetLabelAlign{parright}{\parbox[t]{\labelwidth}{\raggedleft#1}}
+\setlist[itemize]{noitemsep,nolistsep,topsep=0pt}
+\setlist[description]{noitemsep,nolistsep,topsep=0pt,style=multiline,align=parright}
+    
+% ustawiamy domyślny odstęp przed i po pływającymi elementami (tabele i obrazki) umieszczonymi w środku tekstu (flaga H) na 0
+\setlength{\intextsep}{0mm}
+\setlength{\textfloatsep}{0mm}
+
+% ustawiamy domyślną czcionkę dla podpisów na small (9pt dla article 10pt) oraz interlinię na 1.0
+\captionsetup{font={small,stretch=1.0}}
+
+% własny separator do podpisów (to, co jest po 'Rys. X.Y' - kropka, nazwana wewnętrznie jako 'dot')
+\DeclareCaptionLabelSeparator{dot}{. }
+\DeclareFloatVCode{6ptskip}{\vspace{6pt}}
+\DeclareFloatVCode{12ptskip}{\vspace{12pt}}
+
+% dla tabel: 0pt pod opisem, 6pt nad
+\captionsetup[table]{singlelinecheck=false} % nie wyśrodkowywuj opisu w pojedynczej linii
+\captionsetup[table]{labelfont=bf,labelsep=dot} % pogrubienie nagłówka podpisu (Tabela X.Y) i zakonczenie jej wczesniej zdefiniowana kropką
+\floatsetup[table]{font={small,stretch=1.0},capposition=top,captionskip=0pt,precode=12ptskip,postcode=12ptskip} % nie wiem dlaczego, aby otrzymac odstep 6pt przed tabela, trzeba tutaj dac 12pt :/
+
+\setlength{\LTpre}{12pt}
+\setlength{\LTpost}{12pt}
+
+\tabulinesep=2.0mm % wzięte z czapy, ale wygląda dobrze (minimalny odstęp między początkkiem i końcem wierwsza a jego zawartością - przydaje się w przypadku zawijanych wierszy)
+
+% dla obrazków: 6pt nad opisem, 12pt pod
+\captionsetup[figure]{justification=centering} % inaczej niz w tabelach - zawsze centruj podpis
+\captionsetup[figure]{labelsep=dot} % użyj kropki jako separatora ale nie pogrubiaj
+\floatsetup[figure]{capposition=bottom,captionskip=6pt,precode=12ptskip,postcode=12ptskip}
+
+% koment do poniższych: bfseries oznacza pogrubienie, itshape kursywę, mdseries normalną
+% large = 12pt, small = 9pt (zależne od ustawionego u góry podstawowego 10pt),
+% normalsize podstawowy rozmiar czyli 10pt
+
+% formatowanie tytułów rozdziałów (tutaj nazwane sekcjami)
+
+\makeatletter
+\newcommand{\setappendix}{Dodatek~\thesection:}
+\newcommand{\setchapter}{\thesection.}
+\titleformat{\section}{\bfseries\large}{%
+  \ifnum\pdfstrcmp{\@currenvir}{appendices}=0
+    \setappendix
+  \else
+    \setchapter
+  \fi}{0.5em}{\MakeUppercase}
+\makeatother
+
+	
+% formatowanie tytułów podrozdziałów (tutaj nazwane podsekcjami)
+\titleformat*{\subsection}{\normalsize\bfseries\itshape}
+\sectiondot{subsection}
+
+% formatowanie tytułów punktów podrozdziałów (tutaj nazwane podpodsekcjami)
+\titleformat*{\subsubsection}{\normalsize\itshape}
+\sectiondot{subsubsection}
+
+\titlespacing*{\section}{0pt}{12pt}{6pt}
+\titlespacing*{\subsection}{0pt}{12pt}{6pt}
+\titlespacing*{\subsubsection}{0pt}{12pt}{6pt}
+
+% SPIS TREŚCI
+
+% żeby w spisie treści były też kropki po numerkach rozdziałów i podrozdziałów itd.
+\renewcommand{\cftsecaftersnum}{.}
+\renewcommand{\cftsubsecaftersnum}{.}
+\renewcommand{\cftsubsubsecaftersnum}{.}
+% żeby napis SPIS TREŚCI był wielkimi literami, pogrubiony itd
+\renewcommand{\cfttoctitlefont}{\normalfont\large\bfseries\MakeUppercase}
+% żeby tytuły rozdziałów w spisie oraz numery stron nie były pogrubione
+\renewcommand\cftsecfont{\normalfont}
+\renewcommand\cftsecpagefont{\normalfont}
+% żeby dla rozdziałów też były kropki od napisu do numeru strony
+\renewcommand\cftsecleader{\cftdotfill{\cftdotsep}}
+% odstępy między akapitami 6pt
+\setlength\cftbeforesecskip{6pt}
+\setlength\cftbeforesubsecskip{6pt}
+\setlength\cftbeforesubsubsecskip{6pt}
+% żeby kropki od napisu do numeru strony były gęstsze
+\renewcommand{\cftdotsep}{0}
+
+% SPISY
+% zmiana nazwy, czcionki, marginesu i separatora dla listy figur
+\renewcommand{\listfigurename}{List of figures}
+\renewcommand{\cftloftitlefont}{\normalfont\large\bfseries\MakeUppercase}
+\setlength\cftbeforefigskip{6pt}
+\renewcommand{\cftfigaftersnum}{.}
+
+\setlength\cftfignumwidth{1.1cm}
+
+% zmiana nazwa, czcionki, marginesu i separatora dla listy tabel
+\renewcommand{\listtablename}{List of tables}
+\renewcommand{\cftlottitlefont}{\normalfont\large\bfseries\MakeUppercase}
+\setlength\cftbeforetabskip{6pt}
+\renewcommand{\cfttabaftersnum}{.}
+
+\setlength\cfttabnumwidth{1.1cm}
+
+% zmiana nazwy z 'Bibliografia' na 'Wykaz literatury'
+%\DefineBibliographyStrings{polish}{references = {Wykaz literatury}}
+%\DeclareFieldFormat{labelnumberwidth}{#1\adddot\midsentence}
+
+% ustawienie marginesów
+\geometry{
+ a4paper,
+ inner=3.5cm,
+ outer=2.5cm,
+ top=2.5cm,
+ bottom=2.5cm
+ }
+
+\setmainfont{Arial} 
+\setlength{\parindent}{1.25cm}          % wcięcie przed akapitem
+\renewcommand{\baselinestretch}{1.5}    % interlinia
+\setlength{\parskip}{0pt}               % odległość pomiędzy akapitami
+
+% żeby nie było wdów i sierot (linii samotnych ale nie słów!)
+\widowpenalty10000
+\clubpenalty10000
+
+% komenda ignorująca cos w srodku tekstu (do naszych komentarzy)
+\newcommand{\ignore}[2]{\hspace{0in}#2}
+
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+
+\theoremstyle{remark}
+\newtheorem*{remark}{Comment}
+
+\bibliography{meta/bibliography}
+\makeindex
+
+\setcounter{page}{3} % rozpoczecie od strony 3
+
+\begin{document}   % właściwy początek dokumentu
+
+\input{meta/streszczenie.tex} \newpage
+\input{meta/abstract.tex} \newpage
+\input{meta/table_of_contents.tex} \newpage
+\input{meta/list_of_abbreviations_and_nomenclature.tex} \newpage
+
+%tutaj rozdzialy
+\input{chapters/introduction.tex} \newpage
+\input{chapters/theoretical_background.tex} \newpage
+
+\renewcommand{\baselinestretch}{1.0}\normalsize	% żeby w wykazach była pojedyncza interlinia
+
+\addcontentsline{toc}{section}{References}
+\nocite{*}
+\printbibliography
+\newpage
+
+\addcontentsline{toc}{section}{\listfigurename}
+\listoffigures
+\newpage
+
+\addcontentsline{toc}{section}{\listtablename}
+\listoftables
+
+\renewcommand{\baselinestretch}{1.5}\normalsize	% powrót do interlinii 1.5 na wypadek dodatków
+
+% nie dodawaj obrazków i tabel z dodatków do list powyżej
+\let\svaddcontentsline\addcontentsline
+\renewcommand\addcontentsline[3]{%
+  \ifthenelse{\equal{#1}{lof}}{}%
+  {\ifthenelse{\equal{#1}{lot}}{}{\svaddcontentsline{#1}{#2}{#3}}}}
+
+\newpage
+
+\begin{appendices}
+\addtocontents{toc}{\protect\setcounter{tocdepth}{1}}
+
+%\input{dodatki/gramatyka-opisu-klastra.tex} \newpage
+%\input{dodatki/diagramy_komunikatow.tex} \newpage
+\end{appendices}
+
+\end{document}	% musi być na samiutkim końcu
