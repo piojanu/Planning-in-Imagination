@@ -1,0 +1,47 @@
+{
+    "neural_net": {
+        "conv_filters"             : 256,
+        "conv_kernel"              : 3,
+        "conv_stride"              : 1,
+        "residual_bottleneck"      : 128,
+        "residual_filters"         : 256,
+        "residual_kernel"          : 3,
+        "residual_num"             : 3,
+        "feature_extractor"        : "agz",
+        "dense_size"               : 256,
+        "loss"                     : ["categorical_crossentropy", "mean_squared_error"],
+        "l2_regularizer"           : 0.00001,
+        "lr"                       : 0.0002,
+        "momentum"                 : 0.9
+    },
+    "training": {
+        "batch_size"               : 256,
+        "epochs"                   : 10,
+        "save_training_log_path"   : "./logs/training_othello.log"
+    },
+    "planner": {
+        "c"                        : 1.0,
+        "dirichlet_noise"          : 0.3,
+        "noise_ratio"              : 0.25,
+        "n_simulations"            : 512
+    },
+    "logging": {
+        "save_checkpoint_folder"   : "./checkpoints/othello",
+        "tensorboard_log_folder"   : "./logs/othello/tensorboard",
+        "save_self_play_log_path"  : "./logs/othello/self-play.log",
+        "save_tournament_log_path" : "./logs/othello/tournament.log",
+        "save_elo_scoreboard_path" : "./logs/othello/scoreboard.csv"
+    },
+    "storage": {
+        "exp_replay_size"          : 500000,
+        "save_data_path"           : "./checkpoints/othello/data.examples"
+    },
+    "self_play": {
+        "game"                     : "othello",
+        "min_examples"             : 2500,
+        "policy_warmup"            : 12,
+        "n_self_plays"             : 100,
+        "n_tournaments"            : 30,
+        "update_threshold"         : 0.55
+     }
+}

@@ -1,0 +1,29 @@
+{
+    "neural_net": {
+        "conv_filters"             : -1,
+	"residual_filters"         : -1,
+        "feature_extractor"        : "flatten",
+	"dense_size"               : 512,
+        "loss"                     : ["categorical_crossentropy", "mean_squared_error"],
+        "l2_regularizer" 	   : 0.000000001,
+        "lr"             	   : 0.038
+    },
+    "training": {
+        "batch_size"     	   : 128,
+        "epochs"        	   : 20
+    },
+    "planner": {
+        "dirichlet_noise" 	   : 1.0,
+        "noise_ratio"     	   : 0.5,
+        "n_simulations"  	   : 16
+    },
+    "storage": {
+        "exp_replay_size"	   : 10000
+    },
+    "self_play": {
+        "game"                     : "tictactoe",
+        "policy_warmup"            : 2,
+        "n_self_plays"             : 150,
+        "n_tournaments"            : 50
+     }
+}

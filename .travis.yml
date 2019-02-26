@@ -5,10 +5,10 @@ python:
   - "3.6"
 install:
   - pip install pycodestyle
-  - pip install -r requirements.txt > install.log; cat install.log
+  - pip install -r src/requirements.txt > install.log; cat install.log
 script:
+  - cd src
   - pycodestyle .
   - pytest
-  - (cd alphazero/scripts; ./run_cmds.sh)
-  - (cd world_models/scripts; ./run_cmds.sh)
-  - (cd scripts; ./run_cmds.sh)
+  - (cd codebase/alphazero/scripts; ./run_cmds.sh)
+  - (cd codebase/world_models/scripts; ./run_cmds.sh)
