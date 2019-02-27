@@ -1,1 +1,15 @@
 \section{Introduction}
+
+\subsection{Motivation and context}
+
+Computer science defines Artificial Intelligence as the intelligent agents in form of any device that perceives its environment and takes actions that maximize its chance of successfully achieving its goals. Progress has been made in developing capable agents for numerous domains using deep neural networks in conjunction with model-free reinforcement learning, where raw observations directly map to agent's actions. However, current state-of-the-art approaches \editnote{Cite SoTa model-free like: Rainbow, A3C, PPO, etc.} usually require large amount of training data and lack the behavioural flexibility of human intelligence, hence the resulting policies poorly generalize to novel task in the same environment.
+
+Model-based Reinforcement Learning promises solution to these pitfalls... \editnote{Highlight the difference between panning and learning.}
+
+\subsection{Goal}
+
+Imperfect models that can't be used by standard planning methods... \editnote{The goal is to use modern advances in environment model learning (like World Models and PlaNet) and apply those models to standard planning methods that proofed to be powerful. This should allow us to further improve: data efficiency, generalization (its extreme case: zero-shot!) and even performance.}
+
+\subsection{Problem}
+
+This work focuses on two benchmarks: complex planning problem Sokoban and multi-task environment MiniPacman... \editnote{Describe the environments and what is tested in each one (why those are useful to solve).}
