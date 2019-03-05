@@ -29,10 +29,28 @@ Each action-response-interpretation sequence is called a step or a transition. M
 
 \subsection{Deep Learning}
 
-It's like Machine Learning... but deeper.
+Machine learning gives AI systems the ability to acquire their own knowledge, by extracting patterns from raw data. In stands in opposition to classical computer programs which execute explicit instructions hand-coded by a programmer.
+One example of machine learning algorithm is logistic regression. It can determine whether to recommend cesarean delivery or not\cite{Study.Cesarean}. Another widely used machine learning algorithm called naive Bayes can distinguish between legitimate and spam e-mail.
+
+The performance of these machine learning algorithms depends heavily on the representation of the problem they are given. For example, when logistic regression is used to recommend cesarean delivery, the AI system does not examine the patient's MRI scan directly. It would not be able to make useful predictions as individual pixels in an MRI scan have negligible correlation with any complications that might occur during delivery. It, instead, gets several pieces of relevant information, such as the presence or absence of a uterine scar, from the doctor. Each piece of information included in the representation of the data is known as a feature. Logistic regression learns the relation between those features and various outcomes, such as a recommendation of cesarean delivery. The algorithm does not influence the way that the features are defined in any way.
+
+Sometimes it can be hard to hand-craft a good problem's representation. For example, suppose that we would like to write a program to detect cats in photographs. We know that cats are furry and have whiskers, so we might like to use the presence of a fur and whiskers as features. Unfortunately, it is difficult to describe exactly what a fur or a whisker looks like in terms of pixel values. This gets even more complicated when we take into account e.g. shadows falling on the cat or an object in the foreground obscuring part of the animal.
+One solution to this problem is to use machine learning to discover not only the mapping from representation to output but also the representation itself. This approach is known as representation learning. Learned representations often result in much better performance of machine learning algorithms than can be obtained with hand-designed representations. They also allow AI systems to rapidly adapt to new tasks with minimal human intervention.
+
+Deep learning is a particular kind of machine learning that achieves great power and flexibility by learning to represent the world as a nested hierarchy of concepts, with each concept defined in relation to simpler concepts. Deep learning solves representation learning problem by introducing representations that are expressed in terms of other, simpler representations. Fig.~\ref{Fig.DL} shows how a deep learning system can represent the concept of an image of a person by combining simpler concepts, such as corners and contours, which are in turn defined in terms of edges.
 
 \begin{figure}[H]
-\includegraphics[width=0.8\textwidth,keepaspectratio]{figures/DL.jpg}
-\caption{Deep Learning}
+\includegraphics[width=0.8\textwidth,keepaspectratio]{figures/DL.png}
+\caption{Deep Learning\protect\cite{Book.DeepLearning}}
 \label{Fig.DL}
 \end{figure}
+
+The fundamental example of a deep learning model is a feedforward deep network or multilayer perceptron (MLP). A multilayer perceptron is just a mathematical function mapping some set of input values to output values. The function is formed by composing many simpler functions, called perceptrons, each providing a new representation of its input to next functions. Fig.~\ref{Fig.MLP} shows example MLP and dependencies between perceptrons. The input is presented at the input layer. Then a hidden layer (or series of them) extracts increasingly abstract features from the image. These layers are called “hidden” because their values are not given in the data. Instead, the model must determine which concepts are useful for explaining the relationships in the observed data. Finally, this description of the input in terms of the features can be used to produce the output at the output layer.
+
+\begin{figure}[H]
+\includegraphics[width=0.8\textwidth,keepaspectratio]{figures/MLP.png}
+\caption{Multilayer perceptron}
+\label{Fig.MLP}
+\end{figure}
+
+\editnote{Should I mention Deep Reinforcement Learning somehow in here? Or maybe in Reinforcement Learning section?}
