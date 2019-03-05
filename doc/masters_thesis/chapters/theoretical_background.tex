@@ -5,14 +5,14 @@
 Markov Decision Processes (MDPs) are a classical formalization of sequential decision making, where actions influence not just immediate rewards, but also subsequent situations (states) and through those future rewards. Thus MDPs involve delayed reward and the need to tradeoff immediate and delayed reward.
 
 A Markov Decision Process consists of a set of states $S$ and a set of actions $A$. The dynamics of the MDP, from any state $s \in S$ and for any action $a \in A$, are determined by transition probabilities, $P^a_{ss'} = Pr(s_{t+1} = s' | s_t = s, a_t = a)$, specifying the distribution over the next state $s' \in S$. Finally, a reward function, $R^a_{ss'} = \EX[r_{t+1} | s_t = s, a_t = a, s_{t+1} = s']$, specifies the expected reward for a given state transition.
-Episodic MDPs terminate with probability 1 in a distinguished terminal state, $s_T \in S$, after finite number of transitions. Continuous MDPs doesn't include the terminal state and can run endlessly.
+Episodic MDPs terminate with probability 1 in a distinguished terminal state, $s_T \in S$, after finite number of transitions. Continuous MDPs does not include the terminal state and can run endlessly.
 The return $R_t = \sum^T_{k=t}r_k$ is the total reward accumulated in that episode from time $t$ until reaching the terminal state at time $T$. In continuous MDPs this is the sum of an infinite sequence of rewards from time $t$.
 A policy, $\pi(s, a) = Pr(a_t = a | s_t = s)$, maps a state $s$ to a probability distribution over actions.
 The value function, $V_\pi(s) = \EX_\pi[R_t | s_t = s]$, is the expected return from state $s$ when following policy $\pi$.
 The action value function, $Q_\pi(s, a) = \EX_\pi[R_t | s_t = s, a_t = a]$, is the expected return after selecting action $a$ in state $s$ and then following policy $\pi$.
 The optimal value function is the unique value function that maximises the value of every state, $V^*(s) = maxV_\pi(s), \forall_{s \in S}$ and $Q^*(s, a) = maxQ_\pi(s, a), \forall_{s \in S, a \in A}$. An optimal policy $\pi^*(s, a)$ is a policy that maximises the action value function from every state in the MDP, $\pi^*(s, a) = \underset{a}{\mathrm{argmax}}Q^*(s, a)$.
 
-MDPs are a mathematically idealized form of the reinforcement learning problem for which precise theoretical statements can be made. In reinforcement learning the dynamics and the reward function are hidden behind an environment. Consequently, we can't directly use them for planning, but we can learn through interaction with the environment.
+MDPs are a mathematically idealized form of the reinforcement learning problem for which precise theoretical statements can be made. In reinforcement learning the dynamics and the reward function are hidden behind an environment. Consequently, we can not directly use them for planning, but we can learn through interaction with the environment.
 
 \subsection{Reinforcement Learning}
 
