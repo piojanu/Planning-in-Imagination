@@ -17,7 +17,7 @@ We're working on **sample efficient** (model-based) method for solving **complex
         ├── logs        (All the logging related files)
         ├── out         (All side products of scripts that don't fit anywhere else)
         ├── third_party (As `codebase` and scripts but from the third party)
-        └── script.py   (All scripts performing experiments live in `src`)
+        └── script.py   (All scripts performing experiments live here)
 
 ```
 
