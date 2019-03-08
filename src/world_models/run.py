@@ -251,6 +251,10 @@ def train_mem(ctx, path, vae_path):
 
         callbacks += [MemoryVisualization(config, decoder, rnn.model, dataset, 'plots_mem')]
 
+    # Create checkpoint and logging directory, if it doesn't exist
+    create_directory(os.path.dirname(config.rnn['ckpt_path']))
+    create_directory(os.path.dirname(config.rnn['logs_dir']))
+
     # Fit MDN-RNN model!
     rnn.fit_loader(
         data_loader,
