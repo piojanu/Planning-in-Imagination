@@ -1,0 +1,22 @@
+cmd: ./run.py -c config.json train_ctrl -v checkpoints/sokoban/best_vision.ckpt -m
+  checkpoints/sokoban/best_memory.ckpt
+deps:
+- md5: a0058e3de1ae3b37e356db8b221db18f
+  path: checkpoints/sokoban/best_vision.ckpt
+- md5: 81a8f7ac1023bca58eac0cba745ac749
+  path: checkpoints/sokoban/best_memory.ckpt
+md5: 6486c0e1458c5f8ff5d01f2bcc80f616
+outs:
+- cache: true
+  md5: e2aec951aa6b93cb4c6976f6d486b131
+  metric: false
+  path: checkpoints/sokoban/best_controller.ckpt
+- cache: true
+  md5: 5d8ed84387255c8da21c1a30b4d9cf0c
+  metric: false
+  path: checkpoints/sokoban/controller_weights_best.ckpt
+- cache: true
+  md5: 37f2e40052d455f1e7c44a3f71a92555
+  metric: false
+  path: checkpoints/sokoban/controller_weights_mean.ckpt
+wdir: ../..

@@ -1,0 +1,15 @@
+cmd: ./run.py -c config.json train_vae checkpoints/sokoban/data_vision.hdf5
+deps:
+- md5: 2c4035921cd7081eeaed06767e188f8b
+  path: checkpoints/sokoban/data_vision.hdf5
+md5: e9c2baba607a670fc90ddc727b85ed14
+outs:
+- cache: true
+  md5: a0058e3de1ae3b37e356db8b221db18f
+  metric: false
+  path: checkpoints/sokoban/best_vision.ckpt
+- cache: true
+  md5: 0aeaae0ece800e3f81acdb6f3bd30b36
+  metric: false
+  path: logs/sokoban/train_vae.csv
+wdir: ../..
