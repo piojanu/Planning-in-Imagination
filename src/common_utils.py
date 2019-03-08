@@ -187,8 +187,8 @@ def create_directory(dirname):
         dirname (str): Name of directory (path, e.g. "path/to/dir/")
     """
 
-    if dirname and not os.path.exists(dirname):
-        os.makedirs(dirname)
+    if dirname:
+        os.makedirs(dirname, exist_ok=True)
 
 
 def force_cpu():
