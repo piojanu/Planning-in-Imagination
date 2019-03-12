@@ -194,7 +194,9 @@ def convert_data(ctx, path_in, path_out, vae_path):
     # Build VAE model
     _, encoder, _ = build_vae_model(config.vae, config.general['state_shape'], vae_path)
 
-    convert_data_with_vae(encoder, path_in, path_out, config.vae['latent_space_dim'])
+    convert_data_with_vae(encoder, path_in, path_out,
+                          config.vae['latent_space_dim'],
+                          config.rnn['gamma'])
 
 
 @cli.command()

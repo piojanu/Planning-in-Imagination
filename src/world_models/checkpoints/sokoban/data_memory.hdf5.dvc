@@ -5,10 +5,10 @@ deps:
   path: checkpoints/sokoban/best_vision.ckpt
 - md5: 2c4035921cd7081eeaed06767e188f8b
   path: checkpoints/sokoban/data_vision.hdf5
-md5: a708abfdcd2483ae75c410125c84258e
+md5: de8e32bf777a05a7003e7bd63adb8597
 outs:
 - cache: true
-  md5: d5e23a6c1d14c694fae43c24b2faee10
+  md5: dee65091d99271aeb7521f237c36f597
   metric: false
   path: checkpoints/sokoban/data_memory.hdf5
 wdir: ../..

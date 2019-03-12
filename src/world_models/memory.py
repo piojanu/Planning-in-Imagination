@@ -11,6 +11,7 @@ import torch.optim as optim
 from torch.distributions import Normal
 from torch.utils.data import Dataset
 
+from collections import OrderedDict
 from common_utils import get_model_path_if_exists
 from third_party.torchtrainer import TorchTrainer, evaluate
 
@@ -130,10 +131,14 @@ class MemoryDataset(Dataset):
 
         states_ = torch.from_numpy(self.dataset['states'][start:start + sequence_len + offset])
         actions_ = torch.from_numpy(self.dataset['actions'][start:start + sequence_len])
+        values_ = torch.from_numpy(self.dataset['values'][start:start + sequence_len + offset, 0])
+        rewards_ = torch.from_numpy(np.array([[x] for x in self.dataset['rewards'][start:start + sequence_len + offset]]))
 
         states = torch.zeros(self.sequence_len, self.latent_dim, dtype=states_.dtype)
         next_states = torch.zeros(self.sequence_len, self.latent_dim, dtype=states_.dtype)
         actions = torch.zeros(self.sequence_len, self.action_dim, dtype=actions_.dtype)
+        rewards = torch.zeros(self.sequence_len, 1, dtype=rewards_.dtype)
+        values = torch.zeros(self.sequence_len, 1, dtype=values_.dtype)
 
         # Sample latent states (this is done to prevent overfitting of memory to a specific 'z'.)
         if self.is_deterministic:
@@ -147,8 +152,10 @@ class MemoryDataset(Dataset):
         states[:sequence_len] = z_samples[:-offset]
         next_states[:sequence_len] = z_samples[offset:]
         actions[:sequence_len] = actions_
+        rewards[:sequence_len] = rewards_[offset:]
+        values[:sequence_len] = values_[offset:]
 
-        return [states, actions], [next_states]
+        return [states, actions], [next_states, rewards, values]
 
     def __len__(self):
         return int(self.n_games * self.dataset_fraction)
@@ -180,6 +187,8 @@ class Memory(nn.Module, metaclass=ABCMeta):
                             hidden_size=hidden_units,
                             num_layers=self.num_layers,
                             batch_first=True)
+        self.reward = nn.Linear(hidden_units, 1)
+        self.value = nn.Linear(hidden_units, 1)
 
     def forward(self, latent, action, hidden=None):
         self.lstm.flatten_parameters()
@@ -193,8 +202,10 @@ class Memory(nn.Module, metaclass=ABCMeta):
             x = torch.cat((latent, action.float()), dim=2)
 
         h, self.hidden = self.lstm(x, hidden if hidden else self.hidden)
+        reward = self.reward(h).view(-1, sequence_len, 1)
+        value = self.value(h).view(-1, sequence_len, 1)
 
-        return h, sequence_len
+        return h, reward, value, sequence_len
 
     @abstractmethod
     def sample(self, latent, action, hidden=None):
@@ -275,7 +286,7 @@ class MDN(Memory):
         self.logsigma = nn.Linear(hidden_units, n_gaussians * latent_dim)
 
     def forward(self, latent, action, hidden=None):
-        h, sequence_len = super(MDN, self).forward(latent, action, hidden)
+        h, reward, value, sequence_len = super(MDN, self).forward(latent, action, hidden)
 
         pi = self.pi(h).view(-1, sequence_len, self.n_gaussians, self.latent_dim) / self.temperature
         pi = torch.softmax(pi, dim=2)
@@ -285,7 +296,7 @@ class MDN(Memory):
 
         mu = self.mu(h).view(-1, sequence_len, self.n_gaussians, self.latent_dim)
 
-        return mu, sigma, pi
+        return OrderedDict([("out", (mu, sigma, pi)), ("reward", reward), ("value", value)])
 
     def sample(self, latent, action, hidden=None):
         """Sample (simulate) next state from Mixture Density Network a.k.a. Gaussian Mixture Model.
@@ -344,9 +355,10 @@ class LMH(Memory):
         self.out = nn.Linear(hidden_units, latent_dim)
 
     def forward(self, latent, action, hidden=None):
-        h, sequence_len = super(LMH, self).forward(latent, action, hidden)
+        h, reward, value, sequence_len = super(LMH, self).forward(latent, action, hidden)
 
-        return self.out(h).view(-1, sequence_len, self.latent_dim)
+        return OrderedDict([("out", self.out(h).view(-1, sequence_len, self.latent_dim)),
+                            ("reward", reward), ("value", value)])
 
     def sample(self, latent, action, hidden=None):
         """Sample (simulate) next state from Mixture Density Network a.k.a. Gaussian Mixture Model.
@@ -420,7 +432,7 @@ def build_rnn_model(rnn_params, latent_dim, action_space, model_path=None):
 
     trainer.compile(
         optimizer=optim.Adam(trainer.model.parameters(), lr=rnn_params['learning_rate']),
-        loss=loss_fn
+        loss={"out": loss_fn, "reward": nn.MSELoss(), "value": nn.MSELoss()}
     )
 
     model_path = get_model_path_if_exists(

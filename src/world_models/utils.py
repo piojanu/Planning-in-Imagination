@@ -200,7 +200,7 @@ class StoreTransitions(hrl.Callback):
         self.rewards.clear()
 
 
-def convert_data_with_vae(vae_encoder, path_in, path_out, latent_dim):
+def convert_data_with_vae(vae_encoder, path_in, path_out, latent_dim, gamma):
     """Use trained VAE encoder to preprocess states in HDF5 dataset. The rest of the
     HDF5 file is copied without change (actions, rewards, episodes). Such a preprocessed
     dataset can be used later for Memory training.
@@ -210,6 +210,7 @@ def convert_data_with_vae(vae_encoder, path_in, path_out, latent_dim):
         path_in (str): Path to HDF5 file with gathered transitions.
         path_out (str): Path to output HDF5 file with preprocessed states.
         latent_dim (int): VAE's latent state dimensionality.
+        gamma (float): Value function discounting factor.
     """
 
     with h5py.File(path_in, "r") as hdf_in, h5py.File(path_out, "w") as hdf_out:
@@ -232,6 +233,21 @@ def convert_data_with_vae(vae_encoder, path_in, path_out, latent_dim):
             name="states", dtype=np.float32, chunks=(chunk_size, 2, latent_dim),
             shape=(n_transitions, 2, latent_dim), maxshape=(None, 2, latent_dim),
             compression="lzf")
+        values = hdf_out.create_dataset(
+            name="values", dtype=np.float32, chunks=(chunk_size, 1, 1),
+            shape=(n_transitions, 1, 1), maxshape=(None, 1, 1),
+            compression="lzf")
+
+        log.info("Calculating value...")
+        end_idx = 0
+        pbar = tqdm(range(hdf_in.attrs["N_GAMES"]), ascii=True)
+        for game_idx in pbar:
+            start_idx = end_idx
+            end_idx = hdf_in["episodes"][game_idx]
+            value = 0
+            for i in reversed(range(start_idx, end_idx)):
+                value = hdf_in["rewards"][i] + gamma * value
+                values[i] = value
 
         # Preprocess states from input dataset by using VAE
         log.info("Preprocessing states with VAE...")

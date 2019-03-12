@@ -155,6 +155,7 @@ Config options:
     "batch_size"         : 128,
     "sequence_len"       : 1000,                 -- Sequence length to use in RNN. If recorded episode is shorter, it will
                                                  -- be padded with zeros.
+    "gamma"              : 0.99,                 -- Value function discounting factor.
     "terminal_prob"      : 0.2,                  -- Probability that sampled sequence will finish with terminal state.
     "dataset_fraction"   : 1.0,                  -- Fraction of dataset to use during training, value range: (0, 1] (dataset forepart is taken).
     "hidden_units"       : 256,                  -- Number of neurons in RNN's hidden state.
