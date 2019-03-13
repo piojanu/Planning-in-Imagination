@@ -2,7 +2,7 @@
   Our World Models (WM) implementation was able to reproduce results from the paper in the CarRacing environment, but also learn to play Atari game called Boxing.
 
 * Stage 1a: Train World Models in Sokoban environment with complex dynamics.
-  WM’s memory module wasn’t able to learn Sokoban’s dynamics and controller failed to learn how to solve any level. We suspect that VAE is unable to generate usable Sokoban representation and memory is too shallow to learn complex dynamics of Sokoban using poor representation from VAE.
+  WM’s memory module (stochastic and deterministic) wasn’t able to learn Sokoban’s dynamics and controller failed to learn how to solve any level. We suspect that VAE is unable to generate usable Sokoban representation and memory is too shallow to learn complex dynamics of Sokoban using poor representation from VAE.
 
 ** Controller module training
 *** 7th of Feb: insufficient exploration, deterministic policy, agent doesn’t move
