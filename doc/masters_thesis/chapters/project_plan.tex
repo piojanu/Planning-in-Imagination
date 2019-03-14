@@ -1,2 +1,20 @@
 \section{Planning with learned model}
 
+This work divides into two parts: learning the environment model and application of planning algorithms. In the first part, current advancements in model-learning domain are explored. The goal is to find and train \editnote{Note to the advisor: find and train or just train and we assume that we found an appropriate method? But should we then describe World Models that don't work?} the sufficient environment model. Sufficient means, it provides accurate predictions about future states to some cut-off point in time. The further away the cut-off point, the better model-learning method.
+In the other part, the goal is to find and implement \editnote{Note to the advisor: the same as above, find and implement or just implement?} a planning algorithm which will use learned model. As described in the introduction, main problems are: the model bias and the compounding error \editnote{Note to the advisor: is the ``compunding error'' the correct term for that?}. The point is to find planning algorithms and refinements to them that will result in a robust method that can successfully plan using the imperfect model.
+Before that, the code architecture and the framework that was created to accelerate this research are described.
+
+\subsection{HumbleRL}
+
+\subsection{Model-learning}
+
+In this part, a model of an environment that can be used locally for planning is trained. Locally means that the planning algorithm operates on trimmed simulated episodes to the point where the model is still accurate. There are different methods examined to choose the best one.
+
+\subsubsection{World Models}
+
+World Models' agent, as shown in the paper\cite{Algo.WorldModels}, is able to learn from simulated experience. It is an example of successful planning using learned model. This work utilize the world model part of the agent in order to learn model of the two mentioned benchmarks. Also, Vision and Memory encode environment observations into low level representation. The latent state of the world models encodes abstract information about the environment and allow the planning controller to stay small.
+
+\subsection{Planning}
+\editnote{This section will be written in its final shape later when we'll have learned model.}
+
+The main contribution of this part is application of search algorithms that use the imperfect learned model to solve the complex planning problems. Specifically, the model latent state is used for planning by algorithms such as TD-Search in the complex planning problems like Sokoban. TD-Search is Q-value function approximation with linear model learned using bootstrapping on simulated experience. Thanks to bootstrapping full episodes doesn’t need to be used.
