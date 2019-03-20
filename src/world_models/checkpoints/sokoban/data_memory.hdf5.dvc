@@ -1,14 +1,14 @@
 cmd: ./run.py -c config.json convert_data -v checkpoints/sokoban/best_vision.ckpt
   checkpoints/sokoban/data_vision.hdf5 checkpoints/sokoban/data_memory.hdf5
 deps:
-- md5: a0058e3de1ae3b37e356db8b221db18f
+- md5: 4734949b151fdafaf2d590c4ef8128d7
   path: checkpoints/sokoban/best_vision.ckpt
 - md5: 2c4035921cd7081eeaed06767e188f8b
   path: checkpoints/sokoban/data_vision.hdf5
-md5: a708abfdcd2483ae75c410125c84258e
+md5: 0b9da47f4936ec3dff1eca0825dfe463
 outs:
 - cache: true
-  md5: d5e23a6c1d14c694fae43c24b2faee10
+  md5: da720b18618037f2145db6de60e2ba1b
   metric: false
   path: checkpoints/sokoban/data_memory.hdf5
 wdir: ../..
