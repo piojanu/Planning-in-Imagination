@@ -1,7 +1,8 @@
-md5: 472506c098c7d66700427caf1e56fe0a
+md5: 9674f3cf0192191fb7ee58787d2f1a9b
 outs:
 - cache: true
   md5: 39dff0a71595bbc1c754c46430910b28
   metric: false
   path: config.json
+  persist: false
 wdir: .

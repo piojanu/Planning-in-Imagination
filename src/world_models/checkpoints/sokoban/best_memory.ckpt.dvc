@@ -2,14 +2,16 @@ cmd: ./run.py -c config.json train_mem checkpoints/sokoban/data_memory.hdf5
 deps:
 - md5: d5e23a6c1d14c694fae43c24b2faee10
   path: checkpoints/sokoban/data_memory.hdf5
-md5: 0026c28292958a5e4f39d694ed6a0b9b
+md5: 25bd69232f5d7a8765211eee4be1295a
 outs:
 - cache: true
   md5: 81a8f7ac1023bca58eac0cba745ac749
   metric: false
   path: checkpoints/sokoban/best_memory.ckpt
+  persist: false
 - cache: true
   md5: 5c270fc1de06b6cf6aec304375dc1f65
   metric: false
   path: logs/sokoban/train_mem.csv
+  persist: false
 wdir: ../..

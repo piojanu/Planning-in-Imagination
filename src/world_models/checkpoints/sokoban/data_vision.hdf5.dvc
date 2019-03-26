@@ -1,7 +1,8 @@
-md5: ab74b3cae35eef3b4077db13c899fee7
+md5: 6889ef0c8b6d9335bc1be88c3c628f77
 outs:
 - cache: true
   md5: 2c4035921cd7081eeaed06767e188f8b
   metric: false
   path: checkpoints/sokoban/data_vision.hdf5
+  persist: false
 wdir: ../..
