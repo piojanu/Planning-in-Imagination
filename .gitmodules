@@ -1,0 +1,3 @@
+[submodule "src/planet"]
+	path = src/planet
+	url = git@github.com:piojanu/planet.git
