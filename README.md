@@ -11,13 +11,11 @@ We're working on **sample efficient** (model-based) method for solving **complex
 │   └── masters_thesis (PJ's master's thesis write-up)
 ├── etc (Other resources related to the project in general e.g. notes, papers, lectures)
 └── src (All the code lives here)
-    └── <experiment/sub-project name> e.g. alphazero
-        ├── checkpoints (Saved models etc.)
-        ├── codebase    (Classes, helpers, utils etc.)
-        ├── logs        (All the logging related files)
-        ├── out         (All side products of scripts that don't fit anywhere else)
-        ├── third_party (As `codebase` and scripts but from the third party)
-        └── script.py   (All scripts performing experiments live here)
+    ├── <submodule name>  (Sub-project like AlphaZero implementation)
+    ├── checkpoints       (Saved models etc.)
+    ├── logs              (All logging related files)
+    ├── out               (All side products of scripts that don't fit anywhere else)
+    └── script.py         (All scripts performing experiments and common utils live here)
 
 ```
 
