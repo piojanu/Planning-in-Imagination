@@ -1,10 +1,11 @@
 * Stage 0: Implement World Models and train it in Atari environment with simple dynamics.
   Our World Models (WM) implementation was able to reproduce results from the paper in the CarRacing environment, but also learn to play Atari game called Boxing.
 
-* Stage 1a: Train World Models in Sokoban environment with complex dynamics.
+* Stage 1a: Train World Models in Sokoban environment with complex dynamics - unchanged.
   WM’s memory module (stochastic and deterministic) wasn’t able to learn Sokoban’s dynamics and controller failed to learn how to solve any level. We suspect that VAE is unable to generate usable Sokoban representation and memory is too shallow to learn complex dynamics of Sokoban using poor representation from VAE.
 
 ** Controller module training
+
 *** 7th of Feb: insufficient exploration, deterministic policy, agent doesn’t move
     Agent perform actions until it moves to a position next to a wall and gets into infinite loop performing the same active moving into the wall which doesn’t change current state. Because state doesn’t change and policy chooses action deterministically, agent gets stuck until the end of the episode. This impair exploration and doesn’t allow agent to learn. Hidden state of the memory module, although changing slightly, isn’t able to break the infinite loop of choosing the same action. I need to use some exploratory policy e.g. epsilon greedy, or add some noise to the latent state representation, or sample latent state (don’t just take mean like you do now).
     In e.g. Boxing there is no such problem, because an agent’s opponent moves changing the current state and this way making the agent choose different actions.
@@ -14,13 +15,16 @@
 *** 7th of Feb: latent vector size, extracted features, representation power, memory module hidden state, auxiliary tasks
     Standard Sokoban board is 8x8, so a latent vector with 64 dim. enables the vision module to encode a block type for each square on the board. This is the optimal encoding if we want to compress a pixel image and then reconstruct it, BUT it’s really poor representation of a current state if we want to use linear combination of those features (block types in each position) to infer optimal next action! Value function could have more luck e.g. it could learn that a box on a target position gives higher value, but even more useful would be information about e.g. distance between the box and each target position. Even then this could be not enough! The box on the target position would get discounted for not being on other target positions, there is need for feature saying “the box X placed on the target position Y”. Then linear combination could do something useful with this information. To summarise: VAE representation might be not enough to infer anything useful! In AZ you need to use 3 residual blocks to create sufficient representation of raw board configuration for e.g. Connect Four to infer useful information like policy and value of current state. The memory module could learn more useful features if trained to e.g. predict reward and value. Although information about block types in each position might not be sufficient to learn good policy (represented by linear model), it’s still perfect information about the current state. The memory module (augmented with the auxiliary tasks) should be able to create useful representation from those features.
 
-* Stage 1b: Train World Models in Sokoban environment with complex dynamics.
+* Stage 1b: Train World Models in Sokoban environment with complex dynamics - hand-crafted features.
   Using hand-crafted features (see below) didn’t help. It's not a problem with poor VAE representation, fully informed states doesn't help either.
 
 ** Vision module learned board representation
 
 *** 7th of Feb: Sokoban representation, eliminate VAE, handcrafted features
     There is no need to use a vision module (VAE) in Sokoban, we can easily represent it as block types in each cell of the 8x8 board. You can of course describe why vision module would be useful, but in special case of Sokoban we don’t need to use it and we use handcrafted features (block type in each cell) as input to memory.
+    
+* Stage 1c: Train World Models in Sokoban environment with complex dynamics - smaller latent space.
+  Using smaller latent space to force more compact representation didn’t help either. It seems like it isn't matter of vision representation. The problem is that the memory can't model so complicated dynamics.
 
 * Stage 2: Train World Models with auxiliary tasks (value and reward prediction) in Sokoban environment.
   Auxiliary tasks ([[https://arxiv.org/abs/1611.05397][Jaderberg, Mnih, Czarnecki et. al.]]) have proved to be useful and help create more informative representation of observations. Also, we need a reward predictor for planning. We’ve added reward and value heads to the WM’s memory module with hope that it’ll help the memory learn Sokoban’s dynamics, but also create better internal representation that could be used by the controller. However, we suspect that because of sparse rewards, the memory wasn’t able to learn to predict the rewards and values. There was no improvement in controller’s performance too.
