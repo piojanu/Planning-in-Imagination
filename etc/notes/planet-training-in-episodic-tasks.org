@@ -1,0 +1,26 @@
+* Read the paper and understand theory behind PlaNet.
+** Open questions:
+*** Does a belief state is inferred from start of the sequence or from start of the chunk?
+** Answered questions:
+*** What does open/closed loop means for image statistics?
+    The closed loop prior is a one-step prediction and the closed loop posterior is a 0-step reconstruction. Open loop means predicting forward for multiple steps without receiving intermediate image inputs.
+** Understand PlaNet summaries to know if it trains.
+*** What is entropy and should it grow or rather shrink?
+    If entropy is high it means that the prior/posterior is very random. As entropy goes down the prior/posterior gets more certain about the latent state.
+*** KL-divergence for the global prior should gets higher as the posterior learns to encode useful information. KL-divergence near to zero means the posterior can't learn anything.
+** What might go wrong with PlaNet training in (not only) episodic environments:
+*** `argmax` policy may introduce high variance (small change in weights result in completely different action, but it should be averaged in the population) and impair exploration, /should you use “softer” stochastic policy?/
+*** In Sokoban an initial state $$ s_0 $$ _is not_ fixed! A Sokoban board is randomly generated at each episode. PlaNet was able to solve a multitask environment, /but isn't that too much for it?/
+*** If any of the "divergence" scalar summaries is at zero the ~divergence_scale~ is too high.
+*** Resizing to 64x64 pixels can make details like a ball in Pong invisible.
+*** Also the decoder high variance (equal 1) can result in blurry reconstructions that doesn't include small details like balls or even minor changes in the frames like in Boxing. See [[https://github.com/google-research/planet/issues/21#issuecomment-482247624][issue #21]].
+* Train PlaNet in the small Sokoban environment.
+  It didn't train. It doesn't capture Sokoban dynamics, everything gets blurred, multiple agents appear, etc.
+* Train PlaNet in the Atari environments.
+** Openloop predictions collapse (miss some elements or just turn into a blurry blob) even for Boxing.
+*** You've asked Danijar about this issue. Here is his answer:
+    "By default we use a decoder variance of 1, which means the model explains a lot of variation in the image as random noise. While this leads to more robust representations, it also leads to more blurry images. If the predicted images are all the same, the posterior collapsed because the model explains everything as observations noise. Try to reduce the decoder variance in conv_ha.py or equivalently set a lower divergence_scale parameter. [...] (I'd try values around 1e-2 or 1e-3) and to increase the action repeat. The action repeat will result in a bigger difference between consecutive frames and thus more signal for the model to learn from, that cannot easily modeled as noise [...]" ~ [[https://github.com/google-research/planet/issues/21#issuecomment-482247624][issue #21]]
+**** How different std. dev. values influence loglikelihood and gradient values in Normal dist.?
+     See Notebook V (blue), page 8-9 for answer.
+**** Reducing variance is equivalent to set a lower divergence scale?
+     "Divergence scale and the (constant and scalar) decoder variance are the same. You can see this by writing the ELBO for a Gaussian decoder in the standard form E_q(z)[lnp(x|z)]-KL[q(z) || p(z)]. The log-likelihood terms is lnp(x|z) = -0.5(x-f(z))/std^2-lnZ. Multiplying the ELBO by std^2 removes it from the log-prob term and puts it in front of the KL term as in beta-VAE. The objectives have different values because of the Gaussian normalizer Z but they have the share the same gradient since the normalizer is a constant." ~ [[https://github.com/google-research/planet/issues/21#issuecomment-482247624][issue #21]]

@@ -3,4 +3,5 @@
 ** DONE [[file:notes/world-models-training-in-sokoban.org::*Stage%201b:%20Train%20World%20Models%20in%20Sokoban%20environment%20with%20complex%20dynamics.][Train the world model in Sokoban environment on 10x10 grid world states.]]
 ** DONE [[file:notes/world-models-training-in-sokoban.org::*Stage%202:%20Train%20World%20Models%20with%20auxiliary%20tasks%20(value%20and%20reward%20prediction)%20in%20Sokoban%20environment.][Train the world model in Sokoban with auxiliary tasks.]]
 ** DONE [[file:notes/world-models-training-in-sokoban.org::*Stage%201c:%20Train%20World%20Models%20in%20Sokoban%20environment%20with%20complex%20dynamics%20-%20smaller%20latent%20space.][Train World Models for Sokoban with smaller than 64 dim. latent state.]]
-** DONE [[file:notes/planet-training-in-sokoban.org::*Train%20PlaNet%20in%20the%20small%20Sokoban%20environment.][Train PlaNet for the small Sokoban environment.]]
+** DONE [[file:notes/planet-training-in-episodic-tasks.org::*Train%20PlaNet%20in%20the%20small%20Sokoban%20environment.][Train PlaNet in the small Sokoban environment.]]
+** IN-PROGRESS [[file:notes/planet-training-in-episodic-tasks.org::*Train%20PlaNet%20in%20the%20Atari%20environments.][Train PlaNet in the Atari environments.]]
