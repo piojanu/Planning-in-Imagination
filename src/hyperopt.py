@@ -70,11 +70,18 @@ def hyperopt(args, max_iters=None):
         with args.params.unlocked:
             for param, value in params.items():
                 try:
-                    base, bounds = value
-                    exp = np.random.uniform(*bounds)
-                    args.params[param] = base ** exp
+                    a, b = value
                 except (TypeError, ValueError):
                     continue
+
+                try:
+                    base, bounds = a, b
+                    exp = np.random.uniform(*bounds)
+                    args.params[param] = base ** exp
+                except TypeError:
+                    low, high = a, b
+                    value = np.random.randint(low, high)
+                    args.params[param] = value
 
         # Update logdir path
         args.logdir = os.path.join(logdir, "run" + construct_suffix(args.params))
