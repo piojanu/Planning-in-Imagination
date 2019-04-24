@@ -1,5 +1,6 @@
-* *Ideas dump*
-* Understand theory behind PlaNet from the paper.
+* Ideas dump
+* General notes
+  PlaNet paper (but not only) related notes.
 ** Open questions:
 *** Does a belief state is inferred from start of the sequence or from start of the chunk?
 ** Answered questions:
@@ -13,26 +14,27 @@
 *** If any of the "divergence" scalar summaries is at zero the ~divergence_scale~ is too high.
 *** Resizing to 64x64 pixels can make details like a ball in Pong invisible.
 *** Also the decoder high variance (equal 1) can result in blurry reconstructions that doesn't include small details like balls or even minor changes in the frames like in Boxing. See [[https://github.com/google-research/planet/issues/21#issuecomment-482247624][issue #21]].
-* DONE Train original PlaNet in the small Sokoban environment.
-  It didn't train. It doesn't capture Sokoban dynamics, everything gets blurred, multiple agents appear, etc.
-* IN-PROGRESS Find hyper-params to train PlaNet in the Atari environments.
-** DONE In original PlaNet openloop predictions collapse (miss some elements or just turn into a blurry blob) even for Boxing.
-   You've asked Danijar about this issue. Here is his answer:
+* Experiments
+** DONE Train original PlaNet in the small Sokoban environment.
+   It didn't train. It doesn't capture Sokoban dynamics, everything gets blurred, multiple agents appear, etc.
+** IN-PROGRESS Find hyper-params to train PlaNet in the Atari environments.
+*** DONE Train PlaNet using original hyper-params from the paper.
+    In original PlaNet openloop predictions collapse (miss some elements or just turn into a blurry blob) even for Boxing. You've asked Danijar about this issue. Here is his answer:
     "By default we use a decoder variance of 1, which means the model explains a lot of variation in the image as random noise. While this leads to more robust representations, it also leads to more blurry images. If the predicted images are all the same, the posterior collapsed because the model explains everything as observations noise. Try to reduce the decoder variance in conv_ha.py or equivalently set a lower divergence_scale parameter. [...] (I'd try values around 1e-2 or 1e-3) and to increase the action repeat. The action repeat will result in a bigger difference between consecutive frames and thus more signal for the model to learn from, that cannot easily modeled as noise [...]" ~ [[https://github.com/google-research/planet/issues/21#issuecomment-482247624][issue #21]]
-*** How different std. dev. values influence loglikelihood and gradient values in Normal dist.?
-    See Notebook V (blue), page 8-9 for answer.
-*** Reducing variance is equivalent to set a lower divergence scale?
-    "Divergence scale and the (constant and scalar) decoder variance are the same. You can see this by writing the ELBO for a Gaussian decoder in the standard form E_q(z)[lnp(x|z)]-KL[q(z) || p(z)]. The log-likelihood terms is lnp(x|z) = -0.5(x-f(z))/std^2-lnZ. Multiplying the ELBO by std^2 removes it from the log-prob term and puts it in front of the KL term as in beta-VAE. The objectives have different values because of the Gaussian normalizer Z but they have the share the same gradient since the normalizer is a constant." ~ [[https://github.com/google-research/planet/issues/21#issuecomment-482247624][issue #21]]
-** TODO Set higher action repeat (note that OpenAI Gym implement it already).
-   "The action repeat will result in a bigger difference between consecutive frames and thus more signal for the model to learn from, that cannot easily modeled as noise as you explained." ~ [[https://github.com/google-research/planet/issues/21#issuecomment-482247624][issue #21]]
-** DONE Random hyper-params search.
-*** Wide hyper-params search for Boxing.
-    It seems like only divergence scales have meaningful impact on the final performance. The lower the better see [[https://docs.google.com/spreadsheets/d/1UBdee4KqZSCY3kOCigemFYCzgIRS0dvBKsMjnKvYPFc/edit#gid%3D0][Google sheets]].
-*** Narrow hyper-params search for Boxing.
-    It doesn't make much difference if those scales are 1E-4 or 1E-5. See TensorBoard.
-*** Narrow hyper-params search for Freeway.
-    It doesn't make much difference if those scales are 1E-3 or 1E-5. Overshooting correlates slightly positively.
-** TODO Try to set =future_rnn= to true.
-   The =future_rnn= flag fixes a somewhat somewhat subtle bug in the RSSM code, where RNN and stochastic state were both used but didn't interact with each other at future steps.
-** TODO Try to set =free_nats= to a larger value.
-   =free_nats= means the model is allowed to use this amount of nats without KL penalty, a trick that's often used for static VAEs. It helps the model focus on smaller details which don't contribute much to improving the reconstruction loss.
+**** How different std. dev. values influence loglikelihood and gradient values in Normal dist.?
+     See Notebook V (blue), page 8-9 for answer.
+**** Reducing variance is equivalent to set a lower divergence scale?
+     "Divergence scale and the (constant and scalar) decoder variance are the same. You can see this by writing the ELBO for a Gaussian decoder in the standard form E_q(z)[lnp(x|z)]-KL[q(z) || p(z)]. The log-likelihood terms is lnp(x|z) = -0.5(x-f(z))/std^2-lnZ. Multiplying the ELBO by std^2 removes it from the log-prob term and puts it in front of the KL term as in beta-VAE. The objectives have different values because of the Gaussian normalizer Z but they have the share the same gradient since the normalizer is a constant." ~ [[https://github.com/google-research/planet/issues/21#issuecomment-482247624][issue #21]]
+*** TODO Set higher action repeat (note that OpenAI Gym implement it already).
+    "The action repeat will result in a bigger difference between consecutive frames and thus more signal for the model to learn from, that cannot easily modeled as noise as you explained." ~ [[https://github.com/google-research/planet/issues/21#issuecomment-482247624][issue #21]]
+*** DONE Random hyper-params search.
+**** Wide hyper-params search for Boxing.
+     It seems like only divergence scales have meaningful impact on the final performance. The lower the better see [[https://docs.google.com/spreadsheets/d/1UBdee4KqZSCY3kOCigemFYCzgIRS0dvBKsMjnKvYPFc/edit#gid%3D0][Google sheets]].
+**** Narrow hyper-params search for Boxing.
+     It doesn't make much difference if those scales are 1E-4 or 1E-5. See TensorBoard.
+**** Narrow hyper-params search for Freeway.
+     It doesn't make much difference if those scales are 1E-3 or 1E-5. Overshooting correlates slightly positively.
+*** IN-PROGRESS Try to set =future_rnn= to true.
+    The =future_rnn= flag fixes a somewhat somewhat subtle bug in the RSSM code, where RNN and stochastic state were both used but didn't interact with each other at future steps.
+*** TODO Try to set =free_nats= to a larger value.
+    =free_nats= means the model is allowed to use this amount of nats without KL penalty, a trick that's often used for static VAEs. It helps the model focus on smaller details which don't contribute much to improving the reconstruction loss.
