@@ -1,40 +1,76 @@
 * Ideas dump
 * General notes
-  PlaNet paper (but not only) related notes.
-** Open questions:
+  PlaNet paper and code related notes.
+** Paper questions:
 *** Does a belief state is inferred from start of the sequence or from start of the chunk?
-** Answered questions:
 *** What does open/closed loop means for image statistics?
     The closed loop prior is a one-step prediction and the closed loop posterior is a 0-step reconstruction. Open loop means predicting forward for multiple steps without receiving intermediate image inputs.
 *** What is KL divergence and entropy and should it grow or rather shrink?
     If entropy is high it means that the prior/posterior is very random. As entropy goes down the prior/posterior gets more certain about the latent state. KL-divergence for the global prior should gets higher as the posterior learns to encode useful information. KL-divergence near to zero means the posterior can't learn anything.
-** What might go wrong with PlaNet training in (not only) episodic environments:
+*** What is the effect of lowering the divergence scale (normal or global)?
+    One reason that lowering the divergence scale can help <with collapsing posterior> is that it allows the model to absorb more information from its observations by loosening the information bottleneck.
+** Code questions:
+*** What is this =future_rnn= parameter?
+    See paper figure 2. It [[file:~/Projects/Planning-in-Imagination/src/planet/planet/models/rssm.py::hidden%20%3D%20belief][binds]] deterministic path with stochastic path in RSSM.
+*** Can chunk be created across two episodes?
+    Nope, each chunk is created from one episode. And each episode is stored in a separate file.
+*** One train step is one batch or one epoch of training?
+    One train step is one batch. See how a [[file:~/Projects/Planning-in-Imagination/src/planet/planet/training/trainer.py::next_step%20%3D%20self._global_step.assign_add(batch_size)][next step]] is defined, it increments a global step by a batch size. [[file:~/Projects/Planning-in-Imagination/src/planet/planet/tools/numpy_episodes.py::yield%20episode][One element in batch is one episode]].
+*** How many games' scores are average over =test_steps=?
+    One (or more precisely how many episodes fit into =task.max_steps=). [[file:~/Projects/Planning-in-Imagination/src/planet/planet/training/define_model.py::summaries,%20score%20%3D%20tf.cond(][Score is calculated]] every =should_summarise= which is equal to =log_every= which, in turn, by default is equal to =report_every= and then it's [[file:~/Projects/Planning-in-Imagination/src/planet/planet/training/trainer.py::phase.writer.add_summary(summary,%20summary_step)][written]] to TensorBoard as [[file:~/Projects/Planning-in-Imagination/src/planet/planet/training/trainer.py::lambda:%20tf.summary.merge(%5Bsummary,%20tf.summary.scalar(][summary]].
+*** Where is this action noise added? 
+    In [[file:~/Projects/Planning-in-Imagination/src/planet/planet/control/mpc_agent.py::action%20%3D%20tfd.Normal(action,%20scale).sample()][=MPCAgent.perform=]].
+*** Where planning using CEM algo takes place?
+    [[file:~/Projects/Planning-in-Imagination/src/planet/planet/control/simulate.py::agent%20%3D%20mpc_agent.MPCAgent(batch_env,%20step,%20False,%20False,%20agent_config)][MPCAgent in =simulate.py=]] runs planning algorithm before every env's step to plan action to perform in the env. It also adds action noise to the planned action and clip it. Proper planning happens in [[file:~/Projects/Planning-in-Imagination/src/planet/planet/control/planning.py::cross_entropy_method][cross_entropy_method]] where multiple iterations are run etc.
+** What might go wrong in (not only) episodic environments:
 *** `argmax` policy may introduce high variance (small change in weights result in completely different action, but it should be averaged in the population) and impair exploration, /should you use “softer” stochastic policy?/
 *** In Sokoban an initial state $$ s_0 $$ _is not_ fixed! A Sokoban board is randomly generated at each episode. PlaNet was able to solve a multitask environment, /but isn't that too much for it?/
 *** If any of the "divergence" scalar summaries is at zero the ~divergence_scale~ is too high.
 *** Resizing to 64x64 pixels can make details like a ball in Pong invisible.
 *** Also the decoder high variance (equal 1) can result in blurry reconstructions that doesn't include small details like balls or even minor changes in the frames like in Boxing. See [[https://github.com/google-research/planet/issues/21#issuecomment-482247624][issue #21]].
+* Other references
+** Issue #21: [[https://github.com/google-research/planet/issues/21][Intuition about hyper parameters for Atari games]].
 * Experiments
 ** DONE Train original PlaNet in the small Sokoban environment.
    It didn't train. It doesn't capture Sokoban dynamics, everything gets blurred, multiple agents appear, etc.
 ** IN-PROGRESS Find hyper-params to train PlaNet in the Atari environments.
-*** DONE Train PlaNet using original hyper-params from the paper.
+*** DONE Train PlaNet for Boxing using original hyper-params from the paper.
     In original PlaNet openloop predictions collapse (miss some elements or just turn into a blurry blob) even for Boxing. You've asked Danijar about this issue. Here is his answer:
     "By default we use a decoder variance of 1, which means the model explains a lot of variation in the image as random noise. While this leads to more robust representations, it also leads to more blurry images. If the predicted images are all the same, the posterior collapsed because the model explains everything as observations noise. Try to reduce the decoder variance in conv_ha.py or equivalently set a lower divergence_scale parameter. [...] (I'd try values around 1e-2 or 1e-3) and to increase the action repeat. The action repeat will result in a bigger difference between consecutive frames and thus more signal for the model to learn from, that cannot easily modeled as noise [...]" ~ [[https://github.com/google-research/planet/issues/21#issuecomment-482247624][issue #21]]
 **** How different std. dev. values influence loglikelihood and gradient values in Normal dist.?
      See Notebook V (blue), page 8-9 for answer.
 **** Reducing variance is equivalent to set a lower divergence scale?
      "Divergence scale and the (constant and scalar) decoder variance are the same. You can see this by writing the ELBO for a Gaussian decoder in the standard form E_q(z)[lnp(x|z)]-KL[q(z) || p(z)]. The log-likelihood terms is lnp(x|z) = -0.5(x-f(z))/std^2-lnZ. Multiplying the ELBO by std^2 removes it from the log-prob term and puts it in front of the KL term as in beta-VAE. The objectives have different values because of the Gaussian normalizer Z but they have the share the same gradient since the normalizer is a constant." ~ [[https://github.com/google-research/planet/issues/21#issuecomment-482247624][issue #21]]
-*** TODO Set higher action repeat (note that OpenAI Gym implement it already).
-    "The action repeat will result in a bigger difference between consecutive frames and thus more signal for the model to learn from, that cannot easily modeled as noise as you explained." ~ [[https://github.com/google-research/planet/issues/21#issuecomment-482247624][issue #21]]
+*** DONE Set higher action repeat (note that OpenAI Gym implement it already).
+    "The action repeat will result in a bigger difference between consecutive frames and thus more signal for the model to learn from, that cannot easily modeled as noise [...]." ~ [[https://github.com/google-research/planet/issues/21#issuecomment-482247624][issue #21]]
+**** Boxing:
+     It didn't helped with collapsing posterior and made random moves worse (untrained agent gets a lower score).
 *** DONE Random hyper-params search.
-**** Wide hyper-params search for Boxing.
+**** Wide hyper-params search for Boxing. :success:
      It seems like only divergence scales have meaningful impact on the final performance. The lower the better see [[https://docs.google.com/spreadsheets/d/1UBdee4KqZSCY3kOCigemFYCzgIRS0dvBKsMjnKvYPFc/edit#gid%3D0][Google sheets]].
 **** Narrow hyper-params search for Boxing.
      It doesn't make much difference if those scales are 1E-4 or 1E-5. See TensorBoard.
 **** Narrow hyper-params search for Freeway.
      It doesn't make much difference if those scales are 1E-3 or 1E-5. Overshooting correlates slightly positively.
-*** IN-PROGRESS Try to set =future_rnn= to true.
+*** DONE Try to set =future_rnn= to true.
     The =future_rnn= flag fixes a somewhat somewhat subtle bug in the RSSM code, where RNN and stochastic state were both used but didn't interact with each other at future steps.
-*** TODO Try to set =free_nats= to a larger value.
-    =free_nats= means the model is allowed to use this amount of nats without KL penalty, a trick that's often used for static VAEs. It helps the model focus on smaller details which don't contribute much to improving the reconstruction loss.
+**** Freerun: :success:
+     It helped a lot with openloop predictions! But agent still does poorly in terms of test score, probably because of sparse rewards.
+*** IN-PROGRESS Try to set =free_nats= to a larger value.
+    =free_nats= means the model is allowed to use this amount of nats without KL penalty, a trick that's often used for static VAEs. It helps the model focus on smaller details which don't contribute much to improving the reconstruction loss. Intuitively to this threshold of KL divergence (between prior and posterior) reconstruction loss is favoured.
+**** Boxing:
+***** WAITING =free_nats: 4=
+****** DONE With =action_repeat: 8= :success:
+       Yes, posterior seems to stop collapsing!!! But high =action_repeat= makes agent perform worse.
+****** WAITING Disable high action repeat and retry.
+***** TODO =free_nats: 8=
+**** Freeway:
+     Chicken movement is still modeled badly (it jumps in seemingly random pattern).
+***** WAITING =free_nats: 3=
+***** TODO =free_nats: 4=
+***** TODO =free_nats: 5=
+*** IN-PROGRESS Try with disabled global prior.
+    "With the fixed RSSM that you've already implemented, PlaNet now also works without overshooting and without global prior. While it would be nice to keep overshooting as it still helps in some cases [...]" ~ [[https://github.com/google-research/planet/issues/28][issue 28]]
+**** WAITING Crazy Climber
+** Implement TD-Search planner in PlaNet.
+   
