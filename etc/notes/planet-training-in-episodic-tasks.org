@@ -1,4 +1,3 @@
-* Ideas dump
 * General notes
   PlaNet paper and code related notes.
 ** Paper questions:
@@ -22,14 +21,19 @@
     In [[file:~/Projects/Planning-in-Imagination/src/planet/planet/control/mpc_agent.py::action%20%3D%20tfd.Normal(action,%20scale).sample()][=MPCAgent.perform=]].
 *** Where planning using CEM algo takes place?
     [[file:~/Projects/Planning-in-Imagination/src/planet/planet/control/simulate.py::agent%20%3D%20mpc_agent.MPCAgent(batch_env,%20step,%20False,%20False,%20agent_config)][MPCAgent in =simulate.py=]] runs planning algorithm before every env's step to plan action to perform in the env. It also adds action noise to the planned action and clip it. Proper planning happens in [[file:~/Projects/Planning-in-Imagination/src/planet/planet/control/planning.py::cross_entropy_method][cross_entropy_method]] where multiple iterations are run etc.
+*** What RSSM (cell) state includes?
+    [[file:~/Projects/Planning-in-Imagination/src/planet/planet/models/base.py::return%20(prior,%20posterior),%20posterior][Pair]] of output (posterior and prior) and next "/hidden/" state (posterior when =use_obs= true, otherwise prior). [[file:~/Projects/Planning-in-Imagination/src/planet/planet/models/rssm.py::'mean':%20mean,][Posterior/prior]] is dictionary with mean, std. dev., sample, belief (det. RNN output) and det. RNN hidden state.
+** Code insights:
+*** PlaNet decoder and encoder assume second dim. to be sequence dim.
+    [[file:~/Projects/Planning-in-Imagination/src/planet/planet/networks/conv_ha.py::hidden%20%3D%20tf.reshape(obs%5B'image'%5D,%20%5B-1%5D%20%2B%20obs%5B'image'%5D.shape%5B2:%5D.as_list())][Here]] it gets flattened to one joint batch dim. and then reshaped back at the end to batch and seq. dims.
 ** What might go wrong in (not only) episodic environments:
-*** `argmax` policy may introduce high variance (small change in weights result in completely different action, but it should be averaged in the population) and impair exploration, /should you use “softer” stochastic policy?/
+*** `argmax` policy may introduce high variance (small change in weights result in completely different action). Does it impact exploration? Should you use “softer” stochastic policy?
+*** PlaNet takes action scores as an input, not a discrete action. Small change in action scores e.g. from [0.70, 0.69] to [0.70, 0.71] in case of argmax policy gives completely different action wheres PlaNet sees little change in scores. This can make it harder to model agent's behaviour.
+    It might result in Freeway's chicken random jumps up and down (because PlaNet miss-recognise which action was taken). Solution would be to modify the CEM algorithm to return a one hot vector for a chosen action, not action scores. PlaNet would learn action embeddings then.
 *** In Sokoban an initial state $$ s_0 $$ _is not_ fixed! A Sokoban board is randomly generated at each episode. PlaNet was able to solve a multitask environment, /but isn't that too much for it?/
 *** If any of the "divergence" scalar summaries is at zero the ~divergence_scale~ is too high.
 *** Resizing to 64x64 pixels can make details like a ball in Pong invisible.
 *** Also the decoder high variance (equal 1) can result in blurry reconstructions that doesn't include small details like balls or even minor changes in the frames like in Boxing. See [[https://github.com/google-research/planet/issues/21#issuecomment-482247624][issue #21]].
-* Other references
-** Issue #21: [[https://github.com/google-research/planet/issues/21][Intuition about hyper parameters for Atari games]].
 * Experiments
 ** DONE Train original PlaNet in the small Sokoban environment.
    It didn't train. It doesn't capture Sokoban dynamics, everything gets blurred, multiple agents appear, etc.
@@ -60,17 +64,32 @@
     =free_nats= means the model is allowed to use this amount of nats without KL penalty, a trick that's often used for static VAEs. It helps the model focus on smaller details which don't contribute much to improving the reconstruction loss. Intuitively to this threshold of KL divergence (between prior and posterior) reconstruction loss is favoured.
 **** Boxing:
 ***** WAITING =free_nats: 4=
-****** DONE With =action_repeat: 8= :success:
+****** DONE With =action_repeat: 8=. :success:
        Yes, posterior seems to stop collapsing!!! But high =action_repeat= makes agent perform worse.
-****** WAITING Disable high action repeat and retry.
-***** TODO =free_nats: 8=
+****** DONE Retry with default action repeat.
+       After ~2M steps agent disappear again. So =action_repeat= did help.
+****** WAITING Disable global prior and lower =divergence_scale= to 1E-4.
+***** TODO =free_nats: 5=
+***** TODO =free_nats: 6=
 **** Freeway:
      Chicken movement is still modeled badly (it jumps in seemingly random pattern).
-***** WAITING =free_nats: 3=
+***** DONE =free_nats: 3= :success:
+      Chicken is now stable (doesn't break env dynamics with e.g. teleportation)! There are still errors in predictions though (it moves down instead of up etc.).
 ***** TODO =free_nats: 4=
 ***** TODO =free_nats: 5=
 *** IN-PROGRESS Try with disabled global prior.
     "With the fixed RSSM that you've already implemented, PlaNet now also works without overshooting and without global prior. While it would be nice to keep overshooting as it still helps in some cases [...]" ~ [[https://github.com/google-research/planet/issues/28][issue 28]]
+**** DONE Crazy Climber
+     It didn't change results. But those are bad as before so didn't improve either.
+**** WAITING Boxing
+*** IN-PROGRESS Use a discrete CEM planner (actions are one-hot vectors) with an e-greedy exploratory policy.
+    Insight about argmax policy which I implement in Gym environment wrapper: PlaNet takes action scores as an input to a transition model, not a discrete action. Small change in action scores e.g. from [0.70, 0.69] to [0.70, 0.71] in case of argmax policy gives completely different action wheres PlaNet sees little change in scores. This can make it harder to model agent's behaviour, which might result in chicken random jumps up and down (because PlaNet missrecognise which action was taken). Solution would be to modify CEM algorithm to return one hot vector for chosen action, not action scores. PlaNet would learn action embeddings then.
+**** WAITING Freeway
 **** WAITING Crazy Climber
+     Also using =free_nats=3=.
+     
 ** Implement TD-Search planner in PlaNet.
-   
+*** Ideas dump:
+**** Should you add one extra embedding layer for one-hot actions?
+* Other references
+** Issue #21: [[https://github.com/google-research/planet/issues/21][Intuition about hyper parameters for Atari games]].
