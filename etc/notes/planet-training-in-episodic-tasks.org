@@ -26,6 +26,9 @@
 ** Code insights:
 *** PlaNet decoder and encoder assume second dim. to be sequence dim.
     [[file:~/Projects/Planning-in-Imagination/src/planet/planet/networks/conv_ha.py::hidden%20%3D%20tf.reshape(obs%5B'image'%5D,%20%5B-1%5D%20%2B%20obs%5B'image'%5D.shape%5B2:%5D.as_list())][Here]] it gets flattened to one joint batch dim. and then reshaped back at the end to batch and seq. dims.
+** GitHub questions:
+*** What does it mean: "the prior's predictions just collapsed to the mode"? ~ [[https://github.com/google-research/planet/issues/28#issuecomment-486965362][issue #28]]
+    "[...] the trajectories happened to fall into a couple of different clusters, and the learned model predicted the most common ones but completely missed ones in the smaller clusters."
 ** What might go wrong in (not only) episodic environments:
 *** `argmax` policy may introduce high variance (small change in weights result in completely different action). Does it impact exploration? Should you use “softer” stochastic policy?
 *** PlaNet takes action scores as an input, not a discrete action. Small change in action scores e.g. from [0.70, 0.69] to [0.70, 0.71] in case of argmax policy gives completely different action wheres PlaNet sees little change in scores. This can make it harder to model agent's behaviour.
@@ -38,6 +41,9 @@
 ** DONE Train original PlaNet in the small Sokoban environment.
    It didn't train. It doesn't capture Sokoban dynamics, everything gets blurred, multiple agents appear, etc.
 ** IN-PROGRESS Find hyper-params to train PlaNet in the Atari environments.
+   Confirmed at the moment: future rnn: true; global divergence: disabled; action repeat: 4;
+   Important params to find: divergence scale; free nats;
+   Maybe important params: epsilon; learning rate; <- didn't test those at large scale yet.
 *** DONE Train PlaNet for Boxing using original hyper-params from the paper.
     In original PlaNet openloop predictions collapse (miss some elements or just turn into a blurry blob) even for Boxing. You've asked Danijar about this issue. Here is his answer:
     "By default we use a decoder variance of 1, which means the model explains a lot of variation in the image as random noise. While this leads to more robust representations, it also leads to more blurry images. If the predicted images are all the same, the posterior collapsed because the model explains everything as observations noise. Try to reduce the decoder variance in conv_ha.py or equivalently set a lower divergence_scale parameter. [...] (I'd try values around 1e-2 or 1e-3) and to increase the action repeat. The action repeat will result in a bigger difference between consecutive frames and thus more signal for the model to learn from, that cannot easily modeled as noise [...]" ~ [[https://github.com/google-research/planet/issues/21#issuecomment-482247624][issue #21]]
@@ -60,36 +66,60 @@
     The =future_rnn= flag fixes a somewhat somewhat subtle bug in the RSSM code, where RNN and stochastic state were both used but didn't interact with each other at future steps.
 **** Freerun: :success:
      It helped a lot with openloop predictions! But agent still does poorly in terms of test score, probably because of sparse rewards.
-*** IN-PROGRESS Try to set =free_nats= to a larger value.
+*** IN-PROGRESS Try to set =free_nats= to a larger value and divergence scale to a lower value.
     =free_nats= means the model is allowed to use this amount of nats without KL penalty, a trick that's often used for static VAEs. It helps the model focus on smaller details which don't contribute much to improving the reconstruction loss. Intuitively to this threshold of KL divergence (between prior and posterior) reconstruction loss is favoured.
-**** Boxing:
-***** WAITING =free_nats: 4=
+**** IN-PROGRESS Freeway:
+     Chicken movement is still modeled badly (it jumps in seemingly random pattern).
+***** DONE =free_nats: 3= :success:
+      Chicken is now stable (doesn't break env dynamics with e.g. teleportation)! There are still errors in predictions though (it moves down instead of up etc.).
+***** WAITING Random search: =max_steps: 2000000, free_nats: [2, 10], divergence_scale[10, [-4, -1]]=
+**** IN-PROGRESS Boxing:
+***** DONE =free_nats: 4=
 ****** DONE With =action_repeat: 8=. :success:
        Yes, posterior seems to stop collapsing!!! But high =action_repeat= makes agent perform worse.
 ****** DONE Retry with default action repeat.
        After ~2M steps agent disappear again. So =action_repeat= did help.
-****** WAITING Disable global prior and lower =divergence_scale= to 1E-4.
+****** DONE Lower =divergence_scale= to 1E-4.
+       It's better, but still not perfect.
+****** DONE Lower =divergence_scale= to 1E-5.
+       Not much difference or even worse (randomly jumping noise).
+***** DONE =free_nats: 5= :success:
+****** DONE =divergence_scale: 1E-3=
+       It's much better! Closed loop prior looks nice and open loop predictions are better too.
+***** WAITING Random search: =max_steps: 1000000, free_nats: [2, 20], divergence_scale[10, [-4, -1]]=
+**** IN-PROGRESS MsPacman
+***** WAITING Random search: =max_steps: 2000000, free_nats: [2, 10], divergence_scale[10, [-4, -1]]=
+**** TODO Crazy Climber
+***** DONE =free_nats: 3=
+       Still not well modeled.
+***** DONE =free_nats: 4=
+      Nothing changed.
 ***** TODO =free_nats: 5=
-***** TODO =free_nats: 6=
-**** Freeway:
-     Chicken movement is still modeled badly (it jumps in seemingly random pattern).
-***** DONE =free_nats: 3= :success:
-      Chicken is now stable (doesn't break env dynamics with e.g. teleportation)! There are still errors in predictions though (it moves down instead of up etc.).
-***** TODO =free_nats: 4=
-***** TODO =free_nats: 5=
-*** IN-PROGRESS Try with disabled global prior.
+*** DONE Try with disabled global prior.
     "With the fixed RSSM that you've already implemented, PlaNet now also works without overshooting and without global prior. While it would be nice to keep overshooting as it still helps in some cases [...]" ~ [[https://github.com/google-research/planet/issues/28][issue 28]]
+**** DONE Freeway
+     Pretty much nothing changed.
+**** DONE Boxing :success:
+     It helped, but it might be also lower divergence scale, hard to tell. For sure it didn't make things worse.
 **** DONE Crazy Climber
      It didn't change results. But those are bad as before so didn't improve either.
-**** WAITING Boxing
-*** IN-PROGRESS Use a discrete CEM planner (actions are one-hot vectors) with an e-greedy exploratory policy.
+*** TODO Use a discrete CEM planner (actions are one-hot vectors) with an e-greedy exploratory policy.
     Insight about argmax policy which I implement in Gym environment wrapper: PlaNet takes action scores as an input to a transition model, not a discrete action. Small change in action scores e.g. from [0.70, 0.69] to [0.70, 0.71] in case of argmax policy gives completely different action wheres PlaNet sees little change in scores. This can make it harder to model agent's behaviour, which might result in chicken random jumps up and down (because PlaNet missrecognise which action was taken). Solution would be to modify CEM algorithm to return one hot vector for chosen action, not action scores. PlaNet would learn action embeddings then.
-**** WAITING Freeway
-**** WAITING Crazy Climber
-     Also using =free_nats=3=.
-     
+**** TODO Freeway
+     It seems to in deed help model predict what action was taken (e.g. up or down). On the other hand, in the next run it again starts to randomly jump up and down.
+***** DONE =epsilon=0.3=
+      Chicken hardly ever reaches the other side of the road during test phase.
+***** TODO =epsilon=0.5=
+***** DONE =epsilon=0.7=
+      Still, chicken hardly ever reaches the other side of the road during test phase.
+**** DONE Crazy Climber
+     Also using =free_nats=3=. Didn't help with better modeling. Leaving it and trying with lower divergence.
+** Implement Monte-Carlo Tree Search planner in Planet.
+*** Tips from "Variational Inference for Data-Efficient Model Learning in POMDPs"
+**** Use MCTS with UCB(1) with cut-off after max-steps (or when gamma^depth < epsilon).
+**** Keep nodes in dict with discretized belief of the current hidden state.
 ** Implement TD-Search planner in PlaNet.
 *** Ideas dump:
 **** Should you add one extra embedding layer for one-hot actions?
 * Other references
-** Issue #21: [[https://github.com/google-research/planet/issues/21][Intuition about hyper parameters for Atari games]].
+** Journal at GitHub: [[https://github.com/google-research/planet/issues/21][Intuition about hyper parameters for Atari games]] ~ Issue #21
