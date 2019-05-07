@@ -68,11 +68,12 @@
      It helped a lot with openloop predictions! But agent still does poorly in terms of test score, probably because of sparse rewards.
 *** IN-PROGRESS Try to set =free_nats= to a larger value and divergence scale to a lower value.
     =free_nats= means the model is allowed to use this amount of nats without KL penalty, a trick that's often used for static VAEs. It helps the model focus on smaller details which don't contribute much to improving the reconstruction loss. Intuitively to this threshold of KL divergence (between prior and posterior) reconstruction loss is favoured.
-**** IN-PROGRESS Freeway:
+**** DONE Freeway:
      Chicken movement is still modeled badly (it jumps in seemingly random pattern).
 ***** DONE =free_nats: 3= :success:
       Chicken is now stable (doesn't break env dynamics with e.g. teleportation)! There are still errors in predictions though (it moves down instead of up etc.).
-***** WAITING Random search: =max_steps: 2000000, free_nats: [2, 10], divergence_scale[10, [-4, -1]]=
+***** DONE Random search: =max_steps: 2000000, free_nats: [2, 10], divergence_scale: [10, [-4, -1]]= :success:
+      High free nats (> 6) and divergence scale (> 9E-03) with one exception resulted in blurry predictions (even zero step). On the other hand, very low divergence scale (< 1E-03) makes one step and open loop predictions very noisy. Free nats doesn't seem to have strong correlation, but two most stable results had free nats 2 and 5. _Best parameters (the most stable and crispy predictions) turned out to be: free nats 5 and divergence scale 8E-03._ Full results [[file:~/Projects/Planning-in-Imagination/etc/refs/freeway_random_search_results_07_05_2019.png][here]].
 **** IN-PROGRESS Boxing:
 ***** DONE =free_nats: 4=
 ****** DONE With =action_repeat: 8=. :success:
@@ -86,9 +87,9 @@
 ***** DONE =free_nats: 5= :success:
 ****** DONE =divergence_scale: 1E-3=
        It's much better! Closed loop prior looks nice and open loop predictions are better too.
-***** WAITING Random search: =max_steps: 1000000, free_nats: [2, 20], divergence_scale[10, [-4, -1]]=
+***** WAITING Random search: =max_steps: 1000000, free_nats: [2, 20], divergence_scale: [10, [-4, -1]]=
 **** IN-PROGRESS MsPacman
-***** WAITING Random search: =max_steps: 2000000, free_nats: [2, 10], divergence_scale[10, [-4, -1]]=
+***** WAITING Random search: =max_steps: 2000000, free_nats: [2, 10], divergence_scale: [10, [-4, -1]]=
 **** TODO Crazy Climber
 ***** DONE =free_nats: 3=
        Still not well modeled.
@@ -114,6 +115,9 @@
       Still, chicken hardly ever reaches the other side of the road during test phase.
 **** DONE Crazy Climber
      Also using =free_nats=3=. Didn't help with better modeling. Leaving it and trying with lower divergence.
+*** IN-PROGRESS Run training for longer with best parameters to see if rewards will start to converge.
+**** IN-PROGRESS Freeway:
+***** WAITING =max_steps: 10000000, free_nats: 5, divergence_scale: 7E-03=
 ** Implement Monte-Carlo Tree Search planner in Planet.
 *** Tips from "Variational Inference for Data-Efficient Model Learning in POMDPs"
 **** Use MCTS with UCB(1) with cut-off after max-steps (or when gamma^depth < epsilon).
