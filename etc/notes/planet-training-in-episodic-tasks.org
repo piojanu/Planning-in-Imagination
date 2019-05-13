@@ -121,10 +121,15 @@
     In World Models you were collecting e.g. 10000 episodes of Boxing! It's an order of magnitude more then this, and two orders then current experiments.
 **** IN-PROGRESS Freeway:
 ***** WAITING =max_steps: 10000000, free_nats: 5, divergence_scale: 7E-03=
+*** TODO Add preprocessing from World Models (crop and center) to PlaNet.
+    It cuts off not important pixels and makes important stuff more apparent.
+*** TODO Try with longer chunks (but keep overshooting fixed!) e.g. 100.
+    World Models used a pretty long sequence length (1000).
 *** TODO Disable overshooting reward loss =overshooting_reward_scale: 0.0=.
     It seems to mess up things in [[https://github.com/google-research/planet/issues/28][PyTorch implementation]] of Kai.
 *** TODO Disable overshooting at all =overshooting: 0=.
     You've been able to train Boxing quite well in World Models which doesn't have overshooting.
+*** TODO Experiment with data collection (initial and iterative) to training steps ratios to make it more sample efficient.
 ** Implement Monte-Carlo Tree Search planner in Planet.
 *** Tips from "Variational Inference for Data-Efficient Model Learning in POMDPs"
 **** Use MCTS with UCB(1) with cut-off after max-steps (or when gamma^depth < epsilon).
