@@ -24,6 +24,8 @@
      [[file:~/Projects/Planning-in-Imagination/src/planet/planet/control/simulate.py::agent%20%3D%20mpc_agent.MPCAgent(batch_env,%20step,%20False,%20False,%20agent_config)][MPCAgent in =simulate.py=]] runs planning algorithm before every env's step to plan action to perform in the env. It also adds action noise to the planned action and clip it. Proper planning happens in [[file:~/Projects/Planning-in-Imagination/src/planet/planet/control/planning.py::cross_entropy_method][cross_entropy_method]] where multiple iterations are run etc.
 **** What RSSM (cell) state includes?
      [[file:~/Projects/Planning-in-Imagination/src/planet/planet/models/base.py::return%20(prior,%20posterior),%20posterior][Pair]] of output (posterior and prior) and next "/hidden/" state (posterior when =use_obs= true, otherwise prior). [[file:~/Projects/Planning-in-Imagination/src/planet/planet/models/rssm.py::'mean':%20mean,][Posterior/prior]] is dictionary with mean, std. dev., sample, belief (det. RNN output) and det. RNN hidden state.
+**** What is the point of test_steps bigger than one ([[https://github.com/google-research/planet/issues/10#issuecomment-487030387][GitHub]])?
+     "I found time to look into this. The test steps should be as in the code (100), or at least equal the batch size (50). This is because the step counter is advanced by the batch size after every processed data batch, so the step counts training examples (sequence chunks in this case). If you set test_steps to 1 it will only compute test summaries every 50 training phases." ~ [[https://github.com/google-research/planet/issues/10#issuecomment-493103249][Danijar]]
 *** about the GitHub repo:
 **** What does it mean: "the prior's predictions just collapsed to the mode"? ~ [[https://github.com/google-research/planet/issues/28#issuecomment-486965362][issue #28]]
      "[...] the trajectories happened to fall into a couple of different clusters, and the learned model predicted the most common ones but completely missed ones in the smaller clusters."
@@ -75,6 +77,7 @@
      It helped a lot with openloop predictions! But agent still does poorly in terms of test score, probably because of sparse rewards.
 *** DONE Random search of =free_nats= and =divergence_scale=.
     =free_nats= means the model is allowed to use this amount of nats without KL penalty, a trick that's often used for static VAEs. It helps the model focus on smaller details which don't contribute much to improving the reconstruction loss. Intuitively to this threshold of KL divergence (between prior and posterior) reconstruction loss is favoured.
+    "[...] I would recommend a divergence scale that is as high as possible while still allowing for good performance. For example, when you set the divergence scale to zero it could learn to become a deterministic autoencoder which and reconstruct well but is less likely to generalize to state in latent space that the decoder hasn't seen during training." ~ [[https://github.com/google-research/planet/issues/21#issuecomment-493111752][Danijar]]
 **** DONE Freeway:
      Chicken movement is still modeled badly (it jumps in seemingly random pattern).
 ***** DONE =free_nats: 3= :success:
@@ -130,19 +133,17 @@
 **** IN-PROGRESS Boxing:
 ***** WAITING =max_steps: 10000000, batch_shape: [20, 50], free_nats: 12, divergence_scale: 3E-02= on DES16 :success:
       Boxing started working! Score ~30 after 6.5M steps. Run two more times to confirm.
-***** TODO =max_steps: 10000000, batch_shape: [20, 50], free_nats: 3, divergence_scale: 3E-02= on DES16
+***** TODO =max_steps: 10000000, batch_shape: [20, 50], free_nats: 5, divergence_scale: 3E-02= on DES16
 **** IN-PROGRESS MsPacman:
 ***** WAITING =max_steps: 10000000, batch_shape: [20, 50], free_nats: 3, divergence_scale: 3E-02= on DES17
       First run didn't work, Pacman and ghosts disappear. Try more runs.
+*** TODO Disable overshooting reward loss =overshooting_reward_scale: 0.0=.
+    It seems to mess up things in [[https://github.com/google-research/planet/issues/28][PyTorch implementation]] of Kai. But why?
+*** TODO Disable overshooting at all =overshooting: 0=.
+    You've been able to train Boxing quite well in World Models which doesn't have overshooting.
 *** TODO Try to learn value function and use MC planner.
     In e.g. Freeway you might have too short planning horizon to find good moves. Also, value of state is richer signal.
     Then in planning algorithm you might use discounting to discount further (more noisy) predictions and average all those values to use as a plan score. This would be essentially new MC-Search planner! Average over H (horizon distance) truncated (using learned heuristic/value function) MC simulations with custom simulation policy trained using evolution strategy (CEM). You could compare with e.g. zero and one-step search to compare if planning in deed helps. It's one step before TD-Lambda planner (or something similar to this used in Value Prediction Network paper) and then TD-Search planner!
-*** TODO Try with longer chunks (but keep overshooting fixed!) e.g. 100.
-    World Models used a pretty long sequence length (1000).
-*** TODO Disable overshooting reward loss =overshooting_reward_scale: 0.0=.
-    It seems to mess up things in [[https://github.com/google-research/planet/issues/28][PyTorch implementation]] of Kai.
-*** TODO Disable overshooting at all =overshooting: 0=.
-    You've been able to train Boxing quite well in World Models which doesn't have overshooting.
 *** TODO Experiment with data collection (initial and iterative) to training steps ratios to make it more sample efficient.
 ** Implement Monte-Carlo Tree Search planner in Planet.
 *** Tips from "Variational Inference for Data-Efficient Model Learning in POMDPs"
