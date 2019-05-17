@@ -1,34 +1,40 @@
 * General notes
   PlaNet paper and code related notes.
-** Paper questions:
-*** Does a belief state is inferred from start of the sequence or from start of the chunk?
-*** What does open/closed loop means for image statistics?
-    The closed loop prior is a one-step prediction and the closed loop posterior is a 0-step reconstruction. Open loop means predicting forward for multiple steps without receiving intermediate image inputs.
-*** What is KL divergence and entropy and should it grow or rather shrink?
-    If entropy is high it means that the prior/posterior is very random. As entropy goes down the prior/posterior gets more certain about the latent state. KL-divergence for the global prior should gets higher as the posterior learns to encode useful information. KL-divergence near to zero means the posterior can't learn anything.
-*** What is the effect of lowering the divergence scale (normal or global)?
-    One reason that lowering the divergence scale can help <with collapsing posterior> is that it allows the model to absorb more information from its observations by loosening the information bottleneck.
-** Code questions:
-*** What is this =future_rnn= parameter?
-    See paper figure 2. It [[file:~/Projects/Planning-in-Imagination/src/planet/planet/models/rssm.py::hidden%20%3D%20belief][binds]] deterministic path with stochastic path in RSSM.
-*** Can chunk be created across two episodes?
-    Nope, each chunk is created from one episode. And each episode is stored in a separate file.
-*** One train step is one batch or one epoch of training?
-    One train step is one batch. See how a [[file:~/Projects/Planning-in-Imagination/src/planet/planet/training/trainer.py::next_step%20%3D%20self._global_step.assign_add(batch_size)][next step]] is defined, it increments a global step by a batch size. [[file:~/Projects/Planning-in-Imagination/src/planet/planet/tools/numpy_episodes.py::yield%20episode][One element in batch is one episode]].
-*** How many games' scores are average over =test_steps=?
-    One (or more precisely how many episodes fit into =task.max_steps=). [[file:~/Projects/Planning-in-Imagination/src/planet/planet/training/define_model.py::summaries,%20score%20%3D%20tf.cond(][Score is calculated]] every =should_summarise= which is equal to =log_every= which, in turn, by default is equal to =report_every= and then it's [[file:~/Projects/Planning-in-Imagination/src/planet/planet/training/trainer.py::phase.writer.add_summary(summary,%20summary_step)][written]] to TensorBoard as [[file:~/Projects/Planning-in-Imagination/src/planet/planet/training/trainer.py::lambda:%20tf.summary.merge(%5Bsummary,%20tf.summary.scalar(][summary]].
-*** Where is this action noise added? 
-    In [[file:~/Projects/Planning-in-Imagination/src/planet/planet/control/mpc_agent.py::action%20%3D%20tfd.Normal(action,%20scale).sample()][=MPCAgent.perform=]].
-*** Where planning using CEM algo takes place?
-    [[file:~/Projects/Planning-in-Imagination/src/planet/planet/control/simulate.py::agent%20%3D%20mpc_agent.MPCAgent(batch_env,%20step,%20False,%20False,%20agent_config)][MPCAgent in =simulate.py=]] runs planning algorithm before every env's step to plan action to perform in the env. It also adds action noise to the planned action and clip it. Proper planning happens in [[file:~/Projects/Planning-in-Imagination/src/planet/planet/control/planning.py::cross_entropy_method][cross_entropy_method]] where multiple iterations are run etc.
-*** What RSSM (cell) state includes?
-    [[file:~/Projects/Planning-in-Imagination/src/planet/planet/models/base.py::return%20(prior,%20posterior),%20posterior][Pair]] of output (posterior and prior) and next "/hidden/" state (posterior when =use_obs= true, otherwise prior). [[file:~/Projects/Planning-in-Imagination/src/planet/planet/models/rssm.py::'mean':%20mean,][Posterior/prior]] is dictionary with mean, std. dev., sample, belief (det. RNN output) and det. RNN hidden state.
-** Code insights:
-*** PlaNet decoder and encoder assume second dim. to be sequence dim.
-    [[file:~/Projects/Planning-in-Imagination/src/planet/planet/networks/conv_ha.py::hidden%20%3D%20tf.reshape(obs%5B'image'%5D,%20%5B-1%5D%20%2B%20obs%5B'image'%5D.shape%5B2:%5D.as_list())][Here]] it gets flattened to one joint batch dim. and then reshaped back at the end to batch and seq. dims.
-** GitHub questions:
-*** What does it mean: "the prior's predictions just collapsed to the mode"? ~ [[https://github.com/google-research/planet/issues/28#issuecomment-486965362][issue #28]]
-    "[...] the trajectories happened to fall into a couple of different clusters, and the learned model predicted the most common ones but completely missed ones in the smaller clusters."
+** Questions:
+*** about the paper:
+**** Does a belief state is inferred from start of the sequence or from start of the chunk?
+**** What does open/closed loop means for image statistics?
+     The closed loop prior is a one-step prediction and the closed loop posterior is a 0-step reconstruction. Open loop means predicting forward for multiple steps without receiving intermediate image inputs.
+**** What is KL divergence and entropy and should it grow or rather shrink?
+     If entropy is high it means that the prior/posterior is very random. As entropy goes down the prior/posterior gets more certain about the latent state. KL-divergence for the global prior should gets higher as the posterior learns to encode useful information. KL-divergence near to zero means the posterior can't learn anything.
+**** What is the effect of lowering the divergence scale (normal or global)?
+     One reason that lowering the divergence scale can help <with collapsing posterior> is that it allows the model to absorb more information from its observations by loosening the information bottleneck.
+*** about the code:
+**** What is this =future_rnn= parameter?
+     See paper figure 2. It [[file:~/Projects/Planning-in-Imagination/src/planet/planet/models/rssm.py::hidden%20%3D%20belief][binds]] deterministic path with stochastic path in RSSM.
+**** Can chunk be created across two episodes?
+     Nope, each chunk is created from one episode. And each episode is stored in a separate file.
+**** One train step is one batch or one epoch of training?
+     One train step is one batch. See how a [[file:~/Projects/Planning-in-Imagination/src/planet/planet/training/trainer.py::next_step%20%3D%20self._global_step.assign_add(batch_size)][next step]] is defined, it increments a global step by a batch size. [[file:~/Projects/Planning-in-Imagination/src/planet/planet/tools/numpy_episodes.py::yield%20episode][One element in batch is one episode]].
+**** How many games' scores are average over =test_steps=?
+     One (or more precisely how many episodes fit into =task.max_steps=). [[file:~/Projects/Planning-in-Imagination/src/planet/planet/training/define_model.py::summaries,%20score%20%3D%20tf.cond(][Score is calculated]] every =should_summarise= which is equal to =log_every= which, in turn, by default is equal to =report_every= and then it's [[file:~/Projects/Planning-in-Imagination/src/planet/planet/training/trainer.py::phase.writer.add_summary(summary,%20summary_step)][written]] to TensorBoard as [[file:~/Projects/Planning-in-Imagination/src/planet/planet/training/trainer.py::lambda:%20tf.summary.merge(%5Bsummary,%20tf.summary.scalar(][summary]].
+**** Where is this action noise added? 
+     In [[file:~/Projects/Planning-in-Imagination/src/planet/planet/control/mpc_agent.py::action%20%3D%20tfd.Normal(action,%20scale).sample()][=MPCAgent.perform=]].
+**** Where planning using CEM algo takes place?
+     [[file:~/Projects/Planning-in-Imagination/src/planet/planet/control/simulate.py::agent%20%3D%20mpc_agent.MPCAgent(batch_env,%20step,%20False,%20False,%20agent_config)][MPCAgent in =simulate.py=]] runs planning algorithm before every env's step to plan action to perform in the env. It also adds action noise to the planned action and clip it. Proper planning happens in [[file:~/Projects/Planning-in-Imagination/src/planet/planet/control/planning.py::cross_entropy_method][cross_entropy_method]] where multiple iterations are run etc.
+**** What RSSM (cell) state includes?
+     [[file:~/Projects/Planning-in-Imagination/src/planet/planet/models/base.py::return%20(prior,%20posterior),%20posterior][Pair]] of output (posterior and prior) and next "/hidden/" state (posterior when =use_obs= true, otherwise prior). [[file:~/Projects/Planning-in-Imagination/src/planet/planet/models/rssm.py::'mean':%20mean,][Posterior/prior]] is dictionary with mean, std. dev., sample, belief (det. RNN output) and det. RNN hidden state.
+*** about the GitHub repo:
+**** What does it mean: "the prior's predictions just collapsed to the mode"? ~ [[https://github.com/google-research/planet/issues/28#issuecomment-486965362][issue #28]]
+     "[...] the trajectories happened to fall into a couple of different clusters, and the learned model predicted the most common ones but completely missed ones in the smaller clusters."
+** Insights:
+*** from the paper:
+**** PlaNet decoder and encoder assume second dim. to be sequence dim.
+     [[file:~/Projects/Planning-in-Imagination/src/planet/planet/networks/conv_ha.py::hidden%20%3D%20tf.reshape(obs%5B'image'%5D,%20%5B-1%5D%20%2B%20obs%5B'image'%5D.shape%5B2:%5D.as_list())][Here]] it gets flattened to one joint batch dim. and then reshaped back at the end to batch and seq. dims.
+**** Compared World Models and PlaNet models and losses [[/Users/piotr/Projects/Planning-in-Imagination/etc/refs/planet/world_models_vs_planet_models_and_losses.png][here]].
+*** from the code:
+**** PlaNet decoder and encoder assume second dim. to be sequence dim.
+     [[file:~/Projects/Planning-in-Imagination/src/planet/planet/networks/conv_ha.py::hidden%20%3D%20tf.reshape(obs%5B'image'%5D,%20%5B-1%5D%20%2B%20obs%5B'image'%5D.shape%5B2:%5D.as_list())][Here]] it gets flattened to one joint batch dim. and then reshaped back at the end to batch and seq. dims.
 ** What might go wrong in (not only) episodic environments:
 *** `argmax` policy may introduce high variance (small change in weights result in completely different action). Does it impact exploration? Should you use “softer” stochastic policy?
 *** PlaNet takes action scores as an input, not a discrete action. Small change in action scores e.g. from [0.70, 0.69] to [0.70, 0.71] in case of argmax policy gives completely different action wheres PlaNet sees little change in scores. This can make it harder to model agent's behaviour.
@@ -40,10 +46,8 @@
 * Experiments
 ** DONE Train original PlaNet in the small Sokoban environment.
    It didn't train. It doesn't capture Sokoban dynamics, everything gets blurred, multiple agents appear, etc.
-** IN-PROGRESS Find hyper-params to train PlaNet in the Atari environments.
-   Confirmed at the moment: future rnn: true; global divergence: disabled; action repeat: 4;
-   Important params to find: divergence scale; free nats;
-   Maybe important params: epsilon; learning rate; <- didn't test those at large scale yet.
+** IN-PROGRESS Train original PlaNet in the Atari environments.
+   Environments: Boxing, Freeway, MsPacman.
 *** DONE Train PlaNet for Boxing using original hyper-params from the paper.
     In original PlaNet openloop predictions collapse (miss some elements or just turn into a blurry blob) even for Boxing. You've asked Danijar about this issue. Here is his answer:
     "By default we use a decoder variance of 1, which means the model explains a lot of variation in the image as random noise. While this leads to more robust representations, it also leads to more blurry images. If the predicted images are all the same, the posterior collapsed because the model explains everything as observations noise. Try to reduce the decoder variance in conv_ha.py or equivalently set a lower divergence_scale parameter. [...] (I'd try values around 1e-2 or 1e-3) and to increase the action repeat. The action repeat will result in a bigger difference between consecutive frames and thus more signal for the model to learn from, that cannot easily modeled as noise [...]" ~ [[https://github.com/google-research/planet/issues/21#issuecomment-482247624][issue #21]]
@@ -56,6 +60,9 @@
 **** Boxing:
      It didn't helped with collapsing posterior and made random moves worse (untrained agent gets a lower score).
 *** DONE Random hyper-params search.
+    Confirmed at the moment: future rnn: true; global divergence: disabled; action repeat: 4;
+    Important params to find: divergence scale; free nats;
+    Maybe important params: epsilon; learning rate; <- didn't test those at large scale yet.
 **** Wide hyper-params search for Boxing. :success:
      It seems like only divergence scales have meaningful impact on the final performance. The lower the better see [[https://docs.google.com/spreadsheets/d/1UBdee4KqZSCY3kOCigemFYCzgIRS0dvBKsMjnKvYPFc/edit#gid%3D0][Google sheets]].
 **** Narrow hyper-params search for Boxing.
@@ -66,7 +73,7 @@
     The =future_rnn= flag fixes a somewhat somewhat subtle bug in the RSSM code, where RNN and stochastic state were both used but didn't interact with each other at future steps.
 **** Freerun: :success:
      It helped a lot with openloop predictions! But agent still does poorly in terms of test score, probably because of sparse rewards.
-*** DONE Try to set =free_nats= to a larger value and divergence scale to a lower value.
+*** DONE Random search of =free_nats= and =divergence_scale=.
     =free_nats= means the model is allowed to use this amount of nats without KL penalty, a trick that's often used for static VAEs. It helps the model focus on smaller details which don't contribute much to improving the reconstruction loss. Intuitively to this threshold of KL divergence (between prior and posterior) reconstruction loss is favoured.
 **** DONE Freeway:
      Chicken movement is still modeled badly (it jumps in seemingly random pattern).
@@ -106,34 +113,30 @@
      It helped, but it might be also lower divergence scale, hard to tell. For sure it didn't make things worse.
 **** DONE Crazy Climber
      It didn't change results. But those are bad as before so didn't improve either.
-*** TODO Use a discrete CEM planner (actions are one-hot vectors) with an e-greedy exploratory policy.
+*** DONE Use a discrete CEM planner (actions are one-hot vectors) with an e-greedy exploratory policy.
     Insight about argmax policy which I implement in Gym environment wrapper: PlaNet takes action scores as an input to a transition model, not a discrete action. Small change in action scores e.g. from [0.70, 0.69] to [0.70, 0.71] in case of argmax policy gives completely different action wheres PlaNet sees little change in scores. This can make it harder to model agent's behaviour, which might result in chicken random jumps up and down (because PlaNet missrecognise which action was taken). Solution would be to modify CEM algorithm to return one hot vector for chosen action, not action scores. PlaNet would learn action embeddings then.
-**** TODO Freeway
+**** DONE Freeway :success:
      It seems to in deed help model predict what action was taken (e.g. up or down). On the other hand, in the next run it again starts to randomly jump up and down.
-***** DONE =epsilon=0.3=
-      Chicken hardly ever reaches the other side of the road during test phase.
-***** TODO =epsilon=0.5=
-***** DONE =epsilon=0.7=
-      Still, chicken hardly ever reaches the other side of the road during test phase.
 **** DONE Crazy Climber
      Also using =free_nats=3=. Didn't help with better modeling. Leaving it and trying with lower divergence.
 *** IN-PROGRESS Run training for longer (to 2000 episodes collected) with best parameters to see if rewards will start to converge.
     In World Models you were collecting e.g. 10000 episodes of Boxing! It's an order of magnitude more then this, and two orders then current experiments.
 **** IN-PROGRESS Freeway:
 ***** DONE =max_steps: 10000000, free_nats: 5, divergence_scale: 7E-03= on DGX
-      Noisy as hell and score gets lower with more steps.
-***** DONE =max_steps: 10000000, free_nats: 3, divergence_scale: 3E-02= on DGX
-      Blurry as hell.
+      Noisy as hell and score gets lower with more steps. Still, between 2M and 4M steps scores were really high!
 ***** WAITING =max_steps: 10000000, free_nats: 3, divergence_scale: 8E-03= on DGX
+***** TODO =max_steps: 10000000, free_nats: 5, divergence_scale: 3E-02= on DGX
+      First run blurry as hell.
 **** IN-PROGRESS Boxing:
-***** DONE =max_steps: 10000000, batch_shape: [20, 50], free_nats: 12, divergence_scale: 3E-02= on DES16 :success:
-      Boxing started working! Score ~30 after 6.5M steps.
+***** WAITING =max_steps: 10000000, batch_shape: [20, 50], free_nats: 12, divergence_scale: 3E-02= on DES16 :success:
+      Boxing started working! Score ~30 after 6.5M steps. Run two more times to confirm.
 ***** TODO =max_steps: 10000000, batch_shape: [20, 50], free_nats: 3, divergence_scale: 3E-02= on DES16
 **** IN-PROGRESS MsPacman:
-***** TODO =max_steps: 10000000, batch_shape: [20, 50], free_nats: 3, divergence_scale: 3E-02= on DES17
+***** WAITING =max_steps: 10000000, batch_shape: [20, 50], free_nats: 3, divergence_scale: 3E-02= on DES17
       First run didn't work, Pacman and ghosts disappear. Try more runs.
-*** TODO Add preprocessing from World Models (crop and center) to PlaNet.
-    It cuts off not important pixels and makes important stuff more apparent.
+*** TODO Try to learn value function and use MC planner.
+    In e.g. Freeway you might have too short planning horizon to find good moves. Also, value of state is richer signal.
+    Then in planning algorithm you might use discounting to discount further (more noisy) predictions and average all those values to use as a plan score. This would be essentially new MC-Search planner! Average over H (horizon distance) truncated (using learned heuristic/value function) MC simulations with custom simulation policy trained using evolution strategy (CEM). You could compare with e.g. zero and one-step search to compare if planning in deed helps. It's one step before TD-Lambda planner (or something similar to this used in Value Prediction Network paper) and then TD-Search planner!
 *** TODO Try with longer chunks (but keep overshooting fixed!) e.g. 100.
     World Models used a pretty long sequence length (1000).
 *** TODO Disable overshooting reward loss =overshooting_reward_scale: 0.0=.
