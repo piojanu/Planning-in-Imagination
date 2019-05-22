@@ -7,6 +7,10 @@
      The closed loop prior is a one-step prediction and the closed loop posterior is a 0-step reconstruction. Open loop means predicting forward for multiple steps without receiving intermediate image inputs.
 **** What is KL divergence and entropy and should it grow or rather shrink?
      If entropy is high it means that the prior/posterior is very random. As entropy goes down the prior/posterior gets more certain about the latent state. KL-divergence for the global prior should gets higher as the posterior learns to encode useful information. KL-divergence near to zero means the posterior can't learn anything.
+**** How different std. dev. values influence loglikelihood (decoder) and gradient values in Normal dist.?
+     "By default we use a decoder variance of 1, which means the model explains a lot of variation in the image as random noise. While this leads to more robust representations, it also leads to more blurry images. If the predicted images are all the same, the posterior collapsed because the model explains everything as observations noise. Try to reduce the decoder variance in conv_ha.py or equivalently set a lower divergence_scale parameter. [...] (I'd try values around 1e-2 or 1e-3) and to increase the action repeat. The action repeat will result in a bigger difference between consecutive frames and thus more signal for the model to learn from, that cannot easily modeled as noise [...]" ~ [[https://github.com/google-research/planet/issues/21#issuecomment-482247624][issue #21]]. Also, see Notebook V (blue), page 8-9 for your answer.
+**** Reducing variance is equivalent to set a lower divergence scale?
+     "Divergence scale and the (constant and scalar) decoder variance are the same. You can see this by writing the ELBO for a Gaussian decoder in the standard form E_q(z)[lnp(x|z)]-KL[q(z) || p(z)]. The log-likelihood terms is lnp(x|z) = -0.5(x-f(z))/std^2-lnZ. Multiplying the ELBO by std^2 removes it from the log-prob term and puts it in front of the KL term as in beta-VAE. The objectives have different values because of the Gaussian normalizer Z but they have the share the same gradient since the normalizer is a constant." ~ [[https://github.com/google-research/planet/issues/21#issuecomment-482247624][issue #21]]
 **** What is the effect of lowering the divergence scale (normal or global)?
      One reason that lowering the divergence scale can help <with collapsing posterior> is that it allows the model to absorb more information from its observations by loosening the information bottleneck.
 *** about the code:
@@ -31,8 +35,6 @@
      "[...] the trajectories happened to fall into a couple of different clusters, and the learned model predicted the most common ones but completely missed ones in the smaller clusters."
 ** Insights:
 *** from the paper:
-**** PlaNet decoder and encoder assume second dim. to be sequence dim.
-     [[file:~/Projects/Planning-in-Imagination/src/planet/planet/networks/conv_ha.py::hidden%20%3D%20tf.reshape(obs%5B'image'%5D,%20%5B-1%5D%20%2B%20obs%5B'image'%5D.shape%5B2:%5D.as_list())][Here]] it gets flattened to one joint batch dim. and then reshaped back at the end to batch and seq. dims.
 **** Compared World Models and PlaNet models and losses [[/Users/piotr/Projects/Planning-in-Imagination/etc/refs/planet/world_models_vs_planet_models_and_losses.png][here]].
 *** from the code:
 **** PlaNet decoder and encoder assume second dim. to be sequence dim.
@@ -51,12 +53,7 @@
 ** IN-PROGRESS Train original PlaNet in the Atari environments.
    Environments: Boxing, Freeway, MsPacman.
 *** DONE Train PlaNet for Boxing using original hyper-params from the paper.
-    In original PlaNet openloop predictions collapse (miss some elements or just turn into a blurry blob) even for Boxing. You've asked Danijar about this issue. Here is his answer:
-    "By default we use a decoder variance of 1, which means the model explains a lot of variation in the image as random noise. While this leads to more robust representations, it also leads to more blurry images. If the predicted images are all the same, the posterior collapsed because the model explains everything as observations noise. Try to reduce the decoder variance in conv_ha.py or equivalently set a lower divergence_scale parameter. [...] (I'd try values around 1e-2 or 1e-3) and to increase the action repeat. The action repeat will result in a bigger difference between consecutive frames and thus more signal for the model to learn from, that cannot easily modeled as noise [...]" ~ [[https://github.com/google-research/planet/issues/21#issuecomment-482247624][issue #21]]
-**** How different std. dev. values influence loglikelihood and gradient values in Normal dist.?
-     See Notebook V (blue), page 8-9 for answer.
-**** Reducing variance is equivalent to set a lower divergence scale?
-     "Divergence scale and the (constant and scalar) decoder variance are the same. You can see this by writing the ELBO for a Gaussian decoder in the standard form E_q(z)[lnp(x|z)]-KL[q(z) || p(z)]. The log-likelihood terms is lnp(x|z) = -0.5(x-f(z))/std^2-lnZ. Multiplying the ELBO by std^2 removes it from the log-prob term and puts it in front of the KL term as in beta-VAE. The objectives have different values because of the Gaussian normalizer Z but they have the share the same gradient since the normalizer is a constant." ~ [[https://github.com/google-research/planet/issues/21#issuecomment-482247624][issue #21]]
+    In original PlaNet openloop predictions collapse (miss some elements or just turn into a blurry blob) even for Boxing.
 *** DONE Set higher action repeat (note that OpenAI Gym implement it already).
     "The action repeat will result in a bigger difference between consecutive frames and thus more signal for the model to learn from, that cannot easily modeled as noise [...]." ~ [[https://github.com/google-research/planet/issues/21#issuecomment-482247624][issue #21]]
 **** Boxing:
