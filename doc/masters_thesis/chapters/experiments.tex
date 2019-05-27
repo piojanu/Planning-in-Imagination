@@ -24,8 +24,8 @@ While the gameplay is simple, there are subtleties, such as getting an opponent 
 \label{Fig.Boxing}
 \end{figure}
 
-In Freeway an agent controls a chicken who can be made to run across a ten lane highway filled with traffic in an effort to 'get to the other side.' Every time a chicken gets across a reward of 1 is earned by the agent. If hit by a car, then a chicken is forced back slightly. The goal is to score as much points as possible in the two minutes. The chicken is only allowed to move up or down. 
-The major challenge in this environment are sparse rewards. The agent scores only when successfully crosses the highway, which isn't a trivial task.
+In Freeway an agent controls a chicken who can be made to run across a ten lane highway filled with traffic in an effort to "get to the other side." Every time a chicken gets across a reward of 1 is earned by the agent. If hit by a car, then a chicken is forced back slightly. The goal is to score as much points as possible in the two minutes. The chicken is only allowed to move up or down. 
+The major challenge in this environment are sparse rewards. The agent scores only when successfully crosses the highway, which is not a trivial task.
 
 \begin{figure}[H]
 \includegraphics[width=0.5\textwidth,keepaspectratio]{figures/Freeway.png}
@@ -43,7 +43,7 @@ Despite its simple rule set, Sokoban is an incredibly complex game for which no 
 
 The implementation of Sokoban\cite{Code.Sokoban} used for those experiments procedurally generates a new level each episode. This means an agent cannot memorize specific puzzles. Together with the planning aspect, this makes for a very challenging environment. While the underlying game logic operates in a 10 × 10 grid world, agents were trained directly on RGB sprite graphics. Fig.~\ref{Fig.Sokoban} shows an example of Sokoban level with 4 boxes and fig.~\ref{Fig.Sokoban_elements} explains the meaning of the visual icons.
 
-\editnote{Note to the advisor: Do we need to go into deeper details about e.g. how rewards are obtained etc.? Or rather point to the repository for more information?}
+\editnote{TODO: Go into deeper details about e.g. how rewards are obtained etc.}
 
 \begin{figure}[H]
 \includegraphics[]{figures/Sokoban.png}
@@ -51,47 +51,85 @@ The implementation of Sokoban\cite{Code.Sokoban} used for those experiments proc
 \label{Fig.Sokoban}
 \end{figure}
 
-\subsection{Model learning}
+\subsection{Hardware}
 
-First three experiments focus on training the world model in Sokoban environment. Because Sokoban is the deterministic environment, each experiment tested also the memory module without Mixture Density Network on top of a RNN. Instead a linear model was used to output the next latent state. \editnote{Note to the advisor: Should it be in the previous chapter (Planning with learned model a.k.a. project plan)?}
+\editnote{TODO: Add HW specification.}
 
-\subsubsection{Train the world model in the Sokoban environment}
+\subsection{World Models for Sokoban}
 
-In this experiment, the original world model was trained in the Sokoban environment. No modification to the original method described in the related work chapter was made, beyond addition of the deterministic variant of memory module.
+This section focuses on a problem of model learning in Sokoban that is used to solve the environment. The goal was to train a model to generate sharp and accurate open loop predictions of observations and obtain high score using it. In theory, how probable are sequences of ground truth observations is measured using log probability. In practice, though, it is far more useful to compare those generated sequences of future observations with ground truth sequences with an eye of the researcher. What the researcher looks for are sharp generated images which accurately resemble frames from the game. Moreover, the sequence needs to simulate subsequent actions properly, otherwise it is told that the sequence is noisy or does not model actions issued well.
 
-The vision model successfully learned to encode high dimensional observations into low dimensional latent states. Fig.~\ref{Fig.Sokoban_vision} shows original observations (first and third columns) side by side with reconstructed observations from their encodings (second and fourth columns).
+To generate an open loop prediction 60 consecutive frames and actions on average are fed into the model to initialize its hidden state first. Then, the model is ready to generate an open loop future prediction with its memory module by feeding it with subsequent actions and its own predictions as a contemporary state at following time steps. Reader should notice that what gets generated are not frames, but latent state's vectors. Those latent states can then be decoded into images for inspection.
+
+\subsubsection{Train the unchanged World Models implementation in the Sokoban environment}
+
+In this experiment, the original World Models was trained in the Sokoban environment. No modification to the original method described in the related work chapter was made, beyond addition of the deterministic variant of memory module described in the previous chapter.
+
+The vision model successfully learned to encode high dimensional observations into low dimensional latent states. Fig.~\ref{Fig.Sokoban_vision} shows original observations (first and third columns) side by side with reconstructed observations from their encodings (second and fourth columns). These are zero step predictions, no future is predicted only encoding to latent space and decoding to image space again is done.
 
 \begin{figure}[H]
 \includegraphics[width=1\textwidth,keepaspectratio]{figures/Sokoban_vision.png}
-\caption[Qualitative result of the vision model training in Sokoban]{Qualitative result of the vision model training in Sokoban. First and third columns include original observations. Second and fourth columns include reconstructions. Each reconstruction was obtained by first encoding the original observation and then decoding, using VAE encoder and decoder respectively.}
+\caption[Qualitative result of the vision model training in Sokoban]{Qualitative result of the vision model training in Sokoban. First and third columns include original observations. Second and fourth columns include reconstructions. Each reconstruction was obtained by first encoding the original observation and then decoding it, using VAE encoder and decoder respectively.}
 \label{Fig.Sokoban_vision}
 \end{figure}
-\editnote{Make a better diagram.}
 
-The stochastic and deterministic memory models were not able to learn Sokoban’s dynamics. Fig.~\ref{Fig.Sokoban_memory} shows that the stochastic model very often can not determine the agents position. The agent disappears and blocks change their types. The eighth row shows that pushing mechanics aren't modeled, the agent passes through boxes. The deterministic model don't do better.
-The controller model failed to learn how to solve any level. We suspect that VAE is unable to generate usable abstract Sokoban representation and the shallow memory and controller models can not grasp complex dynamics of Sokoban using this poor representation.
+The stochastic and deterministic memory models were not able to learn Sokoban’s dynamics. Fig.~\ref{Fig.Sokoban_memory} shows that the stochastic model very often can not determine the agents position. The agent disappears and blocks change their types. The eighth row shows that pushing mechanics are not modeled, the agent passes through boxes. The deterministic model does not do better.
+The controller model failed to learn how to solve any level, it behaved comparably to a random play. We suspect that VAE is unable to generate usable abstract Sokoban representation and the shallow memory and controller models can not grasp complex dynamics of Sokoban using this poor representation. This idea is further developed in the next experiment.
 
 \begin{figure}[H]
 \includegraphics[width=1\textwidth,keepaspectratio]{figures/Sokoban_memory.png}
-\caption[Qualitative result of the memory model training in Sokoban]{Qualitative result of the memory model training in Sokoban. Each row depicts the memory model rollout in one episode. The first column include original observations from the evaluation dataset from which the rollouts start. The RNN's hidden state was initialized on preceding transitions in each episode. Each subsequent reconstruction was obtained by first predicting the next latent state by the memory model and then decoding it using VAE decoder.}
+\caption[Qualitative result of the memory model training in Sokoban]{Qualitative result of the memory model training in Sokoban. Each row depicts the memory model rollout in one episode. The first column include original observations from the evaluation dataset from which the rollouts start. The RNN's hidden state was initialized on preceding transitions in each episode. Each subsequent reconstruction was obtained by first predicting the next latent state by the memory model and then decoding it using the VAE decoder.}
 \label{Fig.Sokoban_memory}
 \end{figure}
-\editnote{Make a better diagram.}
-\editnote{Note to the advisor: Do we need to go into great detail about how it was generated? E.g. do we need to describe how the RNN was initialized or just point to the code?}
 
-\subsubsection{Train the world model in Sokoban environment on 10x10 grid world states}
+\subsubsection{Train World Models in Sokoban environment on 10x10 grid world states}
 
 The latent state vector size is set to 64. This means that in theory this vector can accommodate full information about an observation. As noted before, Sokoban underlying game logic operates in a 10 × 10 grid world, where far edges of a level are always walls. This means that the level is described by 64 block types organized in an 8 x 8 grid. In this experiment, this domain knowledge is exploited and the agent uses those 64 block types as an input vector to the memory module, bypassing the vision model. It is worth noting, that the vision model should learn this representation as it is the optimal encoding when the objective is to compress a pixel image into a 64-dimensional vector and then reconstruct the original observation from it. However, despite use of the optimal encoding, the results have not been improved.
 
-The proposed input format is optimal encoding if one wants to compress a pixel image and then reconstruct it. However, it is really poor representation of a current state of the environment if one wants to use linear combination of those features (block types in each position) to infer optimal next action and this is exactly what the controller model is tying to do. Modeling a value function could have more sense e.g. the value function could learn that a box on a target position yields higher value, but even it would have a hard time modeling more complex relations between entities in the environment. More useful for the controller would be e.g. representation that includes information about distance between the box and each target position. Nevertheless, this could be not enough too. The box on the target position would get discounted for not being on some other target positions. Hence, there is need for feature saying “the box X placed on the target position Y”. In the end, the linear combination of the proposed latent features can't model useful policy.
+The proposed input format is optimal encoding if one wants to compress a pixel image and then reconstruct it. However, it is really poor representation of a current state of the environment if one wants to use linear combination of those features (block types in each position) to infer optimal next action and this is exactly what the controller model is tying to do. Modeling a value function could have more sense e.g. the value function could learn that a box on a target position yields higher value, but even it would have a hard time modeling more complex relations between entities in the environment. More useful for the controller would be e.g. representation that includes information about distance between the box and each target position. Nevertheless, this could be not enough too. The box on the target position would get discounted for not being on some other target positions. Hence, there is need for feature saying “the box X placed on the target position Y”. In the end, the linear combination of the proposed latent features can not model useful policy.
 
-On the other hand, this representation includes, not well represented, but perfect information about an environment state. The memory model creates its own environment representation encoded in its hidden state and then uses this representation to predict the next latent state. This memory's hidden state is also utilized by the controller. Still, it doesn't seem to encode useful enough information for the two to do well on their tasks. One way to improve the hidden state representation is explored in the next experiment.
+On the other hand, this representation includes, not well represented, but perfect information about an environment state. The memory model creates its own environment representation encoded in its hidden state and then uses this representation to predict the next latent state. This memory's hidden state is also utilized by the controller. Still, it does not seem to encode useful enough information for the two, memory and controller, to do well on their tasks. One way to improve the hidden state representation is explored in the next experiment.
 
-\subsubsection{Train the world model in Sokoban with auxiliary tasks}
+\subsubsection{Train World Model in Sokoban with auxiliary tasks}
 
 Auxiliary tasks\cite{Algo.AuxiliaryTasks} have proved to help create more informative representation of an environment. In this experiment, reward and value prediction tasks are added to the memory model. In short, two additional linear models are added on top of the RNN to predict the next reward in the environment and model a value function. In theory, it should help form a more informative hidden state of the memory model. Consequently, it should help learn Sokoban’s dynamics, but also generate representation on a higher level of abstraction that could prove useful for the controller. Moreover, a reward prediction will be needed in further work on planning with learned model.
 
 For all that, the memory model have not been able to learn to predict the rewards and values. Also, there was no improvement in memory's and controller’s performance. It is suspected, that the main cause of this failure are sparse rewards in the training dataset. A random agent used to generate the dataset does not receive many positive rewards. Effectively, most of the episodes do not have any positive reward. Hence, the memory model soon overfit on more or less constant reward and value. 
 This yields insight that the data generation procedure does not cover state-space well. Iterative approach to gathering data, from a better and better agent, could solve this problem.
 
-It is not without significance that Sokoban has enormous state-space. Each episode is much different from the others - it is nearly impossible for an agent to see a similar state in a different episode. Hence, Sokoban requires strong generalization capability from the memory module. Simple RNN can lack capacity to create good representation and in turn achieve good prediction performance. For instance I2A\cite{Algo.I2A} uses deep neural network architecture to handle Sokoban complexity. A more flexible memory model with larger capacity could manage this complexity and need for generalization. We explore those two insights in the next experiment with larger model and iterative training procedure.
+It is not without significance that Sokoban has enormous state-space. Because each episode, or level, is randomly generated it is much different from the others - it is nearly impossible for an agent to see a similar state in a different episode. Hence, Sokoban requires strong generalization capability from the memory module. Simple RNN can lack capacity to create good representation and in turn achieve good prediction performance. For instance I2A\cite{Algo.I2A} uses deep neural network architecture to handle Sokoban complexity. A more flexible memory model with larger capacity could manage this complexity and need for generalization. The two insights are explored in the PlaNet experiments, which have larger model and uses iterative training procedure. However before that, World Models are tested in an easier environment, Boxing from Atari.
+
+\subsection{World Models for Atari}
+
+In two experiments below ideas from previous section were put into the test. First, original World Models is trained for the Boxing environment. Then, World Models is coupled with AlphaZero planner and trained together.
+
+\subsubsection{Train unchanged World Models in the Boxing environment}
+
+In this experiment, the original World Models was trained in the Boxing environment. No modification to the original method described in the related work chapter was made. In this experiment discrete memory was not tested as original stochastic one did well.
+
+The vision model successfully learned to encode high dimensional observations into low dimensional latent states. Fig.~\ref{Fig.Boxing_vision} shows original observations (first and third columns) side by side with reconstructed observations from their encodings (second and fourth columns). These are zero step predictions, no future is predicted only encoding to latent space and decoding to image space again is done.
+
+\begin{figure}[H]
+\includegraphics[width=1\textwidth,keepaspectratio]{figures/Boxing_vision.png}
+\caption[Qualitative result of the vision model training in Boxing]{Qualitative result of the vision model training in Boxing. First and third columns include original observations. Second and fourth columns include reconstructions. Each reconstruction was obtained by first encoding the original observation and then decoding it, using VAE encoder and decoder respectively.}
+\label{Fig.Sokoban_vision}
+\end{figure}
+
+The stochastic memory models was able to learn Boxing’s dynamics. Fig.~\ref{Fig.Boxing_memory} shows that the stochastic model generates very sharp and accurate predictions that model agents movement and punches really well. The agents does not disappear like in Sokoban and actions are smooth.
+The controller model successfully learned how to solve the game scoring above 18 points on average. We suspect that World Models with latent state of size 16 was forced to encode two characters positions and hands states which are useful high-level features when deciding on the next action. It is worth pointing out here that similar experiment with such a small latent space did not yield improvement in Sokoban.
+
+\begin{figure}[H]
+\includegraphics[width=1\textwidth,keepaspectratio]{figures/Boxing_memory.png}
+\caption[Qualitative result of the memory model training in Sokoban]{Qualitative result of the memory model training in Boxing. Each row depicts the memory model rollout in one episode. The first column include original observations from the evaluation dataset from which the rollouts start. The RNN's hidden state was initialized on preceding transitions in each episode. Each subsequent reconstruction was obtained by first predicting the next latent state by the memory model and then decoding it using the VAE decoder.}
+\label{Fig.Sokoban_memory}
+\end{figure}
+
+\subsubsection{Train World Models with AlphaZero planner in the Boxing environment}
+
+Despite getting really accurate future predictions in the previous experiment and hyper-parameter tuning of this architecture the planner training was unstable. It did not train to properly plan in latent space and play the game. Decision was to abandon this solution and move to PlaNet which shown that, in deed, it is possible to plan in continuous control tasks. 
+
+\subsection{PlaNet for Sokoban}
+
+\subsection{PlaNet for Atari}
+
+The next section will focus on tuning these methods to yield high scores, comparable to model-free methods, with the smallest amount of data possible.
