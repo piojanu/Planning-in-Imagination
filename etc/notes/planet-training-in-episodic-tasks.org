@@ -13,7 +13,11 @@
      "Divergence scale and the (constant and scalar) decoder variance are the same. You can see this by writing the ELBO for a Gaussian decoder in the standard form E_q(z)[lnp(x|z)]-KL[q(z) || p(z)]. The log-likelihood terms is lnp(x|z) = -0.5(x-f(z))/std^2-lnZ. Multiplying the ELBO by std^2 removes it from the log-prob term and puts it in front of the KL term as in beta-VAE. The objectives have different values because of the Gaussian normalizer Z but they have the share the same gradient since the normalizer is a constant." ~ [[https://github.com/google-research/planet/issues/21#issuecomment-482247624][issue #21]]
 **** What is the effect of lowering the divergence scale (normal or global)?
      One reason that lowering the divergence scale can help <with collapsing posterior> is that it allows the model to absorb more information from its observations by loosening the information bottleneck.
-**** If I set `divergence_scale` to 0, the transition model wouldn't learn at all?
+**** TODO If I set `divergence_scale` to 0, the transition model wouldn't learn at all?
+     /Build insight about divergence scale./
+**** TODO Why so high divergence scale in Boxing really works and how it's different from low divergence scale?
+     /Build insight about free nats./
+     =free_nats= means the model is allowed to use this amount of nats without KL penalty, a trick that's often used for static VAEs. It helps the model focus on smaller details which don't contribute much to improving the reconstruction loss. Intuitively to this threshold of KL divergence (between prior and posterior) reconstruction loss is favoured.
 *** about the code:
 **** What is this =future_rnn= parameter?
      See paper figure 2. It [[file:~/Projects/Planning-in-Imagination/src/planet/planet/models/rssm.py::hidden%20%3D%20belief][binds]] deterministic path with stochastic path in RSSM.
@@ -80,7 +84,6 @@
 **** Freerun: :success:
      It helped a lot with openloop predictions! But agent still does poorly in terms of test score, probably because of sparse rewards.
 *** DONE Random search of =free_nats= and =divergence_scale=.
-    =free_nats= means the model is allowed to use this amount of nats without KL penalty, a trick that's often used for static VAEs. It helps the model focus on smaller details which don't contribute much to improving the reconstruction loss. Intuitively to this threshold of KL divergence (between prior and posterior) reconstruction loss is favoured.
     "[...] I would recommend a divergence scale that is as high as possible while still allowing for good performance. For example, when you set the divergence scale to zero it could learn to become a deterministic autoencoder which and reconstruct well but is less likely to generalize to state in latent space that the decoder hasn't seen during training." ~ [[https://github.com/google-research/planet/issues/21#issuecomment-493111752][Danijar]]
 **** DONE Freeway:
      Chicken movement is still modeled badly (it jumps in seemingly random pattern).
@@ -137,16 +140,16 @@
 ***** TODO =max_steps: 10000000, free_nats: 5, divergence_scale: 3E-02= on DGX
       First run blurry as hell.
 **** IN-PROGRESS Boxing:
-***** WAITING =max_steps: 10000000, batch_shape: [20, 50], free_nats: 12, divergence_scale: 3E-02= on DES16 :success:
+***** WAITING =max_steps: 10000000, batch_shape: [20, 50], free_nats: 12, divergence_scale: 3E-02= on DGX :success:
       Boxing started working! Score ~30 after 6.5M steps. Run two more times to confirm.
 ***** TODO =max_steps: 10000000, batch_shape: [20, 50], free_nats: 5, divergence_scale: 3E-02= on DES16
-**** IN-PROGRESS MsPacman:
-***** WAITING =max_steps: 10000000, batch_shape: [20, 50], free_nats: 3, divergence_scale: 3E-02= on DES17
-      First run didn't work, Pacman and ghosts disappear. Try more runs.
+**** TODO MsPacman:
+***** DONE =max_steps: 10000000, batch_shape: [20, 50], free_nats: 3, divergence_scale: 3E-02= on DES17
+      Didn't work, Pacman and ghosts disappear.
 ***** TODO =max_steps: 10000000, batch_shape: [20, 50], free_nats: 5, divergence_scale: 3E-02= on DES16
-*** TODO Try longer planning horizon in Freeway.
+*** IN-PROGRESS Try longer planning horizon in Freeway.
     In Freeway you might have too short planning horizon (12 currently) to find good moves.
-**** TODO =summary_horizons: 25=
+**** IN-PROGRESS =summary_horizons: 25= on DGX
 **** TODO =summary_horizons: 50=
 *** TODO Disable overshooting reward loss =overshooting_reward_scale: 0.0=.
     It seems to mess up things in [[https://github.com/google-research/planet/issues/28][PyTorch implementation]] of Kai. But why?
