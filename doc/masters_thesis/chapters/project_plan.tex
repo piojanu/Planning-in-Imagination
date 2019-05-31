@@ -1,26 +1,67 @@
 \section{Planning with learned model}
-\editnote{Make diagrams of your concept and describe them. It won't be long.}
 
-This work divides into two parts: learning the environment model and application of planning algorithms. In the first part, current advancements in model-learning domain are explored. The goal is to find and train \editnote{Note to the advisor: find and train or just train and we assume that we found an appropriate method? Answer: describe idea not history e.g. This is problem... Two models were tested... That work, that doesn't...} the sufficient environment model. Sufficient means, it provides accurate predictions about future states to some cut-off point in time. The further away the cut-off point, the better model-learning method.
-In the other part, the goal is to find and implement \editnote{The same as above} a planning algorithm which will use learned model. As described in the introduction, main problems are: the model bias and the compounding error \editnote{Note to the advisor: is the ``compunding error'' the correct term for that?}. The point is to find planning algorithms and refinements to them that will result in a robust method that can successfully plan using the imperfect model.
-Before that, the code architecture and the framework that was created to accelerate this research are described.
+In this section two architectures are described. Both involve a similar model learning approach, but differ substantially in technical details and planning algorithms. Nevertheless, the goal stays the same: train a sufficient environment model, or such that accurately predicts future latent states of an environment to predefined cut-off point in time, and use it to plan and solve the environment. The more accurate the model to the demanded cut-off point, which is environment dependent, the better model learning algorithm.
+Before all of that, the code architecture and the framework that was created to accelerate this research are described.
 
-\subsection{HumbleRL}
-\editnote{Framework + implementation architecture, make diagrams and describe them}
+\editnote{NOTE! Related work described those methods in details. Here you need to describe how YOU use them!}
 
-\subsection{Model-learning}
+\subsection{HumbleRL framework}
 
-In this part, a model of an environment that can be used locally for planning is trained. Locally means that the planning algorithm operates on trimmed simulated episodes to the point where the model is still accurate. There are different methods examined to choose the best one.
+\begin{enumerate}
+\item Framework description.
+\item Implementation architecture.\\ Note it is used in World Models + AlphaZero.
+  \begin{enumerate}
+  \item OpenAI Gym is an environment.
+  \item Vision is an interpreter.
+  \item Memory is a MDP.
+  \item AlphaZero is a mind that uses MDP to construct search tree.
+  \item Callbacks are used to collect data and statistics.
+  \end{enumerate}
+\item Copy and adjust diagrams from HRL paper.
+\end{enumerate}
 
-\subsubsection{World Models}
+\subsection{World Models with the AlphaZero planner}
+
+\begin{enumerate}
+\item High-level idea and argument ``why?!'':\\
+  World Models shown it can plan (offline planning, training a policy) in imagination and AlphaZero is incredibly powerful search algorithm.
+\item Data collection i.e. a random agent.
+\item Preprocessing.
+\item World Models architecture: Vision and Memory.
+  \begin{enumerate}
+  \item Which does what (brief reminder) e.g. Vision encode a current observation and Memory encodes history and predicts future.
+  \item How Memory is used to predict future: MDN and LMH.
+  \item Training procedure of each module i.e. in separation exactly like described in the related work (don't describe loss etc. only high-level).
+  \end{enumerate}
+\item AlphaZero architecture: Controller.
+  \begin{enumerate}
+  \item What it does i.e. uses the memory module to plan in imagination.
+  \item How next action is planned i.e. MCTS.
+  \item Training procedure of Value and Policy networks i.e. policy iteration after Vision and Memory are already trained (don't go into AZ details, it's already in the related work, here how you modify it or apply to your case).
+  \end{enumerate}
+\end{enumerate}
 
 World Models' agent, as shown in the paper\cite{Algo.WorldModels}, is able to learn from simulated experience. It is an example of successful planning using learned model. This work utilize the world model part of the agent in order to learn model of the two mentioned benchmarks. Also, Vision and Memory encode environment observations into low level representation. The latent state of the world models encodes abstract information about the environment and allow the planning controller to stay small.
 
 Because Sokoban is the deterministic environment, each experiment with World Models tested also the memory module without Mixture Density Network on top of a RNN. Instead a linear model was used to output the next latent state.
 
-\editnote{Write how data was generated, how each component was trained (in separation), about hyper-params etc.}
+\subsection{PlaNet with the CEM planner}
 
-\subsection{Planning}
-\editnote{This section will be written in its final shape later when we'll have learned model.}
-
-The main contribution of this part is application of search algorithms that use the imperfect learned model to solve the complex planning problems. Specifically, the model latent state is used for planning by algorithms such as TD-Search in the complex planning problems like Sokoban. TD-Search is Q-value function approximation with linear model learned using bootstrapping on simulated experience. Thanks to bootstrapping full episodes doesn’t need to be used.
+\begin{enumerate}
+\item High-level idea and argument ``why?!'':\\
+  PlaNet shown it can successfully plan (online planning, evolutional strategy) in imagination for complex continuous control task with iterative data collection and in a clean algorithm.
+\item Data collection i.e. iterative approach.
+\item Preprocessing.
+\item RSSM architecture.\\ 
+  \begin{enumerate}
+  \item What it does (brief reminder)? It predicts future, observations and rewards, where the latter is more important for planner which uses the model to evaluate plans. 
+  \item How it's used. Paper details are already described in the related work (like overshooting etc.), here write how you use it e.g. you encode actions and RSSM is used to sample future latent states that are then used to predict rewards and it receives current observation to update its belief state etc.
+  \item Training procedure i.e. interchanged training, test and collection phases (like in paper, nothing changed).
+  \end{enumerate}
+\item CEM planner.
+  \begin{enumerate}
+  \item What it does i.e. it's like optimization of actions scores based on model evaluations.
+  \item How next action is planned i.e. argmax.
+  \item Planning procedure i.e. evolutional strategy.
+  \end{enumerate}
+\end{enumerate}
