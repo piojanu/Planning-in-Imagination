@@ -3,35 +3,13 @@
 In this section two architectures are described. Both involve a similar model learning approach, but differ substantially in technical details and planning algorithms. Nevertheless, the goal stays the same: train a sufficient environment model, or such that accurately predicts future latent states of an environment to predefined cut-off point in time, and use it to plan and solve the environment. The more accurate the model to the cut-off point, which might be environment dependent, the better model learning algorithm.
 Before all of that, the code architecture and the framework that was created to accelerate this research are described.
 
-\editnote{NOTE! Related work described those methods in details. Here you need to describe how YOU use them!}
-
 \subsection{HumbleRL framework}
 
-\begin{enumerate}
-\item Framework description.
-\item Implementation architecture.\\ Note it is used in World Models + AlphaZero.
-  \begin{enumerate}
-  \item OpenAI Gym is an environment.
-  \item Vision is an interpreter.
-  \item Memory is a MDP.
-  \item AlphaZero is a mind that uses MDP to construct search tree.
-  \item Callbacks are used to collect data and statistics.
-  \end{enumerate}
-\item Copy and adjust diagrams from HRL paper.
-\end{enumerate}
-
-\subsubsection{Framework description}
 Reinforcement Learning scientists tend to write the entire code from scratch by themselves, instead of using existing RL frameworks. This is justified by the fact, that the commonly available frameworks are not flexible enough for intended experiments or require a specific backend like TensorFlow, which might be disfavored.
 HumbleRL \cite{Code.HRL} was created with this problem in mind. Its simple API allows to perform a variety of RL experiments without any restrictions on the algorithms used. Since the backend is not tied to any specific technology, it is possible to mix different neural network frameworks or not use any at all. HumbleRL provides the boilerplate code of RL loop in fig.\ref{Fig.RL} and determines the common interface, the rest is done by the user.
 
-\subsubsection{Implementation architecture (World Models + AlphaZero)}
-We show framework architecture in fig. \ref{Fig.HRL_architecture}. An agent is represented by the Mind class. Mind encapsulates action planning logic and provides it via the plan method. In order to learn, the agent acts in the world represented by the Environment class. The Environment class provides methods for resetting, taking steps, rendering and getting information about the world. The agent isn’t usually presented with raw environment observations - instead, it looks at states preprocessed by the Interpreter. Different interpreters can be joined together with the ChainInterpreter class. It acts as a preprocessing pipeline, with each subsequent interpreter using the output of a previous one as an input.
-Framework user doesn’t need to call all of those methods directly, those are utilized by the loop function. This function gets an action from the Mind, executes it in the Environment and then next observation is preprocessed with the Interpreter in preparation for the next step. To extend basic loop functionality, user can define callbacks that implement the Callback interface. Callbacks can react to events:
-• at the beginning and ending of the loop,
-• at the beginning and ending of each episode, • after action is planned by the Mind,
-• after step is taken in the Environment.
-Callbacks are accumulated in the CallbackList. The entire loop function logic is shown in fig. \ref{Fig.HRL_loop}.
-Parallel version of loop function is available as the pool function. It uses predefined number of workers to execute a pool of Minds in their own Environments in parallel.
+\subsubsection{Architecture}
+Framework architecture is depicted in fig. \ref{Fig.HRL_architecture}. An agent is represented by the Mind class. Mind encapsulates action planning logic and provides it via the plan method. In order to learn, the agent acts in the world represented by the Environment class. The Environment class provides methods for resetting, taking steps, rendering and getting information about the world. The agent is not usually presented with raw environment observations. Instead, it looks at states preprocessed by the Interpreter. Different interpreters can be joined together with the ChainInterpreter class. It acts as a preprocessing pipeline, with each subsequent interpreter using the output of a previous one as an input.
 
 \begin{figure}[H]
 \includegraphics[width=0.45\textwidth,height=0.9\textheight,keepaspectratio]{figures/HumbleRL/architecture.png}
@@ -39,11 +17,23 @@ Parallel version of loop function is available as the pool function. It uses pre
 \label{Fig.HRL_architecture}
 \end{figure}
 
+Framework user does not need to call all of those methods directly, those are utilized by the loop function. This function gets an action from the Mind, executes it in the Environment and then next observation is preprocessed with the Interpreter in preparation for the next step. To extend basic loop functionality, user can define callbacks that implement the Callback interface. Callbacks can react to events:
+\begin{itemize}
+\item at the beginning and ending of the loop,
+\item at the beginning and ending of each episode,
+\item after action is planned by the Mind,
+\item after step is taken in the Environment.
+\end{itemize}
+Callbacks are accumulated in the CallbackList. The entire loop function logic is shown in fig. \ref{Fig.HRL_loop}.
+Parallel version of loop function is available as the pool function. It uses predefined number of workers to execute a pool of Minds in their own Environments in parallel.
+
 \begin{figure}[H]
 \includegraphics[width=0.45\textwidth,height=0.9\textheight,keepaspectratio]{figures/HumbleRL/loop.png}
 \caption{HumbleRL loop function overview}
 \label{Fig.HRL_loop}
 \end{figure}
+
+World Models with the AlphaZero planner uses this framework.
 
 \subsection{World Models with the AlphaZero planner}
 
@@ -66,34 +56,61 @@ Parallel version of loop function is available as the pool function. It uses pre
   \end{enumerate}
 \end{enumerate}
 
-\subsubsection{High-level idea and argument ``why?!''}
-World Models' agent, as shown in the paper\cite{Algo.WorldModels}, is able to learn from simulated experience. It is an example of successful planning using learned model. This work utilize the world model part of the agent in order to learn model of the two mentioned benchmarks. Also, Vision and Memory encode environment observations into low level representation. The latent state of the world models encodes abstract information about the environment and allow the planning controller to stay small.
+World Models' agent, as shown in the paper \cite{Algo.WorldModels}, is able to learn from simulated experience. It is an example of successful planning using learned model. This section describes attempt to utilize the world model part of the agent in the AlphaZero search algorithm. Moreover, the Vision module encodes environment observations into low level representation. The latent state of the world models encodes abstract information about the environment and allow the planning controller to work fast, because there is no need to generate high-dimensional observations, only low-dimensional latent states are generated by the model and processed by the controller.
 
-\subsubsection{Data collection i.e. a random agent.}
-To train our V model, we first collect a dataset of 10,000 random rollouts of the environment. We have first an agent acting randomly to explore the environment multiple times, and record the random actions at taken and the resulting observations from the environment. We use this dataset to train V to learn a latent space of each frame observed. We train our VAE to encode each frame into low dimensional latent vector z by minimizing the difference between a given frame and the reconstructed version of the frame produced by the decoder from z.
-We can now use our trained V model to pre-process each frame at time t into zt to train our M model. Using this pre-processed data, along with the recorded random actions at taken, our MDN-RNN can now be trained to model P(zt+1 | at, zt, ht) as a mixture of Gaussians.
+\subsubsection{Data collection}
+To train Vision and Memory modules first collection of 10,000 random rollouts of the environment are gathered to create a dataset. An agent is acting randomly to explore the environment multiple times and records of the random actions taken and the resulting observations from the environment are saved.
+This dataset is used to train the Vision module to learn a latent state of each frame observed. Next, it is used to preprocess each frame into its latent state to prepare a dataset for the Memory module training.
 
-\subsubsection{Preprocessing.}
-Crop middle of the frame and resize (64 x 64 x 3).
-Actions one-hot.
+\subsubsection{Preprocessing}
+Each frame, before it is used for any training, is central cropped if a frame from an environment includes e.g. some border. This operation depends on a specific environment. It is then resized to 64 x 64 pixels for all environments. All three colour channels are preserved. Actions get one-hot encoded.
 
-\subsubsection{World Models architecture: Vision and Memory.}
-We used OpenAI Gym’s CarRacing environment (the same as in original World Models paper), which is a continuous-control, top-down racing environment. The agent receives state pixels as input and controls the break, accelerator and the steering wheel of a car.
-We use HumbleRL in a few stages of training the model. First, we use loop together with an agent performing random actions (Mind) and a Callback, that gathers transitions and saves them to an external storage (HDF5 file in our case). The framework allows us to focus strictly on collecting trajectories and not worry about agent-environment interactions.
-Transitions are used to train the Vision and Memory components. For Vision, which function is to encode observations into latent state-space, we use Keras and for Memory, which function is to encode history, we use PyTorch [16], since we found it easier to use for this case than Keras. HumbleRL is not constricted to work with any particular deep learning library, so it’s not a problem to mix the solutions, as long as we wrap our trained models in proper interfaces.
+\subsubsection{World Models architecture: Vision and Memory}
+HumbleRL was used in a few stages of training a model. First of all, OpenAI Gym was used behind the Environment interface from the framework. Loop together with an agent performing random actions (Mind) and a callback was used to gathers transitions and save them to an external storage. The framework allows to focus strictly on collecting trajectories and not worry about agent-environment interactions.
+Transitions are used to train the Vision and Memory components. For Vision, which function is to encode observations into latent state-space, Keras \cite{Code.Keras} framework was used and for Memory, which function is to encode history, PyTorch \cite{Code.PyTorch} was used, since it was easier to use for this case than Keras. HumbleRL is not constricted to work with any particular deep learning library, so it’s not a problem to mix the solutions, as long as trained models are wrapped in proper interfaces.
+As described in the related work chapter, the Vision module was trained to encode each frame into low dimensional latent vector by minimizing the difference between a given frame and the reconstructed version of the frame produced by the decoder. After data processing using the trained Vision model, the Memory module can be trained to model environment's dynamics, predicting a future latent state from history of previous latent states, as a mixture of Gaussians.
+Figure \ref{Fig.WorldModelsPHM} depicts how the world model works. Solid arrows describe the predictive model and dotted arrow describes the inference model \editnote{NOTE: It needs to be explained in Theoretical Background what is the difference.}. This model uses stochastic nodes (circles) to model uncertainty in the environment, but also create more robust environment's representation. Uncertainty can originate not only from fundamental stochastic nature of the environment, but also partial observability. Squares depict deterministic nodes. The Memory module model is implemented as the recurrent neural network.
 
-\editnote{TODO: Recreate prob. model diagram from your WM vs. PlaNet comparison notes in Draw.io.}
+\begin{figure}[H]
+\includegraphics[width=0.45\textwidth,keepaspectratio]{figures/WorldModels/prob_graph_model.png}
+\caption{Stochastic World Models probabilistic graphical model diagram}
+\label{Fig.WorldModelsPHM}
+\end{figure}
 \editnote{TODO: Describe this diagram in probabilistic notation (see note).}
 
-Because Sokoban is the deterministic environment, each experiment with World Models tested also the memory module without Mixture Density Network on top of a RNN. Instead a linear model was used to output the next latent state.
-\editnote{TODO: Describe how sampling is done.}
+Because benchmarks include deterministic and fully observable case, World Models was tested also with the Memory module without Mixture Density Network on top of the recurrent neural network. Instead a linear model was used to output the next latent state.
 
-\subsubsection{AlphaZero architecture: Controller.}
-Once we have these components ready, we use them to train the final piece - the Controller, which uses Vision and Memory as ChainInterpreter and AlphaZero as Mind. \editnote{TODO: Expand with 1/2 sentences on usage of Vision/Memory.}
-We took already implemented board games [13] and wrapped each in the MDP class to represent them as Markov Decision Processes [14] (MDP). MDP is used for MCTS simulations, but also as the Environment. The Mind class implements MCTS algorithm for one player. In AlphaZero, it uses the DNN to evaluate each node and guide search direction on each edge. We compose two Minds in AdversarialMind class that choose which player should take action based on a current state. In the Interpreter class, we take care of states normalization. Each player always sees the board as if he’s playing white. This way, we don’t have to condition the DNN on a player’s pawns’ color.
-We gather self-play experience and players’ score statistics using callbacks. The DNN training phase takes place after a predefined number of self-play games. The training phase is performed using popular Keras [7] framework, that is spe- cialised for neural networks training. HumbleRL is designed not to interfere with other frameworks e.g. for DNN training. Next, the self-play phase takes place once again and the two further interchange. The self-play phase uses the loop function to effortlessly clash AlphaZero with itself for given number of games (episodes). Adaptation of AlphaZero algorithm in HumbleRL is shown in table III.
+\subsubsection{AlphaZero architecture: Controller}
+Once the world model is ready it is used to train the final piece - the planner, which uses the AlphaZero algorithm. The Vision module is used as the Interpreter which encodes incoming observations into latent space. The Memory module gets wrapped in the MDP interface, it is used for AlphaZero simulations. The Mind interface is implemented by AlphaZero algorithm, it implements described in the related work search strategy. It uses a neural network to evaluate each node and guide search direction on each edge. Returned actions' scores are visit counts from the root node, which are then used to choose an action by a policy. Details are the same as in original AlphaZero described in the related work. Pseudo-code of the planning algorithm in Python is shown below.
 
-\editnote{TODO: Add pseudo-code of planning procedure.}
+\begin{lstlisting}[language=Python]
+def plan(self, state):
+    # Get/create root node
+    root = self.query_tree(state)
+
+    # Perform simulations
+    simulations = 0
+    start_time = time()
+    while time() < start_time + self.timeout and simulations < self.max_simulations:
+        # Simulate
+        simulations += 1
+        leaf, path = self.simulate(root)
+
+        # Expand and evaluate
+        value = self.evaluate(leaf)
+
+        # Backup value
+        self.backup(path, value)
+
+    # Get actions' visit counts
+    actions = np.zeros(self.model.action_space.num)
+    for action, edge in root.edges.items():
+        actions[action] = edge.num_visits
+
+    return actions
+\end{lstlisting}
+
+Agent's experience and score statistics used for training are gathered using callbacks during self-play phase. The neural network training phase takes place after a predefined number of self-play games. The training phase is performed using the Keras \cite{Code.Keras} framework. Next, the self-play phase takes place once again and the two further interchange. The self-play phase uses the loop function to effortlessly run AlphaZero for given number of games (episodes).
 
 \subsection{PlaNet with the CEM planner}
 
