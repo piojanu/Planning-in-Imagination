@@ -69,16 +69,30 @@ Each frame, before it is used for any training, is central cropped if a frame fr
 HumbleRL was used in a few stages of training a model. First of all, OpenAI Gym was used behind the Environment interface from the framework. Loop together with an agent performing random actions (Mind) and a callback was used to gathers transitions and save them to an external storage. The framework allows to focus strictly on collecting trajectories and not worry about agent-environment interactions.
 Transitions are used to train the Vision and Memory components. For Vision, which function is to encode observations into latent state-space, Keras \cite{Code.Keras} framework was used and for Memory, which function is to encode history, PyTorch \cite{Code.PyTorch} was used, since it was easier to use for this case than Keras. HumbleRL is not constricted to work with any particular deep learning library, so it’s not a problem to mix the solutions, as long as trained models are wrapped in proper interfaces.
 As described in the related work chapter, the Vision module was trained to encode each frame into low dimensional latent vector by minimizing the difference between a given frame and the reconstructed version of the frame produced by the decoder. After data processing using the trained Vision model, the Memory module can be trained to model environment's dynamics, predicting a future latent state from history of previous latent states, as a mixture of Gaussians.
-Figure \ref{Fig.WorldModelsPHM} depicts how the world model works. Solid arrows describe the predictive model and dotted arrow describes the inference model \editnote{NOTE: It needs to be explained in Theoretical Background what is the difference.}. This model uses stochastic nodes (circles) to model uncertainty in the environment, but also create more robust environment's representation. Uncertainty can originate not only from fundamental stochastic nature of the environment, but also partial observability. Squares depict deterministic nodes. The Memory module model is implemented as the recurrent neural network.
+Figure \ref{Fig.WorldModelsPHM} depicts the world model in graphical form. It models latent states with probability distribution to model uncertainty in the environment, but also create more robust environment's representation. Uncertainty can originate not only from fundamental stochastic nature of the environment, but also partial observability. The model is implemented as the recurrent neural network with the mixture density network on top.
+\begin{itemize}
+\item Deterministic hidden state mode:       $h_t = f(h_{t-1}, s_{t-1}, a_{t-1})$
+\item Stochastic latent state model:         $z_{t+1} \sim p(z_{t+1}|h_t) = \sum_c\pi_c(h_t)p(z_{t+1}|h_t, c)$
+\item Observation model (decoder):           $o_t \sim p(o_t|z_t)$
+\item Approximate state posterior (encoder): $z_t \sim q(z_t|o_t)$
+\end{itemize}
+$\pi(h)$ is a normalized vector of mixing coefficients as a function of the RNN hidden state. All probability distributions, except the observation model, are implemented with Gaussians. The observation model uses Bernoulli distribution.
 
 \begin{figure}[H]
 \includegraphics[width=0.45\textwidth,keepaspectratio]{figures/WorldModels/prob_graph_model.png}
-\caption{Stochastic World Models probabilistic graphical model diagram}
+\caption[World Models probabilistic graphical model]{World Models probabilistic graphical model: solid arrows describe the predictive model, dotted arrow describes the inference model \editnote{NOTE: It needs to be explained in Theoretical Background what is the difference.}, stochastic nodes are circles and squares depict deterministic nodes.}
 \label{Fig.WorldModelsPHM}
 \end{figure}
-\editnote{TODO: Describe this diagram in probabilistic notation (see note).}
 
-Because benchmarks include deterministic and fully observable case, World Models was tested also with the Memory module without Mixture Density Network on top of the recurrent neural network. Instead a linear model was used to output the next latent state.
+Because benchmarks include deterministic and fully observable case (Sokoban), World Models was tested also with the Memory module without Mixture Density Network on top of the recurrent neural network. Instead a linear model was used to output the next latent state.
+\begin{itemize}
+\item Deterministic hidden state mode:       $h_t = f(h_{t-1}, s_{t-1}, a_{t-1})$
+\item Deterministic latent state model:      $z_{t+1} = f(h_t)$
+\item Observation model (decoder):           $o_t \sim p(o_t|z_t)$
+\item Approximate state posterior (encoder): $z_t \sim q(z_t|o_t)$
+\end{itemize}
+
+\editnote{TODO: Add neural net architectures in here.}
 
 \subsubsection{AlphaZero architecture: Controller}
 Once the world model is ready it is used to train the final piece - the planner, which uses the AlphaZero algorithm. The Vision module is used as the Interpreter which encodes incoming observations into latent space. The Memory module gets wrapped in the MDP interface, it is used for AlphaZero simulations. The Mind interface is implemented by AlphaZero algorithm, it implements described in the related work search strategy. It uses a neural network to evaluate each node and guide search direction on each edge. Returned actions' scores are visit counts from the root node, which are then used to choose an action by a policy. Details are the same as in original AlphaZero described in the related work. Pseudo-code of the planning algorithm in Python is shown below.
