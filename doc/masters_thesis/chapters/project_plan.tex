@@ -10,6 +10,7 @@ Reinforcement Learning scientists tend to write the entire code from scratch by 
 HumbleRL \cite{Code.HRL} was created with this problem in mind. Its simple API allows to perform a variety of RL experiments without any restrictions on the algorithms used. Since the backend is not tied to any specific technology, it is possible to mix different neural network frameworks or not use any at all. HumbleRL provides the boilerplate code of RL loop in fig.\ref{Fig.RL} and determines the common interface, the rest is done by the user.
 
 \subsubsection{Architecture}
+
 Framework architecture is depicted in fig. \ref{Fig.HRL_architecture}. An agent is represented by the Mind class. Mind encapsulates action planning logic and provides it via the plan method. In order to learn, the agent acts in the world represented by the Environment class. The Environment class provides methods for resetting, taking steps, rendering and getting information about the world. There is a factory function that creates and returns e.g. wrapped OpenAI Gym environment. The agent is not usually presented with raw environment observations. Instead, it looks at states preprocessed by the Interpreter. Different interpreters can be joined together with the ChainInterpreter class. It acts as a preprocessing pipeline, with each subsequent interpreter using the output of a previous one as an input.
 
 \begin{figure}[H]
@@ -48,24 +49,24 @@ This architecture allows for training of a large neural network to tackle RL tas
 An environment provides the agent with a high dimensional input observation at each time step. It is a 2D image frame that is part of a video sequence. The vision module role, as already mentioned, is to learn an abstract representation of each observed input frame. It uses a simple Variational Autoencoder \cite{Algo.VAE} and, the same as in the original work described in the related work chapter, is trained to encode each frame into low dimensional latent vector by minimizing the difference between a given frame and the reconstructed version of the frame produced by the decoder. The prior and likelihood are modeled with Gaussians, whereas the posterior is modeled with Bernoulli distribution. 
 The Memory module purpose is to compress the information what happens over time in its hidden state and enable simulation of the environment. To do this, it is trained to model environment's dynamics, predicting a future latent state from history of previous latent states, as a mixture of Gaussians. It models latent states with probability distribution to model uncertainty in the environment, but also create more robust environment's representation. Uncertainty can originate not only from fundamental stochastic nature of the environment, but also partial observability. The model is implemented as a recurrent neural network (RNN) with the Mixture Density Network (MDN) on top of a RNN's hidden state. In literature this architecture is called MDN-RNN \cite{Algo.MDNRNN}.
 
-Figure \ref{Fig.WorldModelsPHM} depicts the world model, the Vision and Memory modules interconnection, in graphical form. More specifically, the world model components are:
+Figure \ref{Fig.WorldModelsPGM} depicts the world model, the Vision and Memory modules interconnection, in graphical form. More specifically, the world model components are:
 \begin{itemize}
-\item Deterministic hidden state model:      $h_t = f(h_{t-1}, z_{t-1}, a_{t-1})$
+\item Deterministic hidden state model:      $h_t = f(h_{t-1}, z_{t}, a_{t})$
 \item Stochastic latent state model:         $z_{t+1} \sim p(z_{t+1}|h_t) = \sum_c\pi_c(h_t)p(z_{t+1}|h_t, c)$
 \item Observation model (decoder):           $o_t \sim p(o_t|z_t)$
 \item Approximate state posterior (encoder): $z_t \sim q(z_t|o_t)$
 \end{itemize}
-where $h$ is RNN's hidden state, $o$, $z$ and $a$ are high-dimensional observations, latent states and actions respectively, $c$ is a mixture of Gaussians' component, $\pi(h)$ is a normalized vector of mixing coefficients as a function of the RNN's hidden state. $f$ is a RNN model, $p$'s are the prior or the likelihood Gaussian distributions and $q$ is the Bernoulli posterior distribution.
+where $h$ is RNN's hidden state, $o$, $z$ and $a$ are high-dimensional observations, latent states and actions respectively, $c$ is a mixture of Gaussians' component, $\pi(h)$ is a normalized vector of mixing coefficients as a function of the RNN's hidden state. $f$ is a RNN model, $p$'s are the prior and the likelihood Gaussian distributions and $q$ is the Bernoulli posterior distribution, all parameterised by a neural networks described later.
 
 \begin{figure}[H]
 \includegraphics[width=0.45\textwidth,keepaspectratio]{figures/WorldModels/prob_graph_model.png}
 \caption[World Models probabilistic graphical model]{World Models probabilistic graphical model: solid arrows describe the predictive model, dotted arrow describes the inference model, stochastic nodes are circles and squares depict deterministic nodes.}
-\label{Fig.WorldModelsPHM}
+\label{Fig.WorldModelsPGM}
 \end{figure}
 
 Because benchmarks include deterministic and fully observable case (Sokoban), this architecture was tested also with the Memory module without the Mixture Density Network and with a linear model used to output the next latent state instead.
 \begin{itemize}
-\item Deterministic hidden state model:      $h_t = f(h_{t-1}, s_{t-1}, a_{t-1})$
+\item Deterministic hidden state model:      $h_t = f(h_{t-1}, s_{t}, a_{t})$
 \item Deterministic latent state model:      $z_{t+1} = f(h_t)$
 \item Observation model (decoder):           $o_t \sim p(o_t|z_t)$
 \item Approximate state posterior (encoder): $z_t \sim q(z_t|o_t)$
@@ -74,7 +75,8 @@ where $f$ in the deterministic latent state model is the linear model.
 
 HumbleRL is used to implement the original World Models architecture from the paper. This allows for easy adjustments for experiments purposes and to couple the world model with AlphaZero implementation in HumbleRL. An agent performing random actions (Mind) and a callback are used to gather transitions and save them to an external storage. The framework allows to focus strictly on collecting trajectories and not worry about agent-environment interactions.
 Collected transitions are used to train the Vision and Memory components. For Vision Keras \cite{Code.Keras} framework is used. For Memory PyTorch \cite{Code.PyTorch} framework is used, since it is easier to work with recurrent neural networks than in Keras. HumbleRL is not constricted to work with any particular deep learning library, so it is not a problem to mix the solutions, as long as trained models are wrapped in proper interfaces.
-The Memory module RNN is popular LSTM \cite{Algo.LSTM}. The Vision module neural network is a convolutional neural network shown in figure \ref{Fig.WorldModelsVAEArchitecture}.
+The Memory module RNN is popular LSTM \cite{Algo.LSTM} with 256 hidden units and the mixture is composed of 5 16-dimensional Gaussians with mean and log standard deviation parameterised by one layer feed-forward neural networks with linear activations. The Vision module neural networks are convolutional and deconvolutional neural networks shown in figure \ref{Fig.WorldModelsVAEArchitecture}.
+The Vision module is trained using the Adam optimizer \cite{Algo.Adam} with a learning rate of $10^{-3}$ and $\epsilon = 10^{−7}$ on batches of 256 images. The Memory module is trained using the Adam optimizer \cite{Algo.Adam} too with a learning rate of $10^{-3}$ and $\epsilon = 10^{−8}$ on batches of 128 sequence chunks of length 1000.
 
 \begin{figure}[H]
 \includegraphics[width=0.45\textwidth,keepaspectratio]{figures/WorldModels/world_models_vae_architecture.png}
@@ -83,9 +85,12 @@ The Memory module RNN is popular LSTM \cite{Algo.LSTM}. The Vision module neural
 \end{figure}
 
 \subsubsection{AlphaZero architecture: Controller}
+
 AlphaZero is composed from three main components: MCTS-like search algorithm, value and policy networks. The search algorithm itself is described in the related work chapter and doesn't change here. The value and policy networks are two linear models. 
 The AlphaZero controller uses the world model for simulations. The Vision module is used as the Interpreter which encodes incoming observations into latent space. The Memory module, wrapped in the MDP interface from HumbleRL, is used in the expansion step of AlphaZero. The Mind class, which implements AlphaZero algorithm, returns actions' scores for each state an agent found itself in during play. These are actions visit counts from the root state node, which are then used to choose an action by a policy. During training actions are sampled with probability proportional to these visit counts for fixed number of warm-up steps at the beginning of each episode to enhance exploration and after warm-up a greedy policy is used. During testing always greedy policy is used.
-Pseudo-code written in Python of the planning algorithm in the Mind is shown below:
+Pseudo-code written in Python of the search algorithm in the Mind is shown below:
+
+\noindent\begin{minipage}{\textwidth}
 \begin{lstlisting}[language=Python]
 def plan(self, state):
     # Get/create root node
@@ -112,74 +117,72 @@ def plan(self, state):
 
     return actions
 \end{lstlisting}
+\end{minipage}
 
 The agent's experience and score statistics used for training are gathered using callbacks during the self-play phase. The neural network training phase takes place after a predefined number of self-play games. The training phase is performed using the Keras \cite{Code.Keras} framework. Next, the self-play phase takes place once again to gather new experience and the two further interchange. This architecture iteratively improves the AlphaZero's networks and then evaluate them collecting new data during self-play, which form a policy iteration framework.
 
 \subsubsection{Data collection}
+
 To train Vision and Memory modules first collection of 10,000 random rollouts of the environment are gathered to create a dataset. An agent is acting randomly to explore the environment multiple times and records of the random actions taken and the resulting observations from the environment are saved.
 This dataset is used to train the Vision module to learn a latent state of each frame observed. Next, it is used to preprocess each frame into its latent state to prepare a dataset for the Memory module training.
 AlphaZero needs to collect its own data during training as it trains on-policy.
 
 \subsubsection{Preprocessing}
-Each frame, before it is used for any training, is central cropped if a frame from an environment includes some kind of border which doesn't inform an agent in anyway. This operation depends on a specific environment. It is then resized to 64 x 64 pixels for all environments. All three colour channels are preserved. Actions are one-hot encoded.
+
+Each frame, before it is used for any training, is central cropped if a frame from an environment includes some kind of border which doesn't inform an agent in anyway. This operation depends on a specific environment. It is then resized to 64 x 64 pixels for all environments. All three colour channels are preserved. Actions are one-hot encoded and standard stochastic 2-4 action repeat from OpenAI Gym \cite{Code.OpenAIGym} is used.
 
 \subsection{PlaNet with the CEM planner}
 
-\begin{enumerate}
-\item High-level idea and argument ``why?!'':\\
-  PlaNet shown it can successfully plan (online planning, evolutional strategy) in imagination for complex continuous control task with iterative data collection and in a clean algorithm.
-\item Data collection i.e. iterative approach.
-\item Preprocessing.
-\item RSSM architecture.\\ 
-  \begin{enumerate}
-  \item What it does (brief reminder)? It predicts future, observations and rewards, where the latter is more important for planner which uses the model to evaluate plans. 
-  \item How it's used. Paper details are already described in the related work (like overshooting etc.), here write how you use it e.g. you encode actions and RSSM is used to sample future latent states that are then used to predict rewards and it receives current observation to update its belief state etc.
-  \item Training procedure i.e. interchanged training, test and collection phases (like in paper, nothing changed).
-  \end{enumerate}
-\item CEM planner.
-  \begin{enumerate}
-  \item What it does i.e. it's like optimization of actions scores based on model evaluations.
-  \item How next action is planned i.e. argmax.
-  \item Planning procedure i.e. evolutional strategy.
-  \end{enumerate}
-\end{enumerate}
-
-\subsubsection{High-level idea and argument ``why?!''}
-They show working example on continuous control tasks of online planning (wheres World Models was offline planning). 
-Recurrent state space model: We design a latent dynamics model with both deterministic and stochastic components (Buesing et al., 2018; Chung et al., 2015). Our experiments indicate having both components to be crucial for high planning performance.
-Latent overshooting: We generalize the standard variational bound to include multi-step predictions. Using only terms in latent space results in a fast regularizer that can improve long-term predictions and is compati- ble with any latent sequence model.
-
-\subsubsection{Data collection i.e. an iterative approach}
-Since the agent may not initially visit all parts of the environment, we need to iteratively collect new experience and refine the dynamics model. We do so by planning with the partially trained model, as shown in Algorithm 1. Starting from a small amount of S seed episodes collected under random actions, we train the model and add one additional episode to the data set every C update steps. When collecting episodes for the data set, we add small Gaussian exploration noise to the action. To reduce the planning horizon and provide a clearer learning signal to the model, we repeat each action R times, as common in reinforcement learning (Mnih et al., 2015; 2016).
-
-\subsubsection{Preprocessing}
-\begin{enumerate}
-\item action repeat 4
-\item action one-hot
-\item minimum duration 50
-\item maximum duration 2000/4
-\item resize (64 x 64 x 3)
-\item cast to uint8
-\item 5 bit quantisation + random noise data augmentation
-\item Cast to from -0.5 to 0.5.
-  
-\end{enumerate}
+PlaNet (Deep Planning Network) shows working example of a planning agent that searches for the best sequence of future actions using a learned model in continuous control tasks. This is close to what this work tries to accomplish, but for a different type of environments. This section describe how it was adjusted to episodic discrete tasks.
 
 \subsubsection{RSSM architecture}
-It uses code from official implementation.
 
-\editnote{TODO: Recreate prob. model diagram from your WM vs. PlaNet comparison notes in Draw.io.}
-\editnote{TODO: Describe this diagram in probabilistic notation (see note).}
+This architecture uses recurrent state space model (RSSM) similarly to World Models. This latent dynamics model is designed with both deterministic and stochastic components \cite{Algo.FastGenerativeModels}. Original experiments indicate having both components to be crucial for high planning performance. It also uses a generalized variational bound that include multi-step predictions. Using only terms in latent space results in a fast regularizer that can improve long-term predictions.
 
-[...] we name recurrent state-space model (RSSM), where f(ht−1, st−1, at−1), deterministic state model, is implemented as a recurrent neural network (RNN). Intuitively, we can understand this model as splitting the state into a stochastic part st and a deterministic part ht, which depend on the stochastic and deterministic parts at the previous time step through the RNN.We use the encoder q(s1:T | o1:T, a1:T) =
-?T t=1 q(st | ht, ot) to parameterize the approximate state posteriors. Importantly, all information about the observations must pass through the sampling step of the encoder to avoid a deterministic shortcut from inputs to reconstructions.
+The same as in the World Models architecture the model is provided with image observations. It even uses the same Variational Autoencoder with the same neural network architecture to encode the observations into latent state space. The difference lies in the dynamics model shown in figure \ref{Fig.PlaNetPGM} with following components:
+\begin{itemize}
+\item Deterministic hidden state model:      $h_t = f(h_{t-1}, s_{t-1}, a_{t-1})$
+\item Stochastic latent state model:         $s_t \sim p(s_t|h_t)$
+\item Observation model (decoder):           $o_t \sim p(o_t|h_t, s_t)$
+\item Reward model:                          $r_t \sim p(r_t|h_t, s_t)$
+\item Approximate state posterior (encoder): $s_t \sim q(s_t|o_{\leqslant t}, a_{< t}) = \prod_{i=1}^tq(s_t|h_t,o_t)$
+\end{itemize}
+where $o$, $s$ and $a$ are high-dimensional observations, latent states and actions respectively. $f(h_{t-1}, s_{t-1}, a_{t-1})$, the deterministic state model, is implemented as a recurrent neural network (RNN) and $h_t$ is its hidden state. The latent state model is Gaussian with mean and variance parameterised by a feed-forward neural network, the observation model is Gaussian with mean parameterised by a deconvolutional neural network and identity covariance, and the reward model is a scalar Gaussian with mean parameterised by a feed-forward neural network and unit variance. Since the model is non-linear, directly computing the state posteriors is intractable. Instead, an encoder $q$ is used to infer approximate state posteriors from past observations and actions, where $q(s_t | h_t, o_t)$ is a diagonal Gaussian with mean and variance parameterised by a convolutional neural network followed by a feed-forward neural network.
+
+\begin{figure}[H]
+\includegraphics[width=0.45\textwidth,keepaspectratio]{figures/PlaNet/prob_graph_model.png}
+\caption[World Models probabilistic graphical model]{PlaNet probabilistic graphical model: solid arrows describe the predictive model, dotted arrow describes the inference model, stochastic nodes are circles and squares depict deterministic nodes.}
+\label{Fig.PlaNetPGM}
+\end{figure}
+
+\noindent There are two deviations from the World Models architectures:
+\begin{itemize}
+\item Hidden states are shifted to the right, so previous state and action are used to predict current hidden state $h$ and it is used to predict current latent state $s$.
+\item VAE's decoder and encoder (named Vision in World Models) use the dynamics model's hidden state for prediction and inference. This way the likelihood and the posterior are conditioned on past observations too.
+\end{itemize}
+
+Intuitively, this model can be understood as splitting the state into a stochastic part and a deterministic part, which depend on the stochastic and deterministic parts at the previous time step through the RNN. Importantly, all information about the observations must pass through the sampling step of the encoder to avoid a deterministic shortcut from inputs to reconstructions.
+
+This time official code from repository \cite{Code.PlaNet} was adjusted and used for experiments. The code architecture follows principles from other first author's paper \cite{Code.TFAgents}.
+The RSSM uses a GRU \cite{Algo.GRU} with 200 units as deterministic path in the dynamics model and implements all other functions as two fully connected layers of size 200 with ReLU activations \cite{Algo.ReLU}. Distributions in latent space are 30-dimensional diagional Gaussians with predicted mean and standard deviation.
+The observation model and the approximate state posterior are implemented with the Variational Autoencoder, the same as in World Models (see fig.\ref{Fig.WorldModelsVAEArchitecture}). The reward model is implemented with a feed-forward neural network with two hidden layers of size 100.
+The model is trained jointly using the Adam optimizer \cite{Algo.Adam} with a learning rate of $10^{-3}$ and $\epsilon = 10^{−4}$, and gradient clipping norm of 1000 on batches of 50 sequence chunks of length 50. The KL divergence terms are also scaled relatively to the reconstruction terms and the model is granted free nats by clipping the divergence loss below this value. Both parameters are tuned in experiments chapter. Latent overshooting from the paper \cite{Algo.PlaNet} is used with overshooting KL divergence terms additionally scaled by a factor of $1/50$.
 
 \subsubsection{CEM planner}
-\editnote{TODO: Cut it down and focus on you modification with cast to one-hot max action.}
-We use the cross entropy method (CEM; Rubinstein, 1997; Chua et al., 2018) to search for the best action sequence under the model, as outlined in Algorithm 2. We decided on this algorithm because of its robustness and because it solved all considered tasks when given the true dynamics for planning. CEM is a population- based optimization algorithm that infers a distribution over action sequences that maximize the objective. As detailed in Algorithm 2 in the appendix, we initialize a time-dependent diagonal Gaussian belief over optimal action sequences at:t+H ∼ Normal(µt:t+H, σ2
-t:t+HI), where t is the current
-time step of the agent and H is the length of the planning horizon. Starting from zero mean and unit variance, we repeatedly sample J candidate action sequences, evaluate them under the model, and re-fit the belief to the top K action sequences. After I iterations, the planner returns the mean of the belief for the current time step, µt. Importantly, after receiving the next observation, the belief over action sequences starts from zero mean and unit variance again to avoid local optima.
-To evaluate a candidate action sequence under the learned model, we sample a state trajectory starting from the current state belief, and sum the mean rewards predicted along the sequence. Since we use a population-based optimizer,
-we found it sufficient to consider a single trajectory per action sequence and thus focus the computational budget on evaluating a larger number of different sequences. Because the reward is modeled as a function of the latent state, the planner can operate purely in latent space without generating images, which allows for fast evaluation of large batches of action sequences. The next section introduces the latent dynamics model that the planner uses.
+
+The agent plans using the cross entropy method (CEM) \cite{Algo.CEM} to search for the best action sequence under the model, the same as in the PlaNet. CEM is a population-based optimization algorithm that infers a distribution over action sequences that maximize the objective.
+First, a time-dependent diagonal Gaussian belief over optimal action sequences gets initialized: $a_{t:t+H} ∼ Normal(\mu_{t:t+H}, \sigma^2_{t:t+H}I)$, where $t$ is the current time step of the agent and $H$ is the length of the planning horizon (12 by default). Starting from zero mean and unit variance, 1000 candidate action sequences are sampled and evaluated under the learned model. Then the belief gets re-fitted to the top 100 action sequences. After 10 iterations, the planner returns the mean of the belief for the current time step $\mu_t$ which is then used by the policy to choose discrete action. Importantly, after receiving the next observation, the belief over action sequences starts from zero mean and unit variance again to avoid local optima.
+When collecting episodes for the training data set the epsilon greedy policy \cite{Book.RLAI} is used with $\epsilon = 0,3$. During test phase the greedy policy is used, which chooses the action that maximises the returned belief.
+To evaluate a candidate action sequence under the learned model, a state trajectory starting from the current state is sampled and the predicted rewards are summed along the sequence. Since it is a population-based optimizer,
+it is sufficient to consider a single trajectory per action sequence and thus focus the computational budget on evaluating a larger number of different sequences. Because the reward is modeled as a function of the latent state, the planner can operate purely in latent space without generating images, which allows for fast evaluation of large batches of action sequences.
 
 \editnote{TODO: Add pseudo-code of planning procedure.}
+
+\subsubsection{Data collection}
+
+Since the agent may not initially visit all parts of the environment, new experience needs to be iteratively collect and then the dynamics model gets refined. It is done so by planning with the partially trained model. Starting from a small amount of 6 seed episodes collected under random actions, the model is trained and one additional episode is added to the data set every 5000 update steps.
+
+\subsubsection{Preprocessing}
+
+Each image gets preprocessed by reducing the bit depth to 5 bits as in \cite{Algo.Glow5bit}. It is then resized to 64 x 64 pixels for all environments.
+Actions are one-hot encoded and each action gets repeated 4 times as common in reinforcement learning \cite{Algo.DQN} to reduce the planning horizon and provide a clearer learning signal to the model.
