@@ -21,11 +21,20 @@
 * **Git commits**
 
     * [How to Write a Git Commit Message](https://chris.beams.io/posts/git-commit/) is in operation.
+    
+    * Here are some template commit messages for typical cases:
+    
+        * `Run <experiment name> on <machine>:<directory>`
+          This commit should keep DVC meta files with results from the experiment. It also specify where local files could be found.
+        * `Update <comma separated bullets> in <note tag> note`
+          This commit should keep updated note. It specifies what note was updated and what was updated in the note.
 
     * If you work in this repo, remote branch names should follow those templates:
 
         * Dev branches: `dev/<user name>/<your branch name>`
+          These keep developer changes that are actively developed before merging into one of master branches.
         * Experiment/Subprojects branches: `exp/<experiment nick>/<branch name e.g. master>`
+          Always the experiment's `master` branch is the one actively developed. Specific experiment branches should be frozen with commits containing only experiment results (config files and DVC meta files with e.g logs, checkpoints, etc.).
 
         Experiments/Subprojects branches will be merged to origin/master after defined milestones.
                 
