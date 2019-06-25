@@ -3,7 +3,7 @@
 \subsection{Partially Observable Markov Decision Processes}
 
 Markov Decision Processes (MDPs) are a classical formalization of sequential decision making, where actions influence not just immediate rewards, but also subsequent situations (states) and through those future rewards. Therefore, MDPs involve delayed rewards and the need to trade-off these with an immediate reward.
-Partially observable Markov Decision Processes (POMDPs), which describe a more general class of problems, have one major difference, the full state of an environment is unknown. The environment is perceived through observations that provide only partial information about the state. A good example are Atari games. Individual frames often doesn't provide full information about the game's state which is held in the game's RAM.
+Partially observable Markov Decision Processes (POMDPs), which describe a more general class of problems, have one major difference, the full state of an environment is unknown. The environment is perceived through observations that provide only partial information about the state. A good example are Atari games. Individual frames often does not provide full information about the game's state which is held in the game's RAM.
 
 In this work following definition of MDP is used: it consists of a set of hidden states $S$, a set of observations $O$ and a set of actions $A$. The dynamics of the MDP, from any state $s \in S$ and for any action $a \in A$, are determined by transition function, $P^a_{ss'} = p(S_{t+1} = s' | S_t = s, A_t = a)$, specifying the distribution over the next state $s' \in S$. A reward function, $R^a_{ss'} = p(R_{t+1} | S_t = s, A_t = a, S_{t+1} = s')$, specifies the distribution over rewards for a given state transition. Finally, as mentioned earlier, POMDP is perceived through partial observations specified via probability distribution $P_s = p(O_t | S_t = s)$.
 A fixed initial state $s_0$ is assumed. In episodic MDPs, which this work considers, an environment terminates with probability 1 in one of distinguished terminal states, $s_T \in S$, after finite number of transitions $T$. A return $G_t = \sum^T_{k=t+1}\gamma^{k-t-1}r_k$ is the total reward accumulated in that episode from time $t$ until reaching the terminal state at time $T$. $0 \leqslant \gamma \leqslant 1$ is a discount factor that trade-offs short-term rewards with long-term rewards.
@@ -117,7 +117,7 @@ Deep learning is a particular kind of machine learning that achieves great power
 \label{Fig.DL}
 \end{figure}
 
-The fundamental example of a deep learning model is a feedforward deep network or multilayer perceptron (MLP). A multilayer perceptron is just a mathematical function mapping some set of input values to output values. The function is formed by composing many simpler functions, called perceptrons, each providing a new representation of its input to next functions. Fig.~\ref{Fig.MLP} shows example MLP and dependencies between perceptrons. The input is presented at the input layer. Then a hidden layer (or series of them) extracts increasingly abstract features from the image. These layers are called “hidden” because their values are not given in the data. Instead, the model must determine which concepts are useful for explaining the relationships in the observed data. Finally, this description of the input in terms of the features can be used to produce the output at the output layer.
+The fundamental example of a deep learning model is a fully-connected (FC) neural network (NN), sometimes called a multilayer perceptron (MLP). A MLP is just a mathematical function mapping some set of input values to output values. The function is formed by composing many simpler functions, called neurons or perceptrons, into layers. Each layer provides a new representation of its input, which might be a vector, to all the neurons in the next layer by multiplying the input element-wise with its parameters and applying some kind of non-linear activation function to the sum of these products e.g. sigmoid function. Without the mentioned activation function, the multilayer NN would just simplify to a linear mapping without ability to model non-linear relationships of inputs and outputs of the NN. Fig.~\ref{Fig.MLP} shows example MLP and dependencies between perceptrons. The input is presented at the input layer. Then a hidden layer (or series of them) extracts increasingly abstract features from the image. These layers are called “hidden” because their values are not given in the data. Instead, the model must determine which concepts are useful for explaining the relationships in the observed data. Finally, this description of the input in terms of the features can be used to produce the output at the output layer.
 
 \begin{figure}[H]
 \includegraphics[width=0.8\textwidth,keepaspectratio]{figures/MLP.png}
@@ -125,8 +125,24 @@ The fundamental example of a deep learning model is a feedforward deep network o
 \label{Fig.MLP}
 \end{figure}
 
-\editnote{TODO: One word about RNNs, Convs here.}
-\editnote{TODO: Also write about backprop. and SGD}
+Other type of very common neural network is a recurrent neural network (RNN). Humans do not start their thinking from scratch every second. As they read this thesis for example, they understand each word based on their understanding of previous words. Their thoughts have persistence. MLPs can not do this, that is why RNNs address this issue. These are networks with loops in them, allowing information to persist. In the fig.~\ref{Fig.RNN}, a chunk of neural network, $A$, looks at some input $x_t$ and outputs a value $h_t$. A loop allows information to be passed from one step of the network to the next. It turns out that RNNs are not all that different than a normal feedforward neural network. A recurrent neural network can be thought of as multiple copies of the same network, each passing a message to a successor.
+
+\begin{figure}[H]
+\includegraphics[width=0.8\textwidth,keepaspectratio]{figures/RNN.png}
+\caption{A recurrent neural network \cite{Blog.RNNs}}
+\label{Fig.RNN}
+\end{figure}
+
+Yet another very useful NN architecture is a convolutional neural network (CNN) which makes use of the fact that inputs to a NN can often have similar patterns in different parts of the input. For example in images, the object can appear in different positions in the image, but it is still the same object. CNNs exploit that fact by grouping parameters info filters in each layer and slide, or more precisely convolve, each filter across the width and height of the input volume and compute dot products between the entries of the filter and the input at any position. The 2D outputs of all filters are stacked together to form a 3D activation map. It is then processed by the next, similar, layer with its own set of filters. At the end of CNN, the final 3D volume is often flattened into a vector and then further processed by a fully-connected NN. The example CNN is shown in fig.~\ref{Fig.CNN}. \\
+A CNN is able to successfully capture the spatial dependencies in an image through the application of relevant filters. The architecture performs a better fitting to the data with spatial hierarchy due to the reduction in the number of parameters involved and reusability of weights.
+
+\begin{figure}[H]
+\includegraphics[width=0.9\textwidth,keepaspectratio]{figures/CNN.png}
+\caption{A convolutional neural network \cite{Blog.CNNs}. ReLU \cite{Algo.ReLU} and Softmax are activation functions. Pooling means that each filter's output is divided into, for instance, 2 x 2 regions and only maximum value from each region is passed to the next layer.}
+\label{Fig.CNN}
+\end{figure}
+
+A neural network is trained, in the simplest case, to output a correct target value for each input from a dataset. This is done by backpropagating some measure of error, how much different is the NN's output value from the target value, through the NN. This produces gradients. Gradients are vectors that point in the direction of steepest ascent of the NN's error. These are used in the opposite direction to iteratively change parameters and lower the error on the dataset. The process is repeated iteratively, updates are small steps, because gradients are first order derivatives and the directions these point in are accurate only locally. This algorithm is called gradient decent (GD) and it is at the heart of the deep learning. More about neural networks and training procedures can be found in the Deep Learning book \cite{Book.DeepLearning}.
 
 \subsection{Variational Inference}
 \editnote{TODO: Describe vanilla VAEs and VAEs in structured POMDPs (filtering).}
