@@ -48,7 +48,8 @@ This architecture allows for training of a large neural network to tackle RL tas
 
 An environment provides the agent with a high dimensional input observation at each time step. It is a 2D image frame that is part of a video sequence. The vision module role, as already mentioned, is to learn an abstract representation of each observed input frame. It uses a simple Variational Autoencoder \cite{Algo.VAE} and, as described in details in theoretical background chapter, is trained to encode each frame into low dimensional latent vector by minimizing the difference between a given frame and the reconstructed version of the frame produced by the decoder. \\
 The Memory module purpose is to compress the information what happens over time in its hidden state and enable simulation of the environment. To do this, it is trained to model environment's dynamics, predicting a future latent state from history of previous latent states, as a mixture of Gaussians. It models latent states with probability distribution to model uncertainty in the environment, but also create more robust environment's representation \cite{Algo.FastGenerativeModels}. Uncertainty can originate not only from fundamental stochastic nature of the environment, but also partial observability. \\
-The model is implemented as a recurrent neural network with the Mixture Density Network (MDN) on top of a RNN's hidden state. In literature this architecture is called MDN-RNN \cite{Algo.MDNRNN}.
+The model is implemented as a recurrent neural network with the Mixture Density Network (MDN) on top of a RNN's hidden state. In literature this architecture is called MDN-RNN \cite{Algo.MDNRNN}. It will be further referred to as the stochastic Memory module.
+
 
 Figure \ref{Fig.WorldModelsPGM} depicts the world model, the Vision and Memory modules interconnection, in graphical form. More specifically, the world model components are:
 \begin{itemize}
@@ -116,7 +117,7 @@ The world model part, Vision and Memory modules, architecture stays the same wit
 \item Observation model (decoder):           $o_t \sim p(o_t|z_t)$
 \item Approximate state posterior (encoder): $z_t \sim q(z_t|o_t)$
 \end{itemize}
-where $f$ in the latent state model and the reward model are the linear models.
+where $f$ in the latent state model and the reward model are the linear models. It will be further referred to as the deterministic Memory module.
 
 \subsubsection{Controller}
 

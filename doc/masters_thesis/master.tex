@@ -135,9 +135,9 @@
 \DeclareFloatVCode{12ptskip}{\vspace{12pt}}
 
 % dla tabel: 0pt pod opisem, 6pt nad
-\captionsetup[table]{singlelinecheck=false} % nie wyśrodkowywuj opisu w pojedynczej linii
-\captionsetup[table]{labelfont=bf,labelsep=dot} % pogrubienie nagłówka podpisu (Tabela X.Y) i zakonczenie jej wczesniej zdefiniowana kropką
-\floatsetup[table]{font={small,stretch=1.0},capposition=top,captionskip=0pt,precode=12ptskip,postcode=12ptskip} % nie wiem dlaczego, aby otrzymac odstep 6pt przed tabela, trzeba tutaj dac 12pt :/
+\captionsetup[table]{justification=centering} % inaczej niz w tabelach - zawsze centruj podpis
+\captionsetup[table]{labelsep=dot} % pogrubienie nagłówka podpisu (Tabela X.Y) i zakonczenie jej wczesniej zdefiniowana kropką
+\floatsetup[table]{font={small,stretch=1.0},capposition=bottom,captionskip=6pt,precode=12ptskip,postcode=12ptskip} % nie wiem dlaczego, aby otrzymac odstep 6pt przed tabela, trzeba tutaj dac 12pt :/
 
 \setlength{\LTpre}{12pt}
 \setlength{\LTpost}{12pt}

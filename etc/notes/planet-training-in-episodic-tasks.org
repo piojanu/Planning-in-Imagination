@@ -62,7 +62,7 @@
 * Experiments
 ** DONE Train original PlaNet in the small Sokoban environment.
    It didn't train. It doesn't capture Sokoban dynamics, everything gets blurred, multiple agents appear, etc.
-** IN-PROGRESS Train original PlaNet in the Atari environments.
+** TODO Train original PlaNet in the Atari environments.
 *** DONE Train PlaNet for Boxing using original hyper-params from the paper.
     In original PlaNet openloop predictions collapse (miss some elements or just turn into a blurry blob) even for Boxing.
 *** DONE Set higher action repeat (note that OpenAI Gym implement it already).
@@ -155,11 +155,12 @@
      Didn't help.
 *** TODO Disable overshooting reward loss =overshooting_reward_scale: 0.0=.
     It seems to mess up things in [[https://github.com/google-research/planet/issues/28][PyTorch implementation]] of Kai. But why?
-*** IN-PROGRESS Disable overshooting at all =overshooting: 0=.
+*** DONE Disable overshooting at all =overshooting: 0=.
     You've been able to train Boxing quite well in World Models which doesn't have overshooting.
-**** IN-PROGRESS Boxing
+**** DONE Boxing
      Camera ready update disable overshooting and global divergence by default, while enabling future mix (future rnn before).
-***** WAITING =max_steps: 10000000, free_nats: 12, divergence_scale: 3E-02= on DGX
+***** DONE =max_steps: 10000000, free_nats: 12, divergence_scale: 3E-02= on DGX
+      It helped.
 *** TODO Experiment with data collection (initial and iterative) to training steps ratios to make it more sample efficient.
 ** Implement Monte-Carlo planner in Planet.
    In e.g. Freeway you might have too short planning horizon to find good moves. You might try to learn a value function. Also, value of state is richer signal.
