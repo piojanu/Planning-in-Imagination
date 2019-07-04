@@ -220,7 +220,7 @@ Because the reward is modeled as a function of the latent state, the planner can
 
 \subsubsection{Data collection}
 
-Since the agent may not initially visit all parts of the environment, new experience needs to be iteratively collect and then the dynamics model gets refined. It is done so by planning with the partially trained model. Starting from a small amount of 6 seed episodes collected under random actions, the model is trained and one additional episode is added to the data set every 5000 update steps.
+Since the agent may not initially visit all parts of the environment, the data-aggregation iterative method described in section \ref{Sec.ModelLearning} is used. Starting from a small amount of 6 seed episodes collected under random actions, the model is trained and one additional episode is added to the data set every 5000 update steps.
 
 \subsubsection{Preprocessing}
 
