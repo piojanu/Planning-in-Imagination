@@ -1,6 +1,6 @@
-\section{Planning with learned model}
+\section{Solution description}
 
-In this section three architectures are described. All of them involve a similar model learning approach, but differ substantially in technical details and planning algorithms. All architectures use computationally efficient latent space environment models that make predictions at a higher level of spatial abstraction, than at the level of raw pixel observations. Such models substantially reduce the amount of computation required to make predictions, as future states can be represented much more compactly. In order to increase model accuracy and robustness, all models explicitly model uncertainty in state transitions using stochastic nodes \cite{Algo.FastGenerativeModels}.
+In this chapter three architectures are described. All of them involve a similar model learning approach, but differ substantially in technical details and planning algorithms. All architectures use computationally efficient latent space environment models that make predictions at a higher level of spatial abstraction, than at the level of raw pixel observations. Such models substantially reduce the amount of computation required to make predictions, as future states can be represented much more compactly. In order to increase model accuracy and robustness, all models explicitly model uncertainty in state transitions using stochastic nodes \cite{Algo.FastGenerativeModels}.
 The goal stays the same: train a sufficiently accurate latent space environment's dynamics model, or such that accurately predicts future latent states and rewards to predefined cut-off point in time, and use it to plan and solve the environment. Those architectures, and experiments carried out on them, present evolution of ideas towards this goal. \\
 Before all of that, the code architecture and the framework that was created to accelerate this research are described.
 
@@ -101,15 +101,15 @@ The Vision module is trained using the Adam optimizer \cite{Algo.Adam} with a le
 The Controller module gets a feature vector as its input, consisting of latent state $z$ and the hidden state of the MDN-RNN. In all environments, this hidden state is the output vector $h$ of the LSTM. \\
 Covariance-Matrix Adaptation Evolution Strategy (CMA-ES) \cite{Algo.CMAES} is used for the Controller module training. It evolves the weights $W_c$ and biases $b_c$ of the module. A population size of 64 is used and each agent plays in the environment 5 episodes. The fitness value for the agent is the average cumulative reward of the 5 episodes.
 
-Hiper-parameters presented are used as defaults in experiments described in the next chapter.
+Hyper-parameters presented are used as defaults in experiments described in the next chapter.
 
 \subsection{World Models and AlphaZero}
 
-World Models' agent \cite{Algo.WorldModels} successfully plans using a learned model where the model is used to generate simulated experience on which the policy is trained. This section describes attempt to adjust and utilize the world model part of the agent in the AlphaZero search algorithm. This is different application of the model than in the original paper, where only future latent states and done flag are predicted, and therefore the world model needs to be extend with a reward predictor and the controller is replaced by AlphaZero.
+World Models' agent \cite{Algo.WorldModels} successfully plans using a learned model where the model is used to generate simulated experience on which the policy is trained. This section describes attempt to adjust and utilize the world model part of the agent in the AlphaZero search algorithm. This is different application of the model than in the original paper, where only future latent states and done flag are predicted, and therefore the world model needs to be extended with a reward predictor and the controller is replaced by AlphaZero.
 
 \subsubsection{World model}
 
-The world model part, Vision and Memory modules, architecture stays the same with a slight change. Because benchmarks include only deterministic environments and AlphaZero in its original form can only work with a deterministic dynamics model, this architecture use the Memory module without the MDN and with a linear model instead. In fact, it uses two linear models to output the next latent state and reward.
+For the world model part, Vision and Memory modules, architecture stays the same with a slight change. Because benchmarks include only deterministic environments and AlphaZero in its original form can only work with a deterministic dynamics model, this architecture use the Memory module without the MDN and with a linear model instead. In fact, it uses two linear models to output the next latent state and reward.
 \begin{itemize}
 \item Deterministic hidden state model:      $h_t = f(h_{t-1}, s_{t}, a_{t})$
 \item Deterministic latent state model:      $z_{t+1} = f(h_t)$
@@ -117,7 +117,7 @@ The world model part, Vision and Memory modules, architecture stays the same wit
 \item Observation model (decoder):           $o_t \sim p(o_t|z_t)$
 \item Approximate state posterior (encoder): $z_t \sim q(z_t|o_t)$
 \end{itemize}
-where $f$ in the latent state model and the reward model are the linear models. It will be further referred to as the deterministic Memory module.
+where $f$ is the latent state model and the reward model are the linear models. It will be further referred to as the deterministic Memory module.
 
 \subsubsection{Controller}
 
@@ -172,7 +172,7 @@ def plan(self, state):
 AlphaZero value and policy networks are two linear models trained separately from the world model from games played by the agent, called self-play. In each position $s$ during self-play, an MCTS search is executed, guided by the policy network. The MCTS search at the end outputs probabilities, $\boldsymbol\pi$, of playing each move. These search probabilities usually select much stronger moves than the raw move probabilities of the policy network. The MCTS search may therefore be viewed as a powerful policy improvement operator \cite{Book.RLAI}. Self-play with search – using the improved MCTS-based policy to select each move by the agent, then using the game cumulative reward, or the return, as a sample of the value at each time step – may be viewed as a powerful policy evaluation operator. The main idea of this reinforcement learning algorithm is to use these search operators repeatedly in a policy iteration framework \cite{Algo.AlphaGoZero}. The linear models' parameters are updated to make the move probabilities and values more closely match the improved search probabilities and self-play cumulative rewards at each step. These new parameters are used in the next iteration of self-play to make the search even stronger. \\
 The agent's experience and score statistics used for training are gathered using callbacks during the self-play phase. Maximum of 1000 latest games are kept. The models training phase takes place after 10 self-play games and lasts for 5 epochs. The training phase is performed using the Keras \cite{Code.Keras} framework. Specifically, the parameters are adjusted by the stochastic gradient descent on a loss function that sums over mean squared errors of the value network, cross-entropy losses of the policy network and L2 weights regularization scaled by a factor of $10^{-4}$ in batches of 256 examples, where each example is a features vector of a state, a value sample from self-play and a MCTS action probabilities vector. The Nesterov's momentum optimizer \cite{Algo.Nesterov} is used with a learning rate of $10^{-2}$ and a momentum of $0,9$.
 
-Hiper-parameters presented are used as defaults in experiments described in the next chapter.
+Hyper-parameters presented are used as defaults in experiments described in the next chapter.
 
 \subsection{PlaNet}
 
@@ -182,7 +182,7 @@ PlaNet (Deep Planning Network) \cite{Algo.PlaNet} shows working example of a pla
 
 This architecture uses recurrent state space model (RSSM) which is similar to what World Models does. This latent dynamics model is designed with both deterministic and stochastic components \cite{Algo.FastGenerativeModels}. Original experiments indicate having both components to be crucial for high planning performance. It also uses a generalized variational bound that include multi-step predictions. Using only terms in latent space results in a fast regularizer that can improve long-term predictions \cite{Algo.PlaNet}.
 
-The same as in World Models, the model is provided with image observations. It even uses the same Variational Autoencoder with the same neural network architecture to encode the observations into latent space. The difference lies in the dynamics model shown in figure \ref{Fig.PlaNetPGM} with following components:
+Same as in World Models, the model is provided with image observations. It even uses the same Variational Autoencoder with the same neural network architecture to encode the observations into latent space. The difference lies in the dynamics model shown in figure \ref{Fig.PlaNetPGM} with following components:
 \begin{itemize}
 \item Deterministic hidden state model:      $h_t = f(h_{t-1}, s_{t-1}, a_{t-1})$
 \item Stochastic latent state model:         $s_t \sim p(s_t|h_t)$
@@ -236,4 +236,4 @@ The model is trained jointly using the Adam optimizer \cite{Algo.Adam} with a le
 
 Planner uses planning horizon of 12, which means that it evaluates 12 actions in the future. Starting from zero mean and unit variance, 1000 candidate action sequences are sampled and evaluated under the learned model. Then the belief gets re-fitted to the top 100 action sequences with the highest fitness scores. After 10 iterations, the planner returns the mean of the belief for the current time step $\mu_t$ which is then used by the policy to choose discrete action. When collecting episodes for the training data set the epsilon greedy policy is used with $\epsilon = 0,3$. During test phase the greedy policy is used, which chooses the action that maximises the returned belief.
 
-Hiper-parameters presented are used as defaults in experiments described in the next chapter.
+Hyper-parameters presented are used as defaults in experiments described in the next chapter.
