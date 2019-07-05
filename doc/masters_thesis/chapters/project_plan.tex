@@ -1,41 +1,7 @@
 \section{Solution description} \label{Sec.SolutionDescription}
 
 In this chapter three architectures are described. All of them involve a similar model learning approach, but differ substantially in technical details and planning algorithms. All architectures use computationally efficient latent space environment models that make predictions at a higher level of spatial abstraction, than at the level of raw pixel observations. Such models substantially reduce the amount of computation required to make predictions, as future states can be represented much more compactly. In order to increase model accuracy and robustness, all models explicitly model uncertainty in state transitions using stochastic nodes \cite{Algo.FastGenerativeModels}.
-The goal stays the same: train a sufficiently accurate latent space environment's dynamics model, or such that accurately predicts future latent states and rewards to predefined cut-off point in time, and use it to plan and solve the environment. Those architectures, and experiments carried out on them, present evolution of ideas towards this goal. \\
-Before all of that, the code architecture and the framework that was created to accelerate this research are described.
-
-\subsection{HumbleRL framework}
-
-Reinforcement Learning scientists tend to write the entire code from scratch by themselves, instead of using existing RL frameworks. This is justified by the fact, that the commonly available frameworks are not flexible enough for intended experiments or require a specific backend like TensorFlow, which might be disfavored.
-HumbleRL \cite{Code.HRL} was created with this problem in mind. Its simple API allows to perform a variety of RL experiments without any restrictions on the algorithms used. Since the backend is not tied to any specific technology, it is possible to mix different neural network frameworks or not use them at all. HumbleRL provides the boilerplate code of RL loop in fig.\ref{Fig.RL} and determines the common interfaces between an agent and an environment, the rest is designed by the user.
-
-\subsubsection{Architecture}
-
-Framework architecture is depicted in fig. \ref{Fig.HRL_architecture}. An agent is represented by the Mind class. The Mind encapsulates action planning logic and provides it via the plan method. In order to learn, the agent acts in an environment represented by the Environment class. The Environment provides methods for resetting, taking steps, rendering and getting information about the environment. The framework includes a factory function that creates and returns e.g. wrapped OpenAI Gym environment. The agent is not usually presented with raw environment observations. Instead, it looks at states preprocessed by the Interpreter. Different interpreters can be joined together with the ChainInterpreter class. It acts as a preprocessing pipeline, with each subsequent interpreter using the output of a previous one as an input.
-
-\begin{figure}[H]
-\includegraphics[width=0.6\textwidth,keepaspectratio]{figures/HumbleRL/architecture.png}
-\caption{HumbleRL architecture}
-\label{Fig.HRL_architecture}
-\end{figure}
-
-Framework user does not need to call all of those methods directly, those are utilized by the loop function. This function gets an action from the Mind, executes it in the Environment and then next observation is preprocessed with the Interpreter in preparation for the next step. To extend basic loop functionality, user can define callbacks that implement the Callback interface. Callbacks can react to events:
-\begin{itemize}
-\item at the beginning and ending of the loop,
-\item at the beginning and ending of each episode,
-\item after action is planned by the Mind,
-\item after step is taken in the Environment.
-\end{itemize}
-Callbacks are accumulated in the CallbackList. The entire loop function logic is shown in fig. \ref{Fig.HRL_loop}.
-Parallel version of loop function is available as the pool function. It uses predefined number of workers to execute a pool of Minds in their own Environments in parallel.
-
-\begin{figure}[H]
-\includegraphics[width=0.6\textwidth,keepaspectratio]{figures/HumbleRL/loop.png}
-\caption{HumbleRL loop function overview}
-\label{Fig.HRL_loop}
-\end{figure}
-
-World Models and AlphaZero implementations use this framework and can be joined together into one architecture.
+The goal stays the same: train a sufficiently accurate latent space environment's dynamics model, or such that accurately predicts future latent states and rewards to predefined cut-off point in time, and use it to plan and solve the environment. Those architectures, and experiments carried out on them, present evolution of ideas towards this goal.
 
 \subsection{Original World Models}
 
@@ -83,7 +49,7 @@ The Controller module is trained using evolutional strategy which rollouts the e
 
 \subsubsection{Preprocessing}
 
-Each frame, before it is used for any training, is central cropped if a frame from an environment includes some kind of border which doesn't inform an agent in anyway. This operation depends on a specific environment. It is then resized to 64 x 64 pixels for all environments. All three colour channels are preserved. Actions are one-hot encoded and default 4 action repeat from OpenAI Gym \cite{Code.OpenAIGym} is used as common in reinforcement learning \cite{Algo.DQN} to reduce the planning horizon and provide a clearer learning signal to the model.
+Each frame, before it is used for any training, is central cropped if a frame from an environment includes some kind of border which doesn't inform an agent in anyway. This operation depends on a specific environment. It is then resized to 64 x 64 pixels for all environments. All three colour channels are preserved. Actions are one-hot encoded. Frame skipping described in section \ref{Sec.ALE} is used for Atari games only.
 
 \subsubsection{Implementation details}
 
@@ -224,8 +190,8 @@ Since the agent may not initially visit all parts of the environment, the data-a
 
 \subsubsection{Preprocessing}
 
-Each image gets preprocessed by reducing the bit depth to 5 bits as in \cite{Algo.Glow5bit}. It is then resized to 64 x 64 pixels for all environments.
-Actions are one-hot encoded and each action gets repeated 4 times as common in reinforcement learning \cite{Algo.DQN} to reduce the planning horizon and provide a clearer learning signal to the model.
+Each image gets preprocessed by reducing the bit depth to 5 bits as in \cite{Algo.Glow5bit}. It is then resized to 64 x 64 pixels for all environments without any cropping.
+Actions are one-hot encoded for all benchmarks and frame skipping described in section \ref{Sec.ALE} is used for Atari games only.
 
 \subsubsection{Implementation details}
 
