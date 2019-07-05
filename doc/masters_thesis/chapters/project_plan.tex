@@ -1,21 +1,18 @@
 \section{Solution description} \label{Sec.SolutionDescription}
 
-In this chapter three architectures are described. All of them involve a similar model learning approach, but differ substantially in technical details and planning algorithms. All architectures use computationally efficient latent space environment models that make predictions at a higher level of spatial abstraction, than at the level of raw pixel observations. Such models substantially reduce the amount of computation required to make predictions, as future states can be represented much more compactly. In order to increase model accuracy and robustness, all models explicitly model uncertainty in state transitions using stochastic nodes \cite{Algo.FastGenerativeModels}.
-The goal stays the same: train a sufficiently accurate latent space environment's dynamics model, or such that accurately predicts future latent states and rewards to predefined cut-off point in time, and use it to plan and solve the environment. Those architectures, and experiments carried out on them, present evolution of ideas towards this goal.
+In this chapter three architectures are described. All of them involve a similar model learning approach, but differ substantially in technical details and planning algorithms. All architectures use computationally efficient latent space environment models that make predictions at a higher level of spatial abstraction, than at the level of raw pixel observations. The goal is to train a sufficiently accurate latent space environment's dynamics model, or such that accurately predicts future latent states and rewards to predefined cut-off point in time, and use it to plan and solve the environment. Those architectures, and experiments carried out on them, present evolution of approaches towards this goal.
 
 \subsection{Original World Models}
 
-This section describes the original World Models \cite{Algo.WorldModels} algorithm which uses a learned model to create abstract task representation which, in turn, is used to solve the task by a lightweight controller. This architecture will be coupled with the AlphaZero which uses the learned model to simulate experience in the next section.
+This section describes in details the architecture of solution based on World Models \cite{Algo.WorldModels}, broadly described in section \ref{Sec.WorldModels}. This architecture will be coupled with the AlphaZero which uses the learned model to simulate experience in the next section.
 
 \subsubsection{World model}
 
-A simple model inspired by human cognitive system is used. In this model, an agent has a visual sensory module that compresses observations into a small representative code. It also has a memory module that makes predictions about future codes based on historical information. Finally, the agent has a decision-making component, called the controller module, that decides what actions to take based only on the representations created by its vision and memory modules. \\
-This architecture allows for training of a large neural network to tackle RL tasks by dividing the agent into a large world model and a small controller model. First a large neural network learns to model the agent’s environment in an unsupervised manner, and only then the smaller controller focuses on the credit assignment problem on a smaller search space of controller's parameters, while not sacrificing capacity and expressiveness via the larger world model.
+An environment provides the agent with a high dimensional input observation, $o$, at each time step. It is a 2D image, a game frame, that is part of a video sequence. The Vision module role, as already mentioned in section \ref{Sec.WorldModels}, is to learn an abstract representation of each observed input frame. Vision is implemented as a simple Variational Autoencoder described in details in chapter \ref{Sec.TheoreticalBackground}. It is trained to encode each frame into low dimensional latent vector, $z$, by minimizing the difference between a given frame and the reconstructed version of the frame produced by the decoder.
 
-An environment provides the agent with a high dimensional input observation at each time step. It is a 2D image frame that is part of a video sequence. The vision module role, as already mentioned, is to learn an abstract representation of each observed input frame. It uses a simple Variational Autoencoder \cite{Algo.VAE} and, as described in details in chapter \ref{Sec.TheoreticalBackground}, is trained to encode each frame into low dimensional latent vector by minimizing the difference between a given frame and the reconstructed version of the frame produced by the decoder. \\
-The Memory module purpose is to compress the information what happens over time in its hidden state and enable simulation of the environment. To do this, it is trained to model environment's dynamics, predicting a future latent variable, as a mixture of Gaussians. The model is implemented as a recurrent neural network with the Mixture Density Network (MDN) on top of a RNN's hidden state. In literature this architecture is called MDN-RNN \cite{Algo.MDNRNN}. It will be further referred to as the stochastic Memory module.
+The role of the Memory module is to acquire full knowledge of an environment state by encoding what happens over time. Memory is trained to predict a probability density of the next latent variable. In consequence, Memory enables simulation of the environment. Memory is implemented as a recurrent neural network with the Mixture Density Network (MDN) on top of a RNN's hidden state. In literature this architecture is called MDN-RNN \cite{Algo.MDNRNN}. It will be further referred to as the stochastic Memory module.
 
-Figure \ref{Fig.WorldModelsPGM} depicts the world model, the Vision and Memory modules interconnection, in graphical form. More specifically, the world model components are:
+Figure \ref{Fig.WorldModelsPGM} depicts the world model, the Vision and Memory modules interconnections, in graphical form. More specifically, the world model components are:
 \begin{itemize}
 \item Deterministic state model:             $h_t = f(h_{t-1}, z_{t-1}, a_{t-1})$
 \item Stochastic state model:                $z_t \sim p(z_t|h_t) = \sum_c\pi_c(h_t)p(z_t|h_t, c)$
@@ -40,8 +37,9 @@ where $W_c$ and $b_c$ are Controller's weights matrix and biases vector that map
 
 \subsubsection{Data collection}
 
-To train Vision and Memory modules first collection of 10,000 random rollouts of the environment are gathered to create a dataset. An agent is acting randomly to explore the environment multiple times and records the random actions taken and the resulting observations from the environment.
-This dataset is used to train the Vision module. Next, it is used to process each frame into its latent variable to prepare a dataset for the Memory module training, which works entirely in the latent space.
+To train Vision and Memory modules first collection of 10,000 random rollouts of the environment are gathered to create a dataset. An agent is acting randomly to explore the environment multiple times and records the random actions taken and the resulting observations from the environment. This dataset is used to train the Vision module.
+
+Next, trained Vision is used to preprocess the dataset for the Memory module training, which works entirely in the latent space. Because the encoder approximate state posteriors from observations with a diagonal Gaussian, a precomputed set of means and variances for each of the frames are stored. During training the latent variables are sampled to construct a training batch. This prevents overfitting of Memory to specific sampled latent variables.
 
 The Controller module is trained using evolutional strategy which rollouts the environment in each epoch to evaluate population.
 
@@ -54,7 +52,7 @@ Each frame, before it is used for any training, is central cropped if a frame fr
 HumbleRL is used to implement the original World Models architecture from the paper. This allows for easy adjustments for experiments purposes and to couple the world model with AlphaZero implementation in HumbleRL. An agent exploring an environment (Mind) and a callback are used to gather transitions and save them to an external storage. The framework allows to focus strictly on collecting trajectories and not worry about agent-environment interactions. \\
 Collected transitions are used to train the Vision and Memory components. The popular LSTM architecture \cite{Algo.LSTM} implements the Memory module RNN with 256 hidden units. The MDN is composed of 5 16-dimensional Gaussians with mean and log standard deviation parameterised by linear models. The Vision module neural networks are convolutional and deconvolutional neural networks shown in fig.~\ref{Fig.WorldModelsVAEArchitecture} where latent variable size, $\mu$ and $\sigma$ vectors dimensionality, equals 16. \\
 For Vision training Keras \cite{Code.Keras} framework is used to adjust the parameters by the stochastic gradient descent on a standard Evidence Lower Bound loss. For Memory training PyTorch \cite{Code.PyTorch} framework is used, since it is easier to work with recurrent neural networks than in Keras, to, again, adjust the parameters by the stochastic gradient descent on a negative log-probability loss of the mixture density network. HumbleRL is not constricted to work with any particular deep learning library, so it is not a problem to mix the solutions, as long as trained models are wrapped in HumbleRL's interfaces.
-The Vision module is trained using the Adam optimizer \cite{Algo.Adam} with a learning rate of $10^{-3}$ and $\epsilon = 10^{−7}$ on batches of 256 images. The Memory module is trained using the Adam optimizer \cite{Algo.Adam} too with a learning rate of $10^{-3}$ and $\epsilon = 10^{−8}$ on batches of 128 sequence chunks of length 1000. \\
+The Vision module is trained using the Adam optimizer \cite{Algo.Adam} with a learning rate of $10^{-3}$ and $\epsilon = 10^{−7}$ on batches of 256 images. The Memory module is trained using the Adam optimizer \cite{Algo.Adam} too with a learning rate of $10^{-3}$ and $\epsilon = 10^{−8}$ on batches of 128 sequence chunks of length 1000.
 
 \begin{figure}[H]
 \includegraphics[width=0.45\textwidth,keepaspectratio]{figures/WorldModels/world_models_vae_architecture.png}
@@ -62,14 +60,13 @@ The Vision module is trained using the Adam optimizer \cite{Algo.Adam} with a le
 \label{Fig.WorldModelsVAEArchitecture}
 \end{figure}
 
-The Controller module gets a feature vector as its input, consisting of latent variable $z$ and the hidden state of the MDN-RNN. In all environments, this hidden state is the output vector $h$ of the LSTM. \\
-Covariance-Matrix Adaptation Evolution Strategy (CMA-ES) \cite{Algo.CMAES} is used for the Controller module training. It evolves the weights $W_c$ and biases $b_c$ of the module. A population size of 64 is used and each agent plays in the environment 5 episodes. The fitness value for the agent is the average cumulative reward of the 5 episodes.
+The Controller module gets a feature vector as its input, consisting of latent variable $z$ and the hidden state of the MDN-RNN. In all environments, this hidden state is the output vector $h$ of the LSTM. Covariance-Matrix Adaptation Evolution Strategy (CMA-ES) \cite{Algo.CMAES} is used for the Controller module training. It evolves the weights $W_c$ and biases $b_c$ of the module. A population size of 64 is used and each agent plays in the environment 5 episodes. The fitness value for the agent is the average cumulative reward of the 5 episodes.
 
 Hyper-parameters presented are used as defaults in experiments described in the next chapter.
 
 \subsection{World Models and AlphaZero}
 
-World Models' agent \cite{Algo.WorldModels} successfully plans using a learned model where the model is used to generate simulated experience on which the policy is trained. This section describes attempt to adjust and utilize the world model part of the agent in the AlphaZero search algorithm for environments with dense rewards. This is different application of the model than in the original paper, where only future latent variables and done flag are predicted, which is sufficient in their benchmark with sparse rewards, and therefore the world model needs to be extended with a reward predictor and the controller is replaced by AlphaZero.
+World Models' agent \cite{Algo.WorldModels} successfully plans using a learned model where the model is used to generate simulated experience on which the policy is trained. This section describes attempt to adjust and utilize the world model part of the agent in the AlphaZero \cite{Algo.AlphaZero} search algorithm for environments with dense rewards. This is different application of the model than in the original paper, where only future latent variables and done flag are predicted, which is sufficient in their benchmark with sparse rewards, and therefore the world model needs to be extended with a reward predictor and the controller is replaced by AlphaZero.
 
 \subsubsection{World model}
 
@@ -104,7 +101,7 @@ Figure \ref{Fig.MCTSinAlphaZero} depicts this process. After multiple simulation
 
 \subsubsection{Implementation details, data collection and preprocessing}
 
-The world model implementation details, preprocessing and data collection for Vision and Memory modules are the same as in the original World Models. The world model latent state size is 16 and the LSTM hidden size is 256. An input to value and policy networks, is the concatenated features vector of latent state and hidden state, $[s_t\,h_t]$.
+The world model implementation details, preprocessing and data collection for Vision and Memory modules are the same as in the original World Models. The world model latent state size is 16 and RNN is LSTM \cite{Algo.LSTM} with the hidden size 256. An input to value and policy networks, is the concatenated features vector of latent state and hidden state, $[s_t\,h_t]$.
 
 The AlphaZero controller uses the world model for simulations. The Vision module is used as the Interpreter which encodes incoming observations into latent space. The Memory module, wrapped in the MDP interface from HumbleRL, is used in the expansion phase of AlphaZero. The Mind class, which is implemented by the AlphaZero algorithm, returns actions' scores. These are actions visit counts from the root state node, which are then used to choose an action by a policy. During training actions are sampled with probability proportional to these visit counts for 12 warm-up steps, which is 48 game frames assuming four frames skipping, at the beginning of each episode which proved sufficient to ensure stochastic starts and enhance exploration. After the warm-up phase, a greedy policy is used. During testing always greedy policy is used. It picks an action which was visited most often. Pseudo-code written in Python of the search algorithm in the Mind is shown below:
 
@@ -137,7 +134,7 @@ def plan(self, state):
 \end{lstlisting}
 \end{minipage}
 
-AlphaZero value and policy networks are two linear models trained by reinforcement learning from self-play games, starting from randomly initialized parameters. Each game is played by running the search, described above, at each position, $[s_t\,h_t]$, and then selecting a move either proportionally (for exploration) or greedily (for exploitation) according to returned move probabilities, which are normalised visit counts at the root state, $\boldsymbol\pi$. These search probabilities usually select much stronger moves than the raw move probabilities of the policy network. The MCTS search may therefore be viewed as a powerful policy improvement operator \cite{Book.RLAI}. Self-play with search – using the improved MCTS-based policy to select each move by the agent, then using the game cumulative reward, or the return, as a sample of the value at each time step – may be viewed as a powerful policy evaluation operator. The main idea of this reinforcement learning algorithm is to use these search operators repeatedly in a policy iteration framework \cite{Algo.AlphaGoZero}. The linear models' parameters are updated to make the move probabilities and values more closely match the improved search probabilities and self-play cumulative rewards at each step. These new parameters are used in the next iteration of self-play to make the search even stronger. \\
+AlphaZero value and policy networks are two linear models trained by reinforcement learning from self-play games, starting from randomly initialized parameters. Each game is played by running the search, described above, at each position and then selecting a move either proportionally (for exploration) or greedily (for exploitation) according to returned move probabilities, which are normalised visit counts at the root state, $\boldsymbol\pi$. These search probabilities usually select much stronger moves than the raw move probabilities of the policy network. The MCTS search may therefore be viewed as a powerful policy improvement operator \cite{Book.RLAI}. Self-play with search – using the improved MCTS-based policy to select each move by the agent, then using the game cumulative reward, or the return, as a sample of the value at each time step – may be viewed as a powerful policy evaluation operator. The main idea of this reinforcement learning algorithm is to use these search operators repeatedly in a policy iteration framework \cite{Algo.AlphaGoZero}. The linear models' parameters are updated to make the move probabilities and values more closely match the improved search probabilities and self-play cumulative rewards at each step. These new parameters are used in the next iteration of self-play to make the search even stronger. \\
 The agent's experience and score statistics used for training are gathered using callbacks during the self-play phase. Maximum of 1000 latest games are kept. The models training phase takes place after 10 self-play games and lasts for 5 epochs. The training phase is performed using the Keras \cite{Code.Keras} framework. Specifically, the parameters are adjusted by the stochastic gradient descent on a loss function that sums over mean squared errors of the value network, cross-entropy losses of the policy network and L2 weights regularization scaled by a factor of $10^{-4}$ in batches of 256 examples, where each example is a features vector of a state, a value sample from self-play and a MCTS action probabilities vector. The Nesterov's momentum optimizer \cite{Algo.Nesterov} is used with a learning rate of $10^{-2}$ and a momentum of $0,9$.
 
 Hyper-parameters presented are used as defaults in experiments described in the next chapter.
@@ -148,9 +145,7 @@ PlaNet (Deep Planning Network) \cite{Algo.PlaNet} shows working example of a pla
 
 \subsubsection{World model}
 
-This architecture uses recurrent state space model (RSSM) which is similar to what World Models does. This latent dynamics model is designed with both deterministic and stochastic components \cite{Algo.FastGenerativeModels}. Original experiments indicate having both components to be crucial for high planning performance. It also uses a generalized variational bound that include multi-step predictions. Using only terms in latent space results in a fast regularizer that can improve long-term predictions \cite{Algo.PlaNet}.
-
-Same as in World Models, the model is provided with image observations. It even uses the same Variational Autoencoder with the same neural network architecture to encode the observations into latent space. The difference lies in the dynamics model shown in fig.~\ref{Fig.PlaNetPGM} with following components:
+This architecture uses recurrent state space model (RSSM). Same as in World Models, the model is provided with image observations. It even uses the same Variational Autoencoder to encode the observations into latent space. The difference lies in the dynamics model shown in fig.~\ref{Fig.PlaNetPGM} with following components:
 \begin{itemize}
 \item Deterministic state model:             $h_t = f(h_{t-1}, z_{t-1}, a_{t-1})$
 \item Stochastic state model:                $z_t \sim p(z_t|h_t)$
@@ -166,13 +161,7 @@ Since directly computing the state posteriors is intractable, an encoder $q(z_t|
 \label{Fig.PlaNetPGM}
 \end{figure}
 
-\noindent There are two deviations from the World Models architectures:
-\begin{itemize}
-\item Hidden states are ``shifted'' to the right, so the previous state and action are used to predict the current hidden state $h$ and it is then used to predict the current latent variable $z$.
-\item VAE's decoder and encoder (named Vision in World Models) use the dynamics model's hidden state for prediction and inference. This way the likelihood and the posterior are conditioned on past observations too, as opposed to World Models.
-\end{itemize}
-
-Intuitively, this model can be understood as splitting the state into a stochastic part and a deterministic part, which depend on the stochastic and deterministic parts at the previous time step through the RNN. Importantly, all information about the observations must pass through the sampling step of the encoder to avoid a deterministic shortcut from inputs to reconstructions.
+The main deviations from the World Models architecture are VAE's decoder and encoder (named Vision in World Models). They use the dynamics model's hidden state for prediction and inference. This way the likelihood and the posterior are conditioned on past observations too, as opposed to World Models.
 
 \subsubsection{Planner}
 
