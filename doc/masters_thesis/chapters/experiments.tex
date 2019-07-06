@@ -45,7 +45,7 @@ On the other hand, this representation includes, not well represented, but perfe
 
 \subsubsection{Train World Model in Sokoban with auxiliary tasks}
 
-Auxiliary tasks \cite{Algo.AuxiliaryTasks} have proved to help create more informative representation of an environment. In this experiment, reward and value prediction tasks are added to the Memory module. In short, two additional linear models are added on top of the RNN to predict the next reward in the environment and model a value function \editnote{TODO: Add information how you train values i.e. Monte-Carlo prediction}. In theory, it should help form a more informative hidden state of the Memory module. Consequently, it should help learn Sokoban’s dynamics, but also generate representation on a higher level of abstraction that could prove useful for the Controller. Moreover, a reward prediction will be needed in further work on planning with learned model.
+Auxiliary tasks \cite{Algo.AuxiliaryTasks} have proved to help create more informative representation of an environment. In this experiment, reward and value prediction tasks are added to the Memory module. In short, two additional linear models are added on top of the RNN to predict the next reward in the environment and model a value function. The reward head is trained in supervised manner to minimise MSE loss. The value head uses Monte-Carlo prediction algorithm, described in the section \ref{Sec.RL}, to estimate target states value and it is trained in supervised manner to minimise MSE loss just like the reward head. In theory, it should help form a more informative hidden state of the Memory module. Consequently, it should help learn Sokoban’s dynamics, but also generate representation on a higher level of abstraction that could prove useful for the Controller. Moreover, a reward prediction will be needed in further work on planning with learned model.
 
 For all that, the Memory module have not been able to learn to predict the rewards and values. Also, there was no improvement in Memory's and Controller’s performance. It is suspected, that the main cause of this failure are sparse rewards in the training dataset. A random agent used to generate the dataset does not receive many positive rewards. Effectively, most of the episodes do not have any positive reward. Hence, the Memory module soon overfit on more or less constant reward and value. 
 This yields insight that the data generation procedure does not cover state-space well. Iterative approach to gathering data, from a better and better agent, could solve this problem.
@@ -115,26 +115,19 @@ By default a decoder variance of 1 is used, which means the model explains a lot
 
 \subsubsection{Train PlaNet in the Boxing environment with the increased action repeat}
 
-The action repeat will result in a bigger difference between consecutive frames and thus more signal for the model to learn from, that cannot be easily modeled as noise. In practice though, it did not help and even made the agent play worse then a random agent. The random agent is taking moves at random.
+The action repeat will result in a bigger difference between consecutive frames and thus more signal for the model to learn from, that cannot be easily modeled as noise. In practice though, it did not help and even made the agent play worse then a random agent.
 
 \subsubsection{Train PlaNet in the Boxing environment with the lowered decoder variance}
 
-The predictions are more blurry with a higher variance because the decoder generate more observations that differ slightly from the same latent code. This leads to the posterior explaining more similar observations with the same code. If consecutive frames are very similar, then the posterior collapses and explain them with one code. By lowering the variance it becomes more sensitive to small changes in observations. \editnote{TODO: Proofread this explanation once more and/or ask Danijar if it is right.}
+The predictions are more blurry with a higher variance of a decoder because the decoder models more observations that differ slightly from the same latent code. This leads to the posterior, or the encoder, explaining more similar observations with the same code. If consecutive frames are very similar, then the posterior collapses and explain them with one code. By lowering the variance of the decoder it becomes more sensitive to small changes in observations and, hence, alleviate the problem of collapsing posterior when observations does not differ much from frame to frame.
 
-\editnote{TODO: Move implementation details to project's plan and refer to them here.}
-Lowering the decoder variance is equivalent to lowering a KL divergence scale in the PlaNet loss. It can be seen by writing the ELBO for a Gaussian decoder in the standard form $E_q(z)[lnp(x|z)]-KL[q(z) || p(z)]$. The log-likelihood terms is $lnp(x|z) = -0.5(x-f(z))/\sigma^2-lnZ$. Multiplying the ELBO by $\sigma^2$ removes it from the log-probability term and puts it in front of the KL term as in beta-VAE \cite{Algo.betaVAE}. The objectives have different values because of the Gaussian normalizer Z but they share the same gradient since the normalizer is a constant.
-Other reason that lowering the divergence scale can help with collapsing posterior is that it allows the model to absorb more information from its observations by loosening the information bottleneck.
+To lower a decoder variance, the KL divergence scale is lowered, as explained in the section \ref{Sec.ModelLearning}. Other reason that lowering the divergence scale can help with collapsing posterior is that it allows the model to absorb more information from its observations by loosening the information bottleneck. On the other hand it is recommended to keep the divergence scale as high as possible while still allowing for good performance. For example, when the divergence scale is set to zero it could learn to become a deterministic autoencoder which reconstruct observations well but is less likely to generalize to state in latent space that the decoder hasn't seen during training.
 
-On the other hand it is recommended to keep the divergence scale as high as possible while still allowing for good performance. For example, when the divergence scale is set to zero it could learn to become a deterministic autoencoder which reconstruct observations well but is less likely to generalize to state in latent space that the decoder hasn't seen during training.
-
-Random search resulted in the best divergence scale being around 0.03. It was tuned jointly with a free nats parameter which is described in the next section.
-\editnote{QUESTION: I should add diagram with random search results, but how to do this if those are evaluated with a researcher eye?}
-\editnote{TODO: You should better describe this random search experiment. What parameters where tuned, which turned out to be the most important, for how long and how much runs you were running etc.}
+Random search resulted in the best divergence scale being around 0.03. It was tuned jointly with a free nats parameter which is described in the next section with detailed tuning results in the table \ref{Table.PlaNet_Boxing_tuning}.
 
 \subsubsection{Train PlaNet in the Boxing environment with increased free nats}
 
-\editnote{TODO: Move theoretical details to theoretical background and refer to them here.}
-Free nats technique is often used for static Variational Autoencoders. The model is allowed to use given amount of nats without KL penalty in the variational objective. It helps the model focus on smaller details which do not contribute much to improving the reconstruction loss. Intuitively to this threshold of KL divergence (between a prior and a posterior) reconstruction loss is favoured. In case of Boxing, it helped to model boxers moves and actions more accurately. The best free nats turned out to be 12. Fig.~\ref{Fig.PlaNet_Boxing_lower_divergence_scale} shows final result.
+The free nats technique, described in the section \ref{Sec.ModelLearning}, is used too. In case of Boxing, it helped to model boxers moves and actions more accurately. The best free nats turned out to be 12. Fig.~\ref{Fig.PlaNet_Boxing_lower_divergence_scale} shows final result.
 
 \begin{figure}[H]
 \includegraphics[width=1\textwidth,keepaspectratio]{figures/PlaNet/Boxing_memory_sharp.png}
@@ -142,12 +135,12 @@ Free nats technique is often used for static Variational Autoencoders. The model
 \label{Fig.PlaNet_Boxing_lower_divergence_scale}
 \end{figure}
 
-It achieved final score around 45 after 1 million steps in the environment. The learning curve is shown in fig.~\ref{Fig.PlaNet_with_overshooting}.
+It achieved final score around 45 after 1 million steps in the environment. The learning curve is shown in fig.~\ref{Fig.Boxing_with_overshooting}.
 
 \begin{figure}[H]
 \includegraphics[width=1\textwidth,keepaspectratio]{figures/PlaNet/Boxing_with_overshooting.png}
-\caption[PlaNet learning curve after tuning and with overshooting]{PlaNet learning curve after tuning and with overshooting. The line presents median and the shaded area are percentiles 5 to 95 over 5 training runs. On the Y axis is the environment score and on the X axis is number of steps in the real environment for the data collection.}
-\label{Fig.PlaNet_with_overshooting}
+\caption[Boxing learning curve after tuning and with overshooting]{Boxing learning curve after tuning and with overshooting. The line presents median and the shaded area are percentiles 5 to 95 over 5 training runs. On the Y axis is the environment score and on the X axis is number of steps in the real environment for the data collection.}
+\label{Fig.Boxing_with_overshooting}
 \end{figure}
 
 Table.~\ref{Table.PlaNet_Boxing_tuning} summarize hyper-parameters tuning experiment. The specialist evaluated noisiness of the model rollouts, the same as in fig.~\ref{Fig.PlaNet_Boxing_lower_divergence_scale}, in scale from 0 to 2, where 0 is a little or no noise in the future reconstructions and 2 is a lot of noise in the future reconstructions.
@@ -228,20 +221,26 @@ Free nats & Divergence scale & Noisiness \\
 
 High free nats, above 6, and too low, below 1E-03, or too high, above 9E-03, divergence scale makes future predictions very noisy and blurry. Best parameters chosen were: the divergence scale of 8E-03 and the free nats of 3.
 
-Despite really good future observations prediction the agent failed to solve the task. \editnote{TODO: In benchmark description you should write what you consider as solved task in each environment.} Possibly planner horizon is to short to cover a plan which ends with positive reward on the other side of the road. This is explored in the next experiment.
+Despite really good future observations prediction the agent failed to reliably play the game with high score. Results in fig.~\ref{Fig.Freeway_with_overshooting} show that the agent in the early phase of the training, when the model is still untrained and returns mostly random signals, does better then in the late training phase, when the model predicts next states and rewards well. One explanation of this phenomena is, that a planner horizon is too short to cover a plan which ends with a positive reward on the other side of the road. The longer planning horizon might help and this is explored in the next experiment.
+
+\begin{figure}[H]
+\includegraphics[width=1\textwidth,keepaspectratio]{figures/PlaNet/Freeway_with_overshooting.png}
+\caption[Freeway learning curve after tuning and with overshooting]{Freeway learning curve after tuning and with overshooting. The line presents median and the shaded area are percentiles 5 to 95 over 5 training runs. On the Y axis is the environment score and on the X axis is number of steps in the real environment for the data collection.}
+\label{Fig.Freeway_with_overshooting}
+\end{figure}
 
 \subsubsection{Train tuned PlaNet in the Freeway environment with a longer planning horizon}
 
-Here two experiments were run: first for planning horizon of 25 and second for planning horizon of 50. Both failed.
+Two experiments were run: first for planning horizon of 25 and second for planning horizon of 50. Both failed to improve the agent score. After many attempts, the Freeway environment was left unsolved.
 
 \subsubsection{Train PlaNet in the Boxing environment without overshooting}
 
-The authors in the final version of the PlaNet paper find out, that disabling overshooting can increase performance for their RSSM architecture. It was put into the test and final results are shown in fig.~\ref{Fig.PlaNet_without_overshooting}. It helped increase performance of RSSM tuned for Boxing.
+The authors in the final version of the PlaNet paper find out, that disabling overshooting can increase performance for their RSSM architecture. It was put into the test and final results are shown in fig.~\ref{Fig.Boxing_without_overshooting}. It helped increase performance of RSSM tuned for Boxing.
 
 \begin{figure}[H]
 \includegraphics[width=1\textwidth,keepaspectratio]{figures/PlaNet/Boxing_without_overshooting.png}
-\caption[PlaNet learning curve after tuning and without overshooting]{PlaNet learning curve after tuning and without overshooting. The line presents median and the shaded area are percentiles 5 to 95 over 5 training runs. On the Y axis is the environment score and on the X axis is number of steps in the real environment for the data collection.}
-\label{Fig.PlaNet_without_overshooting}
+\caption[Boxing learning curve after tuning and without overshooting]{Boxing learning curve after tuning and without overshooting. The line presents median and the shaded area are percentiles 5 to 95 over 5 training runs. On the Y axis is the environment score and on the X axis is number of steps in the real environment for the data collection.}
+\label{Fig.Boxing_without_overshooting}
 \end{figure}
 
 This is the best and final solution which gets compared to strong model-based baseline SimPLe \cite{Algo.SimPLe} and model-free baselines Rainbow \cite{Algo.Rainbow} and PPO \cite{Algo.PPO}. Score of randomly issuing actions in the environment is also reported. Comparison is done in low data regime of 100K, 500K and 1M interactions with the real environment. The baseline results are taken from the SimPLe paper \cite{Algo.SimPLe}.
