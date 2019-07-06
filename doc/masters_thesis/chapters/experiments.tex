@@ -17,7 +17,7 @@ This section focuses on a problem of training OWM in Sokoban. The goal was to tr
 The Vision module successfully learned to encode high dimensional observations into low dimensional latent states. Fig.~\ref{Fig.WM_Sokoban_vision} shows original observations (first and third columns) side by side with reconstructed observations from their encodings (second and fourth columns). These are zero step predictions, no future is predicted only encoding to latent space and decoding to image space again is done.
 
 \begin{figure}[H]
-\includegraphics[width=1\textwidth,keepaspectratio]{figures/Sokoban_vision.png}
+\includegraphics[width=0.7\textwidth,keepaspectratio]{figures/Sokoban_vision.png}
 \caption[Qualitative result of the World Models' Vision module training in Sokoban]{Qualitative result of the Vision module training in Sokoban. First and third columns include original observations. Second and fourth columns include reconstructions. Each reconstruction was obtained by first encoding the original observation and then decoding it, using VAE encoder and decoder respectively.}
 \label{Fig.WM_Sokoban_vision}
 \end{figure}
@@ -64,7 +64,7 @@ Then, the W+A architecture is tested in Boxing too.
 The Vision module successfully learned to encode high dimensional observations into low dimensional latent states. Fig.~\ref{Fig.WM_Boxing_vision} shows original observations (first and third columns) side by side with reconstructed observations from their encodings (second and fourth columns). These are zero step predictions, no future is predicted only encoding to latent space and decoding to image space again is done.
 
 \begin{figure}[H]
-\includegraphics[width=1\textwidth,keepaspectratio]{figures/Boxing_vision.png}
+\includegraphics[width=0.7\textwidth,keepaspectratio]{figures/Boxing_vision.png}
 \caption[Qualitative result of the World Models' Vision module training in Boxing]{Qualitative result of the Vision module training in Boxing. First and third columns include original observations. Second and fourth columns include reconstructions. Each reconstruction was obtained by first encoding the original observation and then decoding it, using VAE encoder and decoder respectively.}
 \label{Fig.WM_Boxing_vision}
 \end{figure}
@@ -110,13 +110,13 @@ This section focuses on tuning DPN to yield high scores, comparable to model-fre
 
 DPN did not work out of the box with the default parameters from the original paper \cite{Algo.PlaNet}. Fig.~\ref{Fig.PlaNet_Boxing_original} shows that future predictions turn into a blurry blob, where it is not possible to distinguish one player from another.
 
+By default a decoder variance of 1 is used, which means the model explains a lot of variation in the image as random noise. While this leads to more robust representations, it also leads to more blurry images. If the changes in consecutive frames are minor, then the posterior collapses because the model explains everything as observations noise. There are two possible solutions to this issue: one is to increase an action repeat and the other is to try to reduce the decoder variance. These are examined next.
+
 \begin{figure}[H]
 \includegraphics[height=0.9\textheight,keepaspectratio]{figures/PlaNet/Boxing_memory_original.png}
 \caption[Qualitative result of the original PlaNet model training in Boxing]{Qualitative result of the model training in Boxing. Each row depicts the model rollout in one episode. The first five columns include original consecutive observations from the evaluation dataset from which the rollouts start. The model hidden state was initialized on these transitions. Each subsequent reconstruction was obtained by first predicting the next latent state by the model and then decoding it using the decoder.}
 \label{Fig.PlaNet_Boxing_original}
 \end{figure}
-
-By default a decoder variance of 1 is used, which means the model explains a lot of variation in the image as random noise. While this leads to more robust representations, it also leads to more blurry images. If the changes in consecutive frames are minor, then the posterior collapses because the model explains everything as observations noise. There are two possible solutions to this issue: one is to increase an action repeat and the other is to try to reduce the decoder variance. These are examined next.
 
 \subsubsection{Train DPN in the Boxing environment with the increased action repeat}
 
@@ -183,7 +183,7 @@ The lower divergence scale the nosier predictions are. The higher free nats the 
 It achieved final score around 45 after 1 million steps of data collection in the environment. The learning curve is shown in fig.~\ref{Fig.Boxing_with_overshooting}.
 
 \begin{figure}[H]
-\includegraphics[width=1\textwidth,keepaspectratio]{figures/PlaNet/Boxing_with_overshooting.png}
+\includegraphics[width=0.8\textwidth,keepaspectratio]{figures/PlaNet/Boxing_with_overshooting.png}
 \caption[Boxing learning curve after tuning and with overshooting]{Boxing learning curve after tuning and with overshooting. The line presents median and the shaded area are percentiles 5 to 95 over 5 training runs. On the Y axis is the environment score and on the X axis is number of steps in the real environment for the data collection.}
 \label{Fig.Boxing_with_overshooting}
 \end{figure}
@@ -229,7 +229,7 @@ High free nats, above 6, and too low, below 1E-03, or too high, above 9E-03, div
 Despite really good future observations prediction, the agent failed to reliably play the game with high score. Results in fig.~\ref{Fig.Freeway_with_overshooting} show that the agent in the early phase of the training, when the model is still untrained and returns mostly random signals, does better then in the late training phase, when the model predicts next states and rewards well. One explanation of this phenomena is that a planner horizon is too short to cover a plan which ends with a positive reward on the other side of the road. The longer planning horizon might help and this is explored in the next experiment.
 
 \begin{figure}[H]
-\includegraphics[width=1\textwidth,keepaspectratio]{figures/PlaNet/Freeway_with_overshooting.png}
+\includegraphics[width=0.8\textwidth,keepaspectratio]{figures/PlaNet/Freeway_with_overshooting.png}
 \caption[Freeway learning curve after tuning and with overshooting]{Freeway learning curve after tuning and with overshooting. The line presents median and the shaded area are percentiles 5 to 95 over 5 training runs. On the Y axis is the environment score and on the X axis is number of steps in the real environment for the data collection.}
 \label{Fig.Freeway_with_overshooting}
 \end{figure}
@@ -243,7 +243,7 @@ Two experiments were run: first for planning horizon of 25 and second for planni
 The authors in the final version of the original PlaNet paper \cite{Algo.PlaNet} found out, that disabling overshooting can increase performance for their RSSM architecture. It was put into the test and final results are shown in fig.~\ref{Fig.Boxing_without_overshooting}. It helped increase performance of DPN tuned for Boxing.
 
 \begin{figure}[H]
-\includegraphics[width=1\textwidth,keepaspectratio]{figures/PlaNet/Boxing_without_overshooting.png}
+\includegraphics[width=0.8\textwidth,keepaspectratio]{figures/PlaNet/Boxing_without_overshooting.png}
 \caption[Boxing learning curve after tuning and without overshooting]{Boxing learning curve after tuning and without overshooting. The line presents median and the shaded area are percentiles 5 to 95 over 5 training runs. On the Y axis is the environment score and on the X axis is number of steps in the real environment for the data collection.}
 \label{Fig.Boxing_without_overshooting}
 \end{figure}
