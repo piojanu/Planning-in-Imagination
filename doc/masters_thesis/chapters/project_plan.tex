@@ -2,9 +2,9 @@
 
 In this chapter three architectures are described. All of them involve a similar model learning approach, but differ substantially in technical details and planning algorithms. All architectures use computationally efficient latent space environment models that make predictions at a higher level of spatial abstraction, than at the level of raw pixel observations. The goal is to train a sufficiently accurate latent space environment's dynamics model, or such that accurately predicts future latent states and rewards to predefined cut-off point in time, and use it to plan and solve the environment. Those architectures, and experiments carried out on them, present evolution of approaches towards this goal.
 
-\subsection{Original World Models}
+\subsection{Original World Models (OWM)}
 
-This section describes in details the architecture of solution based on World Models \cite{Algo.WorldModels}, broadly described in the section \ref{Sec.WorldModels}. This architecture will be coupled with the AlphaZero which uses the learned model to simulate experience in the next section.
+This section describes in details the architecture of solution based on World Models \cite{Algo.WorldModels} called ``Original World Models'' (OWM), broadly described in the section \ref{Sec.WorldModels}. This architecture will be coupled with the AlphaZero which uses the learned model to simulate experience in the next section.
 
 \subsubsection{World model}
 
@@ -64,9 +64,9 @@ The Controller module gets a feature vector as its input, consisting of latent v
 
 Hyper-parameters presented are used as defaults in experiments described in the next chapter.
 
-\subsection{World Models and AlphaZero}
+\subsection{World Models and AlphaZero (W+A)}
 
-World Models' agent \cite{Algo.WorldModels} successfully plans using a learned model where the model is used to generate simulated experience on which the policy is trained. This section describes attempt to adjust and utilize the world model part of the agent in the AlphaZero \cite{Algo.AlphaZero} search algorithm for environments with dense rewards. This is different application of the model than in the original paper, where only future latent variables and done flag are predicted, which is sufficient in their benchmark with sparse rewards, and therefore the world model needs to be extended with a reward predictor and the controller is replaced by AlphaZero.
+World Models' agent \cite{Algo.WorldModels} successfully plans using a learned model where the model is used to generate simulated experience on which the policy is trained. This section describes attempt to adjust and utilize the world model part of the agent in the AlphaZero \cite{Algo.AlphaZero} search algorithm for environments with dense rewards. The architecture is called ``World Models and AlphaZero'' (W+A). This is different application of the model than in the original paper, where only future latent variables and done flag are predicted, which is sufficient in their benchmark with sparse rewards, and therefore the world model needs to be extended with a reward predictor and the controller is replaced by AlphaZero.
 
 \subsubsection{World model}
 
@@ -139,9 +139,9 @@ The agent's experience and score statistics used for training are gathered using
 
 Hyper-parameters presented are used as defaults in experiments described in the next chapter.
 
-\subsection{PlaNet}
+\subsection{Discrete PlaNet (DPN)}
 
-PlaNet (Deep Planning Network) \cite{Algo.PlaNet} shows working example of a planning agent that searches for the best sequence of future actions using a learned model in continuous control tasks. This is close to what this work tries to accomplish, but for a different type of environments. This section describe how it was utilized in episodic discrete tasks.
+The PlaNet paper \cite{Algo.PlaNet} shows working example of a planning agent that searches for the best sequence of future actions using a learned model in continuous control tasks. This is close to what this work tries to accomplish, but for a different type of environments. This section describe how it was utilized in episodic discrete tasks. The architecture is further referred to as ``Discrete PlaNet'' (DPN).
 
 \subsubsection{World model}
 
@@ -165,8 +165,8 @@ The main deviations from the World Models architecture are VAE's decoder and enc
 
 \subsubsection{Planner}
 
-The agent plans using the cross entropy method (CEM) \cite{Algo.CEM} to search for the best action sequence under the model. CEM is a population-based optimization algorithm that infers a distribution over action sequences that maximize the objective.
-First, a time-dependent diagonal Gaussian belief over optimal action sequences gets initialized: $a_{t:t+H} \sim Normal(\mu_{t:t+H}, \sigma^2_{t:t+H}I)$, where $t$ is the current time step of the agent and $H$ is the length of the planning horizon. Starting from zero mean and unit variance, it is used to sample candidate action sequences. To evaluate a candidate action sequence under the learned model a trajectory starting from the current state is sampled by the model using the action sequence as an input and the predicted rewards are summed along the sequence. This sum is used as the action sequence fitness score. Since it is a population-based optimizer, it is sufficient to consider a single trajectory per action sequence and thus focus the computational budget on evaluating a larger number of different sequences. Then, the belief gets re-fitted to the best sequences and next optimization iteration starts the same way. At the end, the planner returns the mean of the belief for the current time step $\mu_t$ which is then used by the policy to choose discrete action. Importantly, after receiving the next observation, the belief over action sequences starts from zero mean and unit variance again to avoid local optima. \\
+The agent plans using the cross entropy method (CEM) \cite{Algo.CEM} to search for the best action sequence under the model. CEM is a population-based optimization algorithm that infers a distribution over action sequences that maximize the objective. It was originally used in PlaNet for tasks with continuous action-space and here it is adjusted for discrete action-space of Atari games. First, a time-dependent multidimensional diagonal Gaussian belief over optimal action sequences gets initialized: $a_{t:t+H} \sim Normal(\mu_{t:t+H}, \sigma^2_{t:t+H}I)$, where $t$ is the current time step of the agent and $H$ is the length of the planning horizon. The action vector, $a$, can be interpreted as actions scores. Each dimension represent score for one discrete action in the environment. \\
+Starting from zero mean and unit variance, it is used to sample candidate action sequences. To evaluate a candidate action sequence under the learned model a trajectory starting from the current state is sampled by the model using the action sequence as an input and the predicted rewards are summed along the sequence. This sum is used as the action sequence fitness score. Since it is a population-based optimizer, it is sufficient to consider a single trajectory per action sequence and thus focus the computational budget on evaluating a larger number of different sequences. Then, the belief gets re-fitted to the best sequences and next optimization iteration starts the same way. At the end, the planner returns the mean vector, $\mu_t$, of the belief for the current time step, representing scores for actions in the current time step, which is then used by the policy to choose discrete action. Importantly, after receiving the next observation, the belief over action sequences starts from zero mean and unit variance again to avoid local optima. \\
 Because the reward is modeled as a function of the latent state, the planner can operate purely in latent space without generating images, which allows for fast evaluation of large batches of action sequences. The algorithm is presented in the fig.~\ref{Fig.CEMinPlaNet} below.
 
 \begin{figure}[H]
