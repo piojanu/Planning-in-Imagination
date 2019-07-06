@@ -1,12 +1,11 @@
 \section{Experiments}
 
-In this chapter the three architectures described in the previous chapter are subject to different experiments that aim at making them to work. The architectures are evaluated using two metrics:
+In this chapter, the three architectures described in the chapter \ref{Sec.SolutionDescription} are subject to different experiments. The architectures are evaluated using two metrics:
 \begin{itemize}
-\item The more accurate the model at the cut-off point, which is environment dependent, the better model learning algorithm.
-\item The higher final score of the planning agent using this learned model, the better.
+\item Quality of future predictions evaluated by the expert.
+\item Final score in an environment of the planning agent for different amounts of data collected.
 \end{itemize}
-The first metric is evaluated using observations reconstructions at each timestep which are compared to ground truth recordings from the dataset. The second metric is simply final score from the environment.
-Before experiments descriptions benchmarks and used hardware get reviewed.
+The chapter starts with the OWM architecture, then move to the W+M architecture and finally arrive at the DPN architecture. Each approach was tested in Sokoban and Atari environments, except W+M which was tested only in the Boxing environment.
 
 \subsection{OWM for Sokoban}
 
