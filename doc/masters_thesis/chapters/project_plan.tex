@@ -4,11 +4,11 @@ In this chapter three architectures are described. All of them involve a similar
 
 \subsection{Original World Models}
 
-This section describes in details the architecture of solution based on World Models \cite{Algo.WorldModels}, broadly described in section \ref{Sec.WorldModels}. This architecture will be coupled with the AlphaZero which uses the learned model to simulate experience in the next section.
+This section describes in details the architecture of solution based on World Models \cite{Algo.WorldModels}, broadly described in the section \ref{Sec.WorldModels}. This architecture will be coupled with the AlphaZero which uses the learned model to simulate experience in the next section.
 
 \subsubsection{World model}
 
-An environment provides the agent with a high dimensional input observation, $o$, at each time step. It is a 2D image, a game frame, that is part of a video sequence. The Vision module role, as already mentioned in section \ref{Sec.WorldModels}, is to learn an abstract representation of each observed input frame. Vision is implemented as a simple Variational Autoencoder described in details in chapter \ref{Sec.TheoreticalBackground}. It is trained to encode each frame into low dimensional latent vector, $z$, by minimizing the difference between a given frame and the reconstructed version of the frame produced by the decoder.
+An environment provides the agent with a high dimensional input observation, $o$, at each time step. It is a 2D image, a game frame, that is part of a video sequence. The Vision module role, as already mentioned in the section \ref{Sec.WorldModels}, is to learn an abstract representation of each observed input frame. Vision is implemented as a simple Variational Autoencoder described in details in chapter \ref{Sec.TheoreticalBackground}. It is trained to encode each frame into low dimensional latent vector, $z$, by minimizing the difference between a given frame and the reconstructed version of the frame produced by the decoder.
 
 The role of the Memory module is to acquire full knowledge of an environment state by encoding what happens over time. Memory is trained to predict a probability density of the next latent variable. In consequence, Memory enables simulation of the environment. Memory is implemented as a recurrent neural network with the Mixture Density Network (MDN) on top of a RNN's hidden state. In literature this architecture is called MDN-RNN \cite{Algo.MDNRNN}. It will be further referred to as the stochastic Memory module.
 
@@ -19,7 +19,7 @@ Figure \ref{Fig.WorldModelsPGM} depicts the world model, the Vision and Memory m
 \item Observation model (decoder):           $o_t \sim p(o_t|z_t)$
 \end{itemize}
 where $o$, $z$ and $a$ are high-dimensional observations, latent variables and actions respectively. $f(h_{t-1}, z_{t-1}, a_{t-1})$, the deterministic state model, is implemented as a recurrent neural network and $h_t$ is its hidden state. The stochastic state model is a mixture of Gaussians with mean and variance parameterised by a feed-forward neural network. $c$ is a mixture's component and $\pi(h)$ is a normalized vector of mixing coefficients as a function of the RNN's hidden state. The observation model is Bernoulli distribution parameterised by a deconvolutional neural network described below in implementation details. \\
-Since the model is non-linear, directly computing the state posteriors is intractable. Instead, an encoder $q$ is used to infer approximate state posteriors from observations, where $q(z_t | o_t)$ is a diagonal Gaussian with mean and variance parameterised by a convolutional neural network followed by a feed-forward neural network. Vision is trained using variational inference described in section \ref{Sec.ModelLearning}.
+Since the model is non-linear, directly computing the state posteriors is intractable. Instead, an encoder $q$ is used to infer approximate state posteriors from observations, where $q(z_t | o_t)$ is a diagonal Gaussian with mean and variance parameterised by a convolutional neural network followed by a feed-forward neural network. Vision is trained using variational inference described in the section \ref{Sec.ModelLearning}.
 
 \begin{figure}[H]
 \includegraphics[width=0.45\textwidth,keepaspectratio]{figures/WorldModels/prob_graph_model.png}
@@ -45,7 +45,7 @@ The Controller module is trained using evolutional strategy which rollouts the e
 
 \subsubsection{Preprocessing}
 
-Each frame, before it is used for any training, is central cropped if a frame from an environment includes some kind of border which does not inform an agent in anyway. This operation depends on a specific environment. It is then resized to 64 x 64 pixels for all environments. All three colour channels are preserved. Actions are one-hot encoded. Frame skipping described in section \ref{Sec.ALE} is used for Atari games only.
+Each frame, before it is used for any training, is central cropped if a frame from an environment includes some kind of border which does not inform an agent in anyway. This operation depends on a specific environment. It is then resized to 64 x 64 pixels for all environments. All three colour channels are preserved. Actions are one-hot encoded. Frame skipping described in the section \ref{Sec.ALE} is used for Atari games only.
 
 \subsubsection{Implementation details}
 
@@ -77,7 +77,7 @@ For the world model part Vision stays the same with a major change in Memory. Be
 \item Observation model (decoder):           $o_t \sim p(o_t|s_t)$
 \end{itemize}
 It uses RNN, where $h$ is its hidden state, with a linear model on top to output the next latent state, $s$, and a linear model to output a reward. $r$. It will be further referred to as the deterministic Memory module. It is presented in fig.~\ref{Fig.WorldModelsPGMDet}. \\
-As in original World Models, an encoder $q(s_t | o_t)$ is used to infer approximate state posteriors from observations and Vision is trained using variational inference described in section \ref{Sec.ModelLearning}.
+As in original World Models, an encoder $q(s_t | o_t)$ is used to infer approximate state posteriors from observations and Vision is trained using variational inference described in the section \ref{Sec.ModelLearning}.
 
 \begin{figure}[H]
 \includegraphics[width=0.45\textwidth,keepaspectratio]{figures/WorldModels/prob_graph_model_det.png}
@@ -153,7 +153,7 @@ This architecture uses recurrent state space model (RSSM). Same as in World Mode
 \item Observation model (decoder):           $o_t \sim p(o_t|h_t, z_t)$
 \end{itemize}
 where $o$, $z$ and $a$ are high-dimensional observations, latent variables and actions respectively. $f(h_{t-1}, z_{t-1}, a_{t-1})$, the deterministic state model, is implemented as a recurrent neural network and $h_t$ is its hidden state. The stochastic state model is Gaussian with mean and variance parameterised by a feed-forward neural network, the observation model is Gaussian with mean parameterised by a deconvolutional neural network and identity covariance, and the reward model is a scalar Gaussian with mean parameterised by a feed-forward neural network and unit variance. \\
-Since directly computing the state posteriors is intractable, an encoder $q(z_t|o_{\leqslant t}, a_{< t}) = \prod_{i=1}^tq(z_t|h_t,o_t)$ is used to infer approximate state posteriors from past observations and actions, where $q(z_t | h_t, o_t)$ is a diagonal Gaussian with mean and variance parameterised by a convolutional neural network followed by a feed-forward neural network. The model is trained using variational inference with the latent overshooting regularizer described in section \ref{Sec.ModelLearning}.
+Since directly computing the state posteriors is intractable, an encoder $q(z_t|o_{\leqslant t}, a_{< t}) = \prod_{i=1}^tq(z_t|h_t,o_t)$ is used to infer approximate state posteriors from past observations and actions, where $q(z_t | h_t, o_t)$ is a diagonal Gaussian with mean and variance parameterised by a convolutional neural network followed by a feed-forward neural network. The model is trained using variational inference with the latent overshooting regularizer described in the section \ref{Sec.ModelLearning}.
 
 \begin{figure}[H]
 \includegraphics[width=0.45\textwidth,keepaspectratio]{figures/PlaNet/prob_graph_model.png}
@@ -177,12 +177,12 @@ Because the reward is modeled as a function of the latent state, the planner can
 
 \subsubsection{Data collection}
 
-Since the agent may not initially visit all parts of the environment, the data-aggregation iterative method described in section \ref{Sec.ModelLearning} is used. Starting from a small amount of 6 seed episodes collected under random actions, the model is trained and one additional episode is added to the data set every 5000 update steps.
+Since the agent may not initially visit all parts of the environment, the data-aggregation iterative method described in the section \ref{Sec.ModelLearning} is used. Starting from a small amount of 6 seed episodes collected under random actions, the model is trained and one additional episode is added to the data set every 5000 update steps.
 
 \subsubsection{Preprocessing}
 
 Each image gets preprocessed by reducing the bit depth to 5 bits as in \cite{Algo.Glow5bit}. It is then resized to 64 x 64 pixels for all environments without any cropping.
-Actions are one-hot encoded for all benchmarks and frame skipping described in section \ref{Sec.ALE} is used for Atari games only.
+Actions are one-hot encoded for all benchmarks and frame skipping described in the section \ref{Sec.ALE} is used for Atari games only.
 
 \subsubsection{Implementation details}
 
