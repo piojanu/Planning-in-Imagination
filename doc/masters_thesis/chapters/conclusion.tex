@@ -1,2 +1,9 @@
 \section{Conclusion}
 
+The aim of this work is to propose model-based RL system, that could learn in complex high-dimensional environments. Deriving from state-of-the-art model learning \cite{Algo.RecurrentEnvSim}\cite{Algo.JointFrameRewardPrediction}\cite{Algo.FastGenerativeModels} and model-based RL \cite{Algo.SimPLe}\cite{Algo.VPN}\cite{Algo.WorldModels}\cite{Algo.PlaNet} techniques, final solution in form of the ``Discrete PlaNet'' architecture is presented. Despite many difficulties, it finally reached a level of performance equal or higher than strong model-free and model-base baselines in low data regime of up to 1M interactions with the real environment of Atari 2600 game Boxing.
+
+The most challenging part of this work, underestimated at first by the author, was model learning. Current state-of-the-art model learning methods, although report promising results, were not tested for planning with them using search based algorithms, let alone planning and learning. Towards the end of the experimentation phase for this thesis, the PlaNet paper came out. It become the keystone for the final solution: the DPN architecture.
+
+Future work could focus on extending this method to other challenging tasks like: sparse rewards environments, i.e. Freeway, and complex puzzle games with massive state-space sizes, i.e. Sokoban.
+DPN, unlike model-based baseline SimPLe, hold promise of increased performance with an increased computational budget for planning. This hypothesis could be put to the extensive test too.
+Furthermore, generalization of the DPN world model to different tasks in the same or very similar environments could be explored.
