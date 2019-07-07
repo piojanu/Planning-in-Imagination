@@ -4,6 +4,12 @@ The aim of this work is to propose model-based RL system, that could learn in co
 
 The most challenging part of this work, underestimated at first by the author, was model learning. Current state-of-the-art model learning methods, although report promising results, were not tested for planning with them using search based algorithms, let alone planning and learning. Towards the end of the experimentation phase for this thesis, the PlaNet paper came out. It become the keystone for the final solution: the DPN architecture.
 
+Neither architecture was able to learn playing Sokoban. Certainly, the problem lies in model learning techniques. Sokoban dynamics, although based on simple rules of moving a character and pushing boxes, allow for incredible number of possible states and levels configurations. The models were not able to generalize well to this number of possibilities.
+
+The AlphaZero algorithm is very promising in a sense, that it is the general reinforcement learning algorithm which proved to solve really complex problems, like playing the game of Go \cite{Algo.AlphaGoZero}, when supplied with the perfect environment dynamics model. It should easily manage Sokoban complexity. And yet, joining it with the imperfect learned world model resulted in unstable, and at the end unsuccessful, training. 
+
+Likewise, for the DPN architecture, sparse rewards of Freeway became an obstacle which could not be overcome.
+
 Future work could focus on extending this method to other challenging tasks like: sparse rewards environments, i.e. Freeway, and complex puzzle games with massive state-space sizes, i.e. Sokoban.
 DPN, unlike model-based baseline SimPLe, hold promise of increased performance with an increased computational budget for planning. This hypothesis could be put to the extensive test too.
 Furthermore, generalization of the DPN world model to different tasks in the same or very similar environments could be explored.
