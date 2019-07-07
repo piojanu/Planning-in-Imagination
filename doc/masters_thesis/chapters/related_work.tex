@@ -1,6 +1,24 @@
 \section{State of the art}
 
-Quite surprisingly, there is not much work on model-based planning and learning from high-dimensional observations, like images, in complex environments, like video games. This chapter starts with review of state-of-the-art model-free methods that can solve complex tasks like playing video games. Afterwards, the focus moves on to model-based methods that help arrive at the final solution of this thesis problem.
+Quite surprisingly, there is not much work on model-based planning and learning from high-dimensional observations, like images, in complex environments, like video games. This chapter starts with review of two state-of-the-art model-free methods that can solve complex tasks like playing video games. These two methods are used as model-free baselines for this thesis final solution. Afterwards, the focus moves on to model-based methods that help arrive at the final solution of this thesis problem.
+
+\subsection{Rainbow: Combining Improvements in Deep Reinforcement Learning}
+
+Rainbow \cite{Algo.Rainbow} is a compilation of several independent improvements to the DQN \cite{Algo.DQN} algorithm made by the deep reinforcement learning community. The paper examines six extensions \cite{Algo.DDQN}\cite{Algo.PrioritizedDDQN}\cite{Algo.DuelingDDQN}\cite{Algo.A3C}\cite{Algo.DistDQN}\cite{Algo.NoisyNets} to the DQN algorithm and empirically studies their combination. Experiments show that the combination provides state-of-the-art performance on the Atari 2600 benchmark \cite{Code.ALE}, both in terms of data efficiency and final performance. The authors also provide results from a detailed ablation study that shows the contribution of each component to overall performance.
+
+The performance of Rainbow is significantly better than any of the extensions on their own, both in data efficiency, as well as in final performance. Rainbow matches final performance of DQN after 7M frames and surpass the best extension, Distributional DQN \cite{Algo.DistDQN}, final performance in 44M frames. Rainbow reaches substantially improved final performance over hundreds of millions of steps, see fig.~\ref{Fig.Rainbow}.
+
+\begin{figure}[H]
+\includegraphics[width=0.6\textwidth,keepaspectratio]{figures/Rainbow.png}
+\caption[Rainbow performance]{Median human-normalized performance across 57 Atari games \protect\cite{Algo.Rainbow}.}
+\label{Fig.Rainbow}
+\end{figure}
+
+\subsection{Proximal Policy Optimization Algorithms}
+
+In \cite{Algo.PPO}, the authors propose a new family of policy gradient methods for reinforcement learning, which alternate between sampling data through interaction with the environment, and optimizing a surrogate objective function using stochastic gradient ascent. Whereas standard policy gradient methods perform one gradient update per data sample, which is at the core of sample inefficiency of these methods, the authors propose a novel objective function that enables multiple epochs of minibatch updates. The new methods, which are called proximal policy optimization (PPO), are simple to implement, more general, and have better sample-efficiency. The experiments test PPO on a collection of benchmark tasks, including simulated robotic locomotion and Atari game playing \cite{Code.ALE}. The results show that PPO outperforms other online policy gradient methods, and overall strikes a favorable balance between sample-efficiency and simplicity.
+
+They report the final result averaged across 49 Atari games across three trials using two scoring metrics: average reward per episode over entire training period (which favors fast learning), and average reward per episode over last 100 episodes of training (which favors final performance). PPO excel in fast learning, which makes it tough baseline for sample-efficient model-based solutions.
 
 \subsection{World Models} \label{Sec.WorldModels}
 
