@@ -170,13 +170,28 @@ The main deviations from the World Models architecture are VAE's decoder and enc
 
 The agent plans using the cross entropy method (CEM) \cite{Algo.CEM} to search for the best action sequence under the model. CEM is a population-based optimization algorithm that infers a distribution over action sequences that maximize the objective. It was originally used in PlaNet for tasks with continuous action-space and here it is adjusted for discrete action-space of Atari games. First, a time-dependent multidimensional diagonal Gaussian belief over optimal action sequences gets initialized: $a_{t:t+H} \sim Normal(\mu_{t:t+H}, \sigma^2_{t:t+H}I)$, where $t$ is the current time step of the agent and $H$ is the length of the planning horizon. The action vector, $a$, can be interpreted as actions scores. Each dimension represent score for one discrete action in the environment. \\
 Starting from zero mean and unit variance, it is used to sample candidate action sequences. To evaluate a candidate action sequence under the learned model a trajectory starting from the current state is sampled by the model using the action sequence as an input and the predicted rewards are summed along the sequence. This sum is used as the action sequence fitness score. Since it is a population-based optimizer, it is sufficient to consider a single trajectory per action sequence and thus focus the computational budget on evaluating a larger number of different sequences. Then, the belief gets re-fitted to the best sequences and next optimization iteration starts the same way. At the end, the planner returns the mean vector, $\mu_t$, of the belief for the current time step, representing scores for actions in the current time step, which is then used by the policy to choose discrete action. Importantly, after receiving the next observation, the belief over action sequences starts from zero mean and unit variance again to avoid local optima. \\
-Because the reward is modeled as a function of the latent state, the planner can operate purely in latent space without generating images, which allows for fast evaluation of large batches of action sequences. The algorithm is presented in the fig.~\ref{Fig.CEMinPlaNet} below.
+Because the reward is modeled as a function of the latent state, the planner can operate purely in latent space without generating images, which allows for fast evaluation of large batches of action sequences. The algorithm is presented in the Algorithm.~\ref{Algo.CEMinPlaNet} below, where: $H$ is planning horizon distance, $I$ is optimisation iterations, $J$ is candidates per iteration and $K$ is number of top candidates to fit.
 
-\begin{figure}[H]
-\includegraphics[width=0.9\textwidth,keepaspectratio]{figures/PlaNet/CEM.png}
+\begin{algorithm}[H]
+\vspace{1cm}
+Initialize factorized belief over action sequences $q(a_{t:t+H}) \leftarrow Normal(0, \mathbb I)$\\
+\For{optimization iteration $i = 1..I$}{
+  // Evaluate J action sequences from the current belief.\\
+  \For{candidate action sequence $j = 1..J$}{
+    $a^{(j)}_{t:t+H} \sim q(a_{t:t+H})$\\
+    $z^{(j)}_{t:t+H+1} \sim q(z_t|o_{\leqslant t}, a_{< t})\prod^{t+H+1}_{\tau=t+1}p(z_\tau|z_{\tau-1}, a^{(j)}_{\tau-1})$\\
+    $R^{(j)} = \sum^{t+H+1}_{\tau=t+1}E[p(r_\tau|z^{(j)}_\tau)]$\\
+  }
+  // Re-fit belief to the $K$ best action sequences.\\
+  $\kappa \leftarrow argsort \big( \big\{ R^{(j)} \big\}^J_{j=1} \big)_{1:K}$\\
+  $\mu_{t:t+H} = \frac{1}{K}\sum_{k \in \kappa}a^{(j)}_{t:t+H},\text{  }\sigma_{t:t+H} = \frac{1}{K-1}\sum_{k \in \kappa}|a^{(j)}_{t:t+H} - \mu_{t:t+H}|$\\
+  $q(a_{t:t+H}) \leftarrow Normal(\mu_{t:t+H}, \sigma^2_{t:t+H} \mathbb I)$
+}
+\Return first action mean $\mu_t$.
+\vspace{0.5cm}
 \caption{Latent planning with CEM \cite{Algo.PlaNet}}
-\label{Fig.CEMinPlaNet}
-\end{figure}
+\label{Algo.CEMinPlaNet}
+\end{algorithm}
 
 \subsubsection{Data collection}
 

@@ -80,14 +80,33 @@ Sokoban is a classic planning problem which is not strictly part of ALE, but it 
 
 Despite its simple rule set and fully observability - each game frame shows all blocks, targets, walls and agent positions and states - Sokoban is an incredibly complex game for which no general solver exists. It can be shown that Sokoban is NP-Hard and PSPACE-complete \cite{Benchmark.Sokoban}. Sokoban has an enormous state space that makes it unassailable to exhaustive search methods. An efficient automated solver for Sokoban must have strong heuristics, just as humans utilize their strong intuition, so that it is not overwhelmed by the number of possible game states.
 
-The implementation of Sokoban used for those experiments procedurally generates a new level each episode. This means an agent cannot memorize specific puzzles. Together with the planning aspect, this makes for a very challenging environment. While the underlying game logic operates in a 10 × 10 grid world, with 7 possible elements in each grid ~\ref{Fig.Sokoban_elements}, agents were trained directly on RGB sprite graphics. Fig.~\ref{Fig.Sokoban} shows an example of Sokoban level with 4 boxes. \\
+The implementation of Sokoban used for those experiments procedurally generates a new level each episode. This means an agent cannot memorize specific puzzles. Together with the planning aspect, this makes for a very challenging environment. While the underlying game logic operates in a 10 × 10 grid world, with 7 possible elements in each grid (see Table.~\ref{Table.Sokoban_elements}), agents were trained directly on RGB sprite graphics. Fig.~\ref{Fig.Sokoban} shows an example of Sokoban level with 4 boxes. \\
 Finishing the game by pushing all blocks on the targets gives a reward of 10 in the last step. Also pushing a box on or off a target gives a reward of 1 or -1 respectively. In addition, a reward of -0.1 is given for every step which penalizes solutions with many steps.
 
-\begin{figure}[H]
-\includegraphics[width=0.4\textwidth,keepaspectratio]{figures/Sokoban_elements.png}
-\caption[Sokoban elements]{Table with Sokoban possible elements in each grid, further referred to as blocks.}
-\label{Fig.Sokoban_elements}
-\end{figure}
+\begin{table}[H]
+\centering
+\begin{tabular}{| c | c | c |} 
+\hline
+\textbf{Type} & \textbf{State} & \textbf{Graphic} \\
+\hline
+Wall & Static & \parbox[c]{2em}{\includegraphics[]{figures/Sokoban/wall.png}} \\
+\hline
+Floor & Empty & \parbox[c]{2em}{\includegraphics[]{figures/Sokoban/floor.png}} \\
+\hline
+Box target & Empty & \parbox[c]{2em}{\includegraphics[]{figures/Sokoban/box_target.png}} \\
+\hline
+Box & Off target & \parbox[c]{2em}{\includegraphics[]{figures/Sokoban/box.png}} \\
+\hline
+Box & On target & \parbox[c]{2em}{\includegraphics[]{figures/Sokoban/box_on_target.png}} \\
+\hline
+Player & Off target & \parbox[c]{2em}{\includegraphics[]{figures/Sokoban/player.png}} \\
+\hline
+Player & On target & \parbox[c]{2em}{\includegraphics[]{figures/Sokoban/player_on_target.png}} \\
+\hline
+\end{tabular}
+\caption[Sokoban elements]{Sokoban possible elements in each grid, also referred to as blocks.}
+\label{Table.Sokoban_elements}
+\end{table}
 
 \begin{figure}[H]
 \includegraphics[]{figures/Sokoban.png}
