@@ -30,7 +30,7 @@ The Controller module failed to learn how to solve any level, it behaved compara
 
 \begin{figure}[H]
 \includegraphics[width=1\textwidth,keepaspectratio]{figures/Sokoban_memory.png}
-\caption[Qualitative result of the World Models' Memory module training in Sokoban]{Qualitative result of the Memory module training in Sokoban. Each row depicts the Memory module rollout in one episode. The first column include original observations from the evaluation dataset from which the rollouts start. The RNN's hidden state was initialized on preceding transitions in each episode. Each subsequent reconstruction was obtained by first predicting the next latent state by the Memory module and then decoding it using the VAE decoder.}
+\caption[Qualitative result of the World Models' Memory module training in Sokoban]{Qualitative result of the Memory module training in Sokoban. Each column depicts the Memory module rollout in one episode. The first row include original observation from the evaluation dataset from which the rollouts start. The RNN's hidden state was initialized on preceding transitions in each episode. Each subsequent reconstruction was obtained by first predicting the next latent state by the Memory module and then decoding it using the VAE decoder.}
 \label{Fig.WM_Sokoban_memory}
 \end{figure}
 
@@ -75,7 +75,7 @@ The Controller module successfully learned how to solve the game scoring above 1
 
 \begin{figure}[H]
 \includegraphics[width=1\textwidth,keepaspectratio]{figures/Boxing_memory.png}
-\caption[Qualitative result of the World Models' stochastic Memory module training in Boxing]{Qualitative result of the stochastic Memory module training in Boxing. Each row depicts the Memory module rollout in one episode. The first column include original observations from the evaluation dataset from which the rollouts start. The RNN's hidden state was initialized on preceding transitions in each episode. Each subsequent reconstruction was obtained by first predicting the next latent state by the Memory module and then decoding it using the VAE decoder.}
+\caption[Qualitative result of the World Models' stochastic Memory module training in Boxing]{Qualitative result of the stochastic Memory module training in Boxing. Each column depicts the Memory module rollout in one episode. The first row include original observation from the evaluation dataset from which the rollouts start. The RNN's hidden state was initialized on preceding transitions in each episode. Each subsequent reconstruction was obtained by first predicting the next latent state by the Memory module and then decoding it using the VAE decoder.}
 \label{Fig.WM_Boxing_memory}
 \end{figure}
 
@@ -85,7 +85,7 @@ Despite many attempts and hyper-parameter tuning, the deterministic Memory modul
 
 \begin{figure}[H]
 \includegraphics[width=1\textwidth,keepaspectratio]{figures/Boxing_deterministic_memory.JPG}
-\caption[Qualitative result of the World Models' deterministic Memory module training in Boxing]{Qualitative result of the deterministic Memory module training in Boxing. Each row depicts the Memory module rollout in one episode. The first column include original observations from the evaluation dataset from which the rollouts start. The RNN's hidden state was initialized on preceding transitions in each episode. Each subsequent reconstruction was obtained by first predicting the next latent state by the Memory module and then decoding it using the VAE decoder.}
+\caption[Qualitative result of the World Models' deterministic Memory module training in Boxing]{Qualitative result of the deterministic Memory module training in Boxing. Each column depicts the Memory module rollout in one episode. The first row include original observation from the evaluation dataset from which the rollouts start. The RNN's hidden state was initialized on preceding transitions in each episode. Each subsequent reconstruction was obtained by first predicting the next latent state by the Memory module and then decoding it using the VAE decoder.}
 \label{Fig.WM_Boxing_deterministic_memory}
 \end{figure}
 
@@ -96,8 +96,8 @@ Despite many attempts and hyper-parameter tuning, the deterministic Memory modul
 DPN could not capture Sokoban dynamics like OWM. In the figure below (Fig.~\ref{Fig.PlaNet_Sokoban_openloop}) future predictions are blurred, multiple agents appear and other artifacts, like changing blocks, are present. Similarly like in OWM case, the decision was to move to Atari games as easier environments to start with.
 
 \begin{figure}[H]
-\includegraphics[width=1\textwidth,keepaspectratio]{figures/PlaNet/Sokoban_memory.png}
-\caption[Qualitative result of the PlaNet model training in Sokoban]{Qualitative result of the model training in Sokoban. Each row depicts the model rollout in one episode. The first five columns include original consecutive observations from the evaluation dataset from which the rollouts start. The model hidden state was initialized on these transitions. Each subsequent reconstruction was obtained by first predicting the next latent state by the model and then decoding it using the decoder.}
+\includegraphics[width=0.9\textwidth,keepaspectratio]{figures/PlaNet/Sokoban_memory.png}
+\caption[Qualitative result of the PlaNet model training in Sokoban]{Qualitative result of the model training in Sokoban. Each column depicts the model rollout in one episode. The first row include original observation from the evaluation dataset from which the rollouts start. Each subsequent reconstruction was obtained by first predicting the next latent state by the model and then decoding it using the decoder.}
 \label{Fig.PlaNet_Sokoban_openloop}
 \end{figure}
 
@@ -113,7 +113,7 @@ By default a decoder variance of 1 is used, which means the model explains a lot
 
 \begin{figure}[H]
 \includegraphics[height=0.9\textheight,keepaspectratio]{figures/PlaNet/Boxing_memory_original.png}
-\caption[Qualitative result of the original PlaNet model training in Boxing]{Qualitative result of the model training in Boxing. Each row depicts the model rollout in one episode. The first five columns include original consecutive observations from the evaluation dataset from which the rollouts start. The model hidden state was initialized on these transitions. Each subsequent reconstruction was obtained by first predicting the next latent state by the model and then decoding it using the decoder.}
+\caption[Qualitative result of the original PlaNet model training in Boxing]{Qualitative result of the model training in Boxing. Each column depicts the model rollout in one episode. The first row include original observation from the evaluation dataset from which the rollouts start. Each subsequent reconstruction was obtained by first predicting the next latent state by the model and then decoding it using the decoder.}
 \label{Fig.PlaNet_Boxing_original}
 \end{figure}
 
@@ -135,7 +135,7 @@ The free nats technique, described in the section \ref{Sec.ModelLearning}, is us
 
 \begin{figure}[H]
 \includegraphics[height=0.9\textheight,keepaspectratio]{figures/PlaNet/Boxing_memory_sharp.png}
-\caption[Qualitative result of the PlaNet model training with a lower divergence scale in Boxing]{Qualitative result of the model training in Boxing. Each row depicts the model rollout in one episode. The first five columns include original consecutive observations from the evaluation dataset from which the rollouts start. The model hidden state was initialized on these transitions. Each subsequent reconstruction was obtained by first predicting the next latent state by the model and then decoding it using the decoder.}
+\caption[Qualitative result of the PlaNet model training with a lower divergence scale in Boxing]{Qualitative result of the model training in Boxing. Each column depicts the model rollout in one episode. The first row include original observation from the evaluation dataset from which the rollouts start. Each subsequent reconstruction was obtained by first predicting the next latent state by the model and then decoding it using the decoder.}
 \label{Fig.PlaNet_Boxing_lower_divergence_scale}
 \end{figure}
 
@@ -193,7 +193,7 @@ The same random search procedure was applied to the Freeway environment describe
 
 \begin{figure}[H]
 \includegraphics[height=0.9\textheight,keepaspectratio]{figures/PlaNet/Freeway_memory_sharp.png}
-\caption[Qualitative result of the PlaNet model training with a lower divergence scale in Freeway]{Qualitative result of the model training in Freeway. Each row depicts the model rollout in one episode. The first five columns include original consecutive observations from the evaluation dataset from which the rollouts start. The model hidden state was initialized on these transitions. Each subsequent reconstruction was obtained by first predicting the next latent state by the model and then decoding it using the decoder.}
+\caption[Qualitative result of the PlaNet model training with a lower divergence scale in Freeway]{Qualitative result of the model training in Freeway. Each column depicts the model rollout in one episode. The first row include original observation from the evaluation dataset from which the rollouts start. Each subsequent reconstruction was obtained by first predicting the next latent state by the model and then decoding it using the decoder.}
 \label{Fig.PlaNet_Freeway_lower_divergence_scale}
 \end{figure}
 
