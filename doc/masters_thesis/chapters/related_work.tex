@@ -59,7 +59,7 @@ In \cite{Algo.PlaNet}, the authors propose the Deep Planning Network (PlaNet), a
 Despite its generality, the purely stochastic transitions make it difficult for the transition model to reliably remember information for multiple time steps. In theory, this model could learn to set the variance to zero for some state components, but the optimization procedure may not find this solution. This motivates including a deterministic sequence of activation vectors $\{s_t\}^T_{t=1}$ that allow the model to access not just the last latent variable, $z_{t-1}$, but all previous states deterministically. The authors use such a model, shown in fig.~\ref{Fig.PlaNetModelDesigne}, that they name recurrent state-space model (RSSM). Intuitively, one can understand this model as splitting the state into a stochastic part $z_t$ and a deterministic part $s_t$, which depend on the stochastic and deterministic parts at the previous time step.
 
 \begin{figure}[H]
-\includegraphics[width=0.5\textwidth,keepaspectratio]{figures/PlaNet/model.png}
+\includegraphics[width=0.4\textwidth,keepaspectratio]{figures/PlaNet/model.png}
 \caption[PlaNet latent dynamics model design]{Latent dynamics model design \protect\cite{Algo.PlaNet}. In this example, the model observes the first two time steps and predicts the third. Circles represent stochastic variables and squares deterministic variables. Solid lines denote the generative process and dashed lines the inference model. This model splits the latent state into stochastic and deterministic parts, allowing the model to robustly learn to predict multiple futures.}
 \label{Fig.PlaNetModelDesigne}
 \end{figure}
